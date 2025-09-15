@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="8dp"
+    app:cardElevation="3dp"
+    app:cardCornerRadius="8dp"
+    app:cardBackgroundColor="?attr/colorPrimaryContainer"
+    android:clickable="true"
+    android:focusable="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="16dp"
+        android:gravity="center_vertical">
+
+        <!-- Status Indicator (Pulsing dot) -->
+        <View
+            android:id="@+id/statusIndicator"
+            android:layout_width="12dp"
+            android:layout_height="12dp"
+            android:layout_marginEnd="16dp"
+            android:background="@drawable/circle_background"
+            android:backgroundTint="?attr/colorPrimary" />
+
+        <!-- Event Info -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/eventTypeName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
+                android:textStyle="bold"
+                android:textColor="?attr/colorOnPrimaryContainer"
+                tools:text="Exercise" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginTop="4dp">
+
+                <!-- Timer Display -->
+                <TextView
+                    android:id="@+id/elapsedTimeText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
+                    android:textColor="?attr/colorOnPrimaryContainer"
+                    android:textStyle="bold"
+                    android:fontFamily="monospace"
+                    tools:text="00:05:32" />
+
+                <!-- Started At -->
+                <TextView
+                    android:id="@+id/startedAtText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:textAppearance="@style/TextAppearance.Material3.LabelMedium"
+                    android:textColor="?attr/colorOnPrimaryContainer"
+                    android:alpha="0.7"
+                    tools:text="Started at 2:30 PM" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- Stop Button -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/stopEventButton"
+            style="@style/Widget.Material3.Button.IconButton.Filled.Tonal"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:contentDescription="Stop Event"
+            app:icon="@drawable/ic_stop"
+            app:iconSize="20dp"
+            app:backgroundTint="?attr/colorErrorContainer"
+            app:iconTint="?attr/colorOnErrorContainer" />
+
+    </LinearLayout>
+
+</com.google.android.material.card.MaterialCardView>

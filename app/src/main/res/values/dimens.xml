@@ -1,3 +1,5 @@
 <resources>
     <dimen name="fab_margin">16dp</dimen>
+    <dimen name="color_button_size">48dp</dimen>
+    <dimen name="color_button_margin">4dp</dimen>
 </resources>

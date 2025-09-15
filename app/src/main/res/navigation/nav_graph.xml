@@ -3,26 +3,72 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/nav_graph"
-    app:startDestination="@id/FirstFragment">
+    app:startDestination="@id/trackingFragment">
 
     <fragment
-        android:id="@+id/FirstFragment"
-        android:name="com.tjcelaya.scribcal.FirstFragment"
-        android:label="@string/first_fragment_label"
-        tools:layout="@layout/fragment_first">
+        android:id="@+id/trackingFragment"
+        android:name="com.tjcelaya.scribcal.ui.tracking.TrackingFragment"
+        android:label="ScribCal"
+        tools:layout="@layout/fragment_tracking">
 
         <action
-            android:id="@+id/action_FirstFragment_to_SecondFragment"
-            app:destination="@id/SecondFragment" />
+            android:id="@+id/action_tracking_to_events"
+            app:destination="@id/eventsFragment" />
+        <action
+            android:id="@+id/action_tracking_to_settings"
+            app:destination="@id/settingsFragment" />
+        <action
+            android:id="@+id/action_tracking_to_calendar_setup"
+            app:destination="@id/calendarSetupFragment" />
     </fragment>
+    
     <fragment
-        android:id="@+id/SecondFragment"
-        android:name="com.tjcelaya.scribcal.SecondFragment"
-        android:label="@string/second_fragment_label"
-        tools:layout="@layout/fragment_second">
+        android:id="@+id/eventsFragment"
+        android:name="com.tjcelaya.scribcal.ui.events.EventsFragment"
+        android:label="Event Types"
+        tools:layout="@layout/fragment_events">
 
         <action
-            android:id="@+id/action_SecondFragment_to_FirstFragment"
-            app:destination="@id/FirstFragment" />
+            android:id="@+id/action_events_to_tracking"
+            app:destination="@id/trackingFragment" />
+        <action
+            android:id="@+id/action_events_to_add_edit_event_type"
+            app:destination="@id/addEditEventTypeFragment" />
+    </fragment>
+    
+    <fragment
+        android:id="@+id/addEditEventTypeFragment"
+        android:name="com.tjcelaya.scribcal.ui.events.AddEditEventTypeFragment"
+        android:label="Add Event Type"
+        tools:layout="@layout/fragment_add_edit_event_type">
+
+        <action
+            android:id="@+id/action_add_edit_event_type_to_events"
+            app:destination="@id/eventsFragment" />
+    </fragment>
+    
+    <fragment
+        android:id="@+id/settingsFragment"
+        android:name="com.tjcelaya.scribcal.ui.settings.SettingsFragment"
+        android:label="Settings"
+        tools:layout="@layout/fragment_settings">
+
+        <action
+            android:id="@+id/action_settings_to_tracking"
+            app:destination="@id/trackingFragment" />
+        <action
+            android:id="@+id/action_settings_to_calendar_setup"
+            app:destination="@id/calendarSetupFragment" />
+    </fragment>
+    
+    <fragment
+        android:id="@+id/calendarSetupFragment"
+        android:name="com.tjcelaya.scribcal.ui.settings.CalendarSetupFragment"
+        android:label="Calendar Setup"
+        tools:layout="@layout/fragment_calendar_setup">
+
+        <action
+            android:id="@+id/action_calendar_setup_to_tracking"
+            app:destination="@id/trackingFragment" />
     </fragment>
 </navigation>

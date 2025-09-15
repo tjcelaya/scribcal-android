@@ -1,0 +1,194 @@
+package com.tjcelaya.scribcal.ui.tracking
+
+import android.text.format.DateFormat
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.TextView
+import androidx.core.content.ContextCompat
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
+import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.button.MaterialButton
+import com.tjcelaya.scribcal.R
+import com.tjcelaya.scribcal.data.database.EventType
+import com.tjcelaya.scribcal.data.database.OngoingEvent
+import java.text.SimpleDateFormat
+import java.util.*
+
+data class EventTypeWithCount(
+    val eventType: EventType,
+    val ongoingCount: Int
+)
+
+class EventTypesTrackingAdapter(
+    private val onStartEvent: (EventType) -> Unit,
+    private val onRecordInstantEvent: (EventType) -> Unit
+) : ListAdapter<EventTypeWithCount, EventTypesTrackingAdapter.ViewHolder>(EventTypeWithCountDiffCallback()) {
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_event_type_tracking, parent, false)
+        return ViewHolder(view)
+    }
+
+    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+        holder.bind(getItem(position))
+    }
+
+    inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        private val colorIndicator: View = itemView.findViewById(R.id.colorIndicator)
+        private val eventTypeName: TextView = itemView.findViewById(R.id.eventTypeName)
+        private val eventTypeDescription: TextView = itemView.findViewById(R.id.eventTypeDescription)
+        private val ongoingStatusText: TextView = itemView.findViewById(R.id.ongoingStatusText)
+        private val instantEventButton: MaterialButton = itemView.findViewById(R.id.instantEventButton)
+        private val startEventButton: MaterialButton = itemView.findViewById(R.id.startEventButton)
+
+        fun bind(eventTypeWithCount: EventTypeWithCount) {
+            val eventType = eventTypeWithCount.eventType
+            val ongoingCount = eventTypeWithCount.ongoingCount
+            
+            eventTypeName.text = eventType.name
+            
+            // Handle description visibility
+            if (eventType.description.isNullOrBlank()) {
+                eventTypeDescription.visibility = View.GONE
+            } else {
+                eventTypeDescription.visibility = View.VISIBLE
+                eventTypeDescription.text = eventType.description
+            }
+            
+            // Set color indicator
+            if (eventType.color != null) {
+                colorIndicator.background.setTint(eventType.color)
+            } else {
+                val defaultColor = ContextCompat.getColor(itemView.context, R.color.purple_500)
+                colorIndicator.background.setTint(defaultColor)
+            }
+            
+            // Handle ongoing events status
+            if (ongoingCount > 0) {
+                ongoingStatusText.visibility = View.VISIBLE
+                ongoingStatusText.text = if (ongoingCount == 1) {
+                    "1 ongoing event"
+                } else {
+                    "$ongoingCount ongoing events"
+                }
+            } else {
+                ongoingStatusText.visibility = View.GONE
+            }
+            
+            // Set click listeners
+            instantEventButton.setOnClickListener { 
+                onRecordInstantEvent(eventType) 
+            }
+            startEventButton.setOnClickListener { 
+                onStartEvent(eventType) 
+            }
+        }
+    }
+}
+
+class EventTypeWithCountDiffCallback : DiffUtil.ItemCallback<EventTypeWithCount>() {
+    override fun areItemsTheSame(oldItem: EventTypeWithCount, newItem: EventTypeWithCount): Boolean {
+        return oldItem.eventType.id == newItem.eventType.id
+    }
+
+    override fun areContentsTheSame(oldItem: EventTypeWithCount, newItem: EventTypeWithCount): Boolean {
+        return oldItem == newItem
+    }
+}
+
+data class OngoingEventWithType(
+    val ongoingEvent: OngoingEvent,
+    val eventType: EventType
+)
+
+class OngoingEventsAdapter(
+    private val onStopEvent: (OngoingEvent) -> Unit
+) : ListAdapter<OngoingEventWithType, OngoingEventsAdapter.ViewHolder>(OngoingEventWithTypeDiffCallback()) {
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_ongoing_event, parent, false)
+        return ViewHolder(view)
+    }
+
+    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+        holder.bind(getItem(position))
+    }
+    
+    fun refreshTimers() {
+        // Force refresh all visible items to update elapsed time
+        notifyItemRangeChanged(0, itemCount)
+    }
+
+    inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        private val eventTypeName: TextView = itemView.findViewById(R.id.eventTypeName)
+        private val elapsedTimeText: TextView = itemView.findViewById(R.id.elapsedTimeText)
+        private val startedAtText: TextView = itemView.findViewById(R.id.startedAtText)
+        private val stopEventButton: MaterialButton = itemView.findViewById(R.id.stopEventButton)
+
+        fun bind(ongoingEventWithType: OngoingEventWithType) {
+            val ongoingEvent = ongoingEventWithType.ongoingEvent
+            val eventType = ongoingEventWithType.eventType
+            
+            eventTypeName.text = eventType.name
+            
+            // Format started time
+            val startTime = Date(ongoingEvent.startTime)
+            val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+            startedAtText.text = "Started at ${timeFormat.format(startTime)}"
+            
+            // Calculate and display elapsed time
+            updateElapsedTime(ongoingEvent.startTime)
+            
+            // Set click listener
+            stopEventButton.setOnClickListener {
+                onStopEvent(ongoingEvent)
+            }
+        }
+        
+        private fun updateElapsedTime(startTime: Long) {
+            val now = System.currentTimeMillis()
+            val elapsedMillis = now - startTime
+            val elapsedSeconds = elapsedMillis / 1000
+            
+            val hours = elapsedSeconds / 3600
+            val minutes = (elapsedSeconds % 3600) / 60
+            val seconds = elapsedSeconds % 60
+            
+            elapsedTimeText.text = String.format("%02d:%02d:%02d", hours, minutes, seconds)
+        }
+    }
+}
+
+class OngoingEventWithTypeDiffCallback : DiffUtil.ItemCallback<OngoingEventWithType>() {
+    override fun areItemsTheSame(oldItem: OngoingEventWithType, newItem: OngoingEventWithType): Boolean {
+        return oldItem.ongoingEvent.id == newItem.ongoingEvent.id
+    }
+
+    override fun areContentsTheSame(oldItem: OngoingEventWithType, newItem: OngoingEventWithType): Boolean {
+        return oldItem == newItem
+    }
+}
+
+class EventTypeDiffCallback : DiffUtil.ItemCallback<EventType>() {
+    override fun areItemsTheSame(oldItem: EventType, newItem: EventType): Boolean {
+        return oldItem.id == newItem.id
+    }
+
+    override fun areContentsTheSame(oldItem: EventType, newItem: EventType): Boolean {
+        return oldItem == newItem
+    }
+}
+
+class OngoingEventDiffCallback : DiffUtil.ItemCallback<OngoingEvent>() {
+    override fun areItemsTheSame(oldItem: OngoingEvent, newItem: OngoingEvent): Boolean {
+        return oldItem.id == newItem.id
+    }
+
+    override fun areContentsTheSame(oldItem: OngoingEvent, newItem: OngoingEvent): Boolean {
+        return oldItem == newItem
+    }
+}

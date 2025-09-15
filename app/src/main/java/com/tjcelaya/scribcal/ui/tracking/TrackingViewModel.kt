@@ -1,0 +1,168 @@
+package com.tjcelaya.scribcal.ui.tracking
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.map
+import androidx.lifecycle.MediatorLiveData
+import com.tjcelaya.scribcal.data.EventRepository
+import com.tjcelaya.scribcal.data.CalendarRepository
+import com.tjcelaya.scribcal.data.database.EventType
+import com.tjcelaya.scribcal.data.database.OngoingEvent
+import kotlinx.coroutines.launch
+
+class TrackingViewModel(
+    private val eventRepository: EventRepository,
+    private val calendarRepository: CalendarRepository
+) : ViewModel() {
+
+    val eventTypes: LiveData<List<EventType>> = eventRepository.getAllEventTypes()
+    val ongoingEvents: LiveData<List<OngoingEvent>> = eventRepository.getAllOngoingEvents()
+    
+    private val _calendarStatus = MutableLiveData<String>()
+    val calendarStatus: LiveData<String> = _calendarStatus
+    
+    private val _needsCalendarSetup = MutableLiveData<Boolean>()
+    val needsCalendarSetup: LiveData<Boolean> = _needsCalendarSetup
+    
+    private val _showStopConfirmation = MutableLiveData<OngoingEvent?>()
+    val showStopConfirmation: LiveData<OngoingEvent?> = _showStopConfirmation
+    
+    private val _message = MutableLiveData<String?>()
+    val message: LiveData<String?> = _message
+    
+    // Combined LiveData for event types with ongoing counts
+    val eventTypesWithCounts: LiveData<List<EventTypeWithCount>> = MediatorLiveData<List<EventTypeWithCount>>().apply {
+        var eventTypesList: List<EventType> = emptyList()
+        var ongoingEventsList: List<OngoingEvent> = emptyList()
+        
+        fun update() {
+            val counts = ongoingEventsList.groupBy { it.eventTypeId }.mapValues { it.value.size }
+            value = eventTypesList.map { eventType ->
+                EventTypeWithCount(
+                    eventType = eventType,
+                    ongoingCount = counts[eventType.id] ?: 0
+                )
+            }
+        }
+        
+        addSource(eventTypes) { types ->
+            eventTypesList = types
+            update()
+        }
+        
+        addSource(ongoingEvents) { events ->
+            ongoingEventsList = events
+            update()
+        }
+    }
+    
+    // Combined LiveData for ongoing events with their event types
+    val ongoingEventsWithTypes: LiveData<List<OngoingEventWithType>> = MediatorLiveData<List<OngoingEventWithType>>().apply {
+        var eventTypesList: List<EventType> = emptyList()
+        var ongoingEventsList: List<OngoingEvent> = emptyList()
+        
+        fun update() {
+            val eventTypesMap = eventTypesList.associateBy { it.id }
+            value = ongoingEventsList.mapNotNull { ongoingEvent ->
+                eventTypesMap[ongoingEvent.eventTypeId]?.let { eventType ->
+                    OngoingEventWithType(ongoingEvent, eventType)
+                }
+            }
+        }
+        
+        addSource(eventTypes) { types ->
+            eventTypesList = types
+            update()
+        }
+        
+        addSource(ongoingEvents) { events ->
+            ongoingEventsList = events
+            update()
+        }
+    }
+
+    fun onCalendarPermissionsGranted() {
+        updateCalendarStatus()
+    }
+
+    fun startEvent(eventTypeId: Long) {
+        viewModelScope.launch {
+            try {
+                eventRepository.startEvent(eventTypeId)
+                _message.value = "Event started"
+            } catch (e: Exception) {
+                _message.value = "Error starting event: ${e.message}"
+            }
+        }
+    }
+
+    fun recordInstantaneousEvent(eventTypeId: Long) {
+        viewModelScope.launch {
+            try {
+                eventRepository.recordInstantaneousEvent(eventTypeId, calendarRepository = calendarRepository)
+                _message.value = "Instant event recorded"
+            } catch (e: Exception) {
+                _message.value = "Error recording event: ${e.message}"
+            }
+        }
+    }
+
+    fun showStopEventConfirmation(ongoingEvent: OngoingEvent) {
+        _showStopConfirmation.value = ongoingEvent
+    }
+    
+    fun hideStopEventConfirmation() {
+        _showStopConfirmation.value = null
+    }
+    
+    fun stopEvent(ongoingEvent: OngoingEvent) {
+        viewModelScope.launch {
+            try {
+                val success = eventRepository.stopEvent(ongoingEvent.id, calendarRepository)
+                if (success) {
+                    _message.value = "Event stopped and saved to calendar"
+                } else {
+                    _message.value = "Error stopping event"
+                }
+                _showStopConfirmation.value = null
+            } catch (e: Exception) {
+                _message.value = "Error stopping event: ${e.message}"
+            }
+        }
+    }
+    
+    fun clearMessage() {
+        _message.value = null
+    }
+
+    private fun updateCalendarStatus() {
+        if (calendarRepository.isCalendarSetupComplete()) {
+            val calendarName = calendarRepository.getSelectedCalendarName()
+            _calendarStatus.value = "Calendar: $calendarName"
+            _needsCalendarSetup.value = false
+        } else {
+            _calendarStatus.value = "No calendar selected"
+            _needsCalendarSetup.value = true
+        }
+    }
+
+    init {
+        updateCalendarStatus()
+    }
+}
+
+class TrackingViewModelFactory(
+    private val eventRepository: EventRepository,
+    private val calendarRepository: CalendarRepository
+) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(TrackingViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return TrackingViewModel(eventRepository, calendarRepository) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
+    }
+}
