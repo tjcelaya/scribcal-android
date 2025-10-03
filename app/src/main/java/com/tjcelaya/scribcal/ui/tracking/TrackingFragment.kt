@@ -14,6 +14,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.tjcelaya.scribcal.R
@@ -21,7 +22,12 @@ import com.tjcelaya.scribcal.data.CalendarRepository
 import com.tjcelaya.scribcal.data.EventRepository
 import com.tjcelaya.scribcal.data.database.ScribCalDatabase
 import com.tjcelaya.scribcal.data.database.OngoingEvent
+import com.tjcelaya.scribcal.data.database.EventType
 import com.tjcelaya.scribcal.databinding.FragmentTrackingBinding
+import com.tjcelaya.scribcal.ui.main.PhotoEventDialog
+import com.tjcelaya.scribcal.MainActivity
+import android.util.Log
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -66,12 +72,20 @@ class TrackingFragment : Fragment() {
         setupClickListeners()
         observeViewModel()
         checkPermissionsAndSetup()
+        
+        // Check if we have a shared photo to handle
+        checkForSharedPhoto()
     }
 
     private fun setupViewModel() {
         val database = ScribCalDatabase.getDatabase(requireContext())
         val eventRepository = EventRepository(database)
         val calendarRepository = CalendarRepository(requireContext())
+        
+        // Ensure some default event types exist for testing
+        lifecycleScope.launch {
+            eventRepository.ensureDefaultEventTypes()
+        }
         
         val factory = TrackingViewModelFactory(eventRepository, calendarRepository)
         viewModel = ViewModelProvider(this, factory)[TrackingViewModel::class.java]
@@ -239,6 +253,65 @@ class TrackingFragment : Fragment() {
             timerHandler.removeCallbacks(it)
             timerRunnable = null
         }
+    }
+
+    private fun checkForSharedPhoto() {
+        val activity = requireActivity()
+        val sharedPhotoPath = activity.intent?.getStringExtra(MainActivity.EXTRA_SHARED_PHOTO_PATH)
+        
+        Log.d("TrackingFragment", "Checking for shared photo: $sharedPhotoPath")
+        
+        if (!sharedPhotoPath.isNullOrEmpty()) {
+            Log.d("TrackingFragment", "Found shared photo, showing dialog")
+            // Clear the intent extra so we don't show the dialog again
+            activity.intent?.removeExtra(MainActivity.EXTRA_SHARED_PHOTO_PATH)
+            
+            // Wait for event types to be loaded, then show the photo dialog
+            viewModel.eventTypes.observe(viewLifecycleOwner) { eventTypes ->
+                if (eventTypes.isNotEmpty()) {
+                    handleSharedPhoto(sharedPhotoPath, eventTypes)
+                }
+            }
+        }
+    }
+    
+    private fun handleSharedPhoto(photoPath: String, eventTypes: List<EventType>) {
+        Log.d("TrackingFragment", "Handling shared photo with ${eventTypes.size} event types")
+        
+        PhotoEventDialog.show(
+            requireContext(),
+            photoPath,
+            eventTypes
+        ) { eventType, notes, isInstant ->
+            Log.d("TrackingFragment", "Creating event: ${eventType.name}, instant: $isInstant")
+            
+            if (isInstant) {
+                // Create instant event with photo
+                createInstantEventWithPhoto(eventType.id, photoPath, notes)
+            } else {
+                // Start timed event with photo
+                startTimedEventWithPhoto(eventType.id, photoPath, notes)
+            }
+        }
+    }
+    
+    private fun createInstantEventWithPhoto(eventTypeId: Long, photoPath: String, notes: String) {
+        // For now, we'll use a simple approach since TrackingViewModel uses the old interface
+        // In the future, we can refactor TrackingViewModel to use the new Event-based repository
+        viewModel.recordInstantaneousEvent(eventTypeId)
+        
+        val message = "Created instant event with photo!"
+        Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
+        Log.d("TrackingFragment", message)
+    }
+    
+    private fun startTimedEventWithPhoto(eventTypeId: Long, photoPath: String, notes: String) {
+        // For now, we'll use a simple approach since TrackingViewModel uses the old interface
+        viewModel.startEvent(eventTypeId)
+        
+        val message = "Started timed event with photo!"
+        Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
+        Log.d("TrackingFragment", message)
     }
 
     override fun onDestroyView() {

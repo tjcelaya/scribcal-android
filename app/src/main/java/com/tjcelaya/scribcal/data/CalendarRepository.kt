@@ -60,7 +60,8 @@ class CalendarRepository(private val context: Context) {
         eventType: EventType,
         startTime: Long,
         endTime: Long,
-        notes: String?
+        notes: String?,
+        photoPath: String? = null
     ): Long? = withContext(Dispatchers.IO) {
         val calendarId = getSelectedCalendarId() ?: return@withContext null
         
@@ -72,6 +73,10 @@ class CalendarRepository(private val context: Context) {
         val description = buildString {
             if (!notes.isNullOrBlank()) {
                 append("Notes: $notes")
+            }
+            if (!photoPath.isNullOrBlank()) {
+                if (isNotEmpty()) append("\n\n")
+                append("📷 Photo attached: ${photoPath.substringAfterLast("/")}")
             }
             if (!eventType.description.isNullOrBlank()) {
                 if (isNotEmpty()) append("\n\n")
@@ -94,7 +99,8 @@ class CalendarRepository(private val context: Context) {
         eventType: EventType,
         startTime: Long,
         endTime: Long,
-        notes: String?
+        notes: String?,
+        photoPath: String? = null
     ): Boolean = withContext(Dispatchers.IO) {
         if (!hasCalendarPermissions()) {
             return@withContext false
@@ -104,6 +110,10 @@ class CalendarRepository(private val context: Context) {
         val description = buildString {
             if (!notes.isNullOrBlank()) {
                 append("Notes: $notes")
+            }
+            if (!photoPath.isNullOrBlank()) {
+                if (isNotEmpty()) append("\n\n")
+                append("📷 Photo attached: ${photoPath.substringAfterLast("/")}")
             }
             if (!eventType.description.isNullOrBlank()) {
                 if (isNotEmpty()) append("\n\n")
@@ -150,7 +160,8 @@ class CalendarRepository(private val context: Context) {
                     eventType,
                     event.startTime,
                     event.endTime ?: event.startTime, // Use startTime if endTime is null (ongoing event)
-                    event.notes
+                    event.notes,
+                    event.photoPath
                 )
                 
                 if (calendarEventId != null) {
