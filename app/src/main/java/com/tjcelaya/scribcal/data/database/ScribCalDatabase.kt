@@ -28,7 +28,9 @@ abstract class ScribCalDatabase : RoomDatabase() {
                     context.applicationContext,
                     ScribCalDatabase::class.java,
                     "scribcal_database"
-                ).build()
+                )
+                .fallbackToDestructiveMigration() // Allow destructive migrations during development
+                .build()
                 INSTANCE = instance
                 instance
             }
