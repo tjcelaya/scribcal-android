@@ -1,18 +1,26 @@
 package com.tjcelaya.scribcal.data
 
 import androidx.lifecycle.LiveData
+import androidx.lifecycle.asLiveData
 import com.tjcelaya.scribcal.data.database.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.withContext
+import java.util.*
 
 class EventRepository(private val database: ScribCalDatabase) {
     
     private val eventTypeDao = database.eventTypeDao()
-    private val ongoingEventDao = database.ongoingEventDao()
-    private val completedEventDao = database.completedEventDao()
+    private val eventDao = database.eventDao()
     
     // Event Type operations
     fun getAllEventTypes(): LiveData<List<EventType>> = eventTypeDao.getAllEventTypes()
+    
+    fun getFavoriteEventTypes(): Flow<List<EventType>> {
+        // For now, return empty list. In future, can add favorite functionality
+        return flowOf(emptyList())
+    }
     
     suspend fun getEventTypeById(id: Long): EventType? = withContext(Dispatchers.IO) {
         eventTypeDao.getEventTypeById(id)
@@ -30,110 +38,98 @@ class EventRepository(private val database: ScribCalDatabase) {
         eventTypeDao.deleteEventType(eventType)
     }
     
-    // Ongoing Event operations
-    fun getAllOngoingEvents(): LiveData<List<OngoingEvent>> = ongoingEventDao.getAllOngoingEvents()
-    
-    suspend fun getOngoingEventById(id: Long): OngoingEvent? = withContext(Dispatchers.IO) {
-        ongoingEventDao.getOngoingEventById(id)
+    // Event operations with EventWithType relations
+    fun getTodaysEventsWithType(): Flow<List<EventWithType>> {
+        val calendar = Calendar.getInstance()
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
+        val startOfDay = calendar.timeInMillis
+        
+        calendar.add(Calendar.DAY_OF_MONTH, 1)
+        val endOfDay = calendar.timeInMillis
+        
+        return eventDao.getTodaysEventsWithType(startOfDay, endOfDay)
     }
     
-    suspend fun getOngoingEventsByType(eventTypeId: Long): List<OngoingEvent> = withContext(Dispatchers.IO) {
-        ongoingEventDao.getOngoingEventsByType(eventTypeId)
+    fun getOngoingEventsWithType(): Flow<List<EventWithType>> = eventDao.getOngoingEventsWithType()
+    
+    // Event creation and management
+    suspend fun createInstantEvent(eventTypeId: Long, notes: String = "", photoPath: String? = null): Long = withContext(Dispatchers.IO) {
+        val currentTime = System.currentTimeMillis()
+        val event = Event(
+            eventTypeId = eventTypeId,
+            startTime = currentTime,
+            endTime = currentTime, // Same time for instant events
+            notes = notes,
+            photoPath = photoPath
+        )
+        eventDao.insertEvent(event)
     }
     
-    suspend fun startEvent(eventTypeId: Long, notes: String? = null): Long = withContext(Dispatchers.IO) {
-        val ongoingEvent = OngoingEvent(
+    suspend fun createInstantEventWithPhoto(eventTypeId: Long, photoPath: String, notes: String = ""): Long =
+        createInstantEvent(eventTypeId, notes, photoPath)
+    
+    suspend fun startTimedEvent(eventTypeId: Long, notes: String = "", photoPath: String? = null): Long = withContext(Dispatchers.IO) {
+        val event = Event(
             eventTypeId = eventTypeId,
             startTime = System.currentTimeMillis(),
-            notes = notes
+            endTime = null, // Null indicates ongoing event
+            notes = notes,
+            photoPath = photoPath
         )
-        ongoingEventDao.insertOngoingEvent(ongoingEvent)
+        eventDao.insertEvent(event)
     }
     
-    suspend fun stopEvent(ongoingEventId: Long, calendarRepository: CalendarRepository): Boolean = withContext(Dispatchers.IO) {
-        val ongoingEvent = ongoingEventDao.getOngoingEventById(ongoingEventId)
-        if (ongoingEvent != null) {
-            val endTime = System.currentTimeMillis()
-            val completedEvent = CompletedEvent(
-                eventTypeId = ongoingEvent.eventTypeId,
-                startTime = ongoingEvent.startTime,
-                endTime = endTime,
-                notes = ongoingEvent.notes
-            )
-            
-            // Insert completed event
-            val completedEventId = completedEventDao.insertCompletedEvent(completedEvent)
-            
-            // Remove ongoing event
-            ongoingEventDao.deleteOngoingEvent(ongoingEvent)
-            
-            // Try to sync to calendar
-            val eventType = eventTypeDao.getEventTypeById(ongoingEvent.eventTypeId)
-            if (eventType != null) {
-                calendarRepository.syncEventToCalendar(
-                    completedEventId,
-                    eventType,
-                    ongoingEvent.startTime,
-                    endTime,
-                    ongoingEvent.notes
-                )
-            }
-            
+    suspend fun startTimedEventWithPhoto(eventTypeId: Long, photoPath: String, notes: String = ""): Long =
+        startTimedEvent(eventTypeId, notes, photoPath)
+    
+    suspend fun completeOngoingEvent(eventId: Long): Boolean = withContext(Dispatchers.IO) {
+        val event = eventDao.getEventById(eventId)
+        if (event != null && event.isOngoing()) {
+            eventDao.completeEvent(eventId, System.currentTimeMillis())
             true
         } else {
             false
         }
     }
     
-    suspend fun recordInstantaneousEvent(eventTypeId: Long, notes: String? = null, calendarRepository: CalendarRepository): Long = withContext(Dispatchers.IO) {
-        val currentTime = System.currentTimeMillis()
-        val completedEvent = CompletedEvent(
-            eventTypeId = eventTypeId,
-            startTime = currentTime,
-            endTime = currentTime, // Same time for instantaneous events
-            notes = notes
-        )
-        
-        val completedEventId = completedEventDao.insertCompletedEvent(completedEvent)
-        
-        // Try to sync to calendar
-        val eventType = eventTypeDao.getEventTypeById(eventTypeId)
-        if (eventType != null) {
-            calendarRepository.syncEventToCalendar(
-                completedEventId,
-                eventType,
-                currentTime,
-                currentTime,
-                notes
-            )
-        }
-        
-        completedEventId
+    suspend fun deleteEventById(eventId: Long) = withContext(Dispatchers.IO) {
+        eventDao.deleteEventById(eventId)
     }
     
+    // Helper methods
     suspend fun getOngoingEventCountForType(eventTypeId: Long): Int = withContext(Dispatchers.IO) {
-        ongoingEventDao.getOngoingEventCountForType(eventTypeId)
+        eventDao.getOngoingEvents().count { it.eventTypeId == eventTypeId }
     }
     
-    // Completed Event operations
-    fun getAllCompletedEvents(): LiveData<List<CompletedEvent>> = completedEventDao.getAllCompletedEvents()
-    
-    fun getCompletedEventsByType(eventTypeId: Long): LiveData<List<CompletedEvent>> = 
-        completedEventDao.getCompletedEventsByType(eventTypeId)
-    
-    suspend fun getUnsyncedEvents(): List<CompletedEvent> = withContext(Dispatchers.IO) {
-        completedEventDao.getUnsyncedEvents()
+    // Calendar sync methods - placeholder implementations
+    suspend fun getUnsyncedEvents(): List<Event> = withContext(Dispatchers.IO) {
+        // For now, return empty list since we don't have calendar sync flag in Event entity
+        emptyList()
     }
     
     suspend fun markEventAsSynced(eventId: Long, calendarEventId: Long) = withContext(Dispatchers.IO) {
-        val event = completedEventDao.getCompletedEventById(eventId)
-        if (event != null) {
-            completedEventDao.updateCompletedEvent(
-                event.copy(
-                    syncedToCalendar = true,
-                    calendarEventId = calendarEventId
-                )
-            )
-        }
+        // Placeholder - in the future we might add calendar sync fields to Event entity
+        // For now, do nothing
+    }
+    
+    // Compatibility methods for old TrackingViewModel interface
+    fun getAllOngoingEvents(): LiveData<List<OngoingEvent>> {
+        // For now, return empty list since we need to refactor TrackingViewModel to use Event
+        return androidx.lifecycle.MutableLiveData(emptyList())
+    }
+    
+    suspend fun startEvent(eventTypeId: Long, notes: String? = null): Long {
+        return startTimedEvent(eventTypeId, notes ?: "")
+    }
+    
+    suspend fun recordInstantaneousEvent(eventTypeId: Long, calendarRepository: CalendarRepository): Long {
+        return createInstantEvent(eventTypeId)
+    }
+    
+    suspend fun stopEvent(ongoingEventId: Long, calendarRepository: CalendarRepository): Boolean {
+        return completeOngoingEvent(ongoingEventId)
     }
 }

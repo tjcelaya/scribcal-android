@@ -8,8 +8,7 @@ import androidx.room.RoomDatabase
 @Database(
     entities = [
         EventType::class,
-        OngoingEvent::class,
-        CompletedEvent::class
+        Event::class
     ],
     version = 1,
     exportSchema = false
@@ -17,8 +16,7 @@ import androidx.room.RoomDatabase
 abstract class ScribCalDatabase : RoomDatabase() {
     
     abstract fun eventTypeDao(): EventTypeDao
-    abstract fun ongoingEventDao(): OngoingEventDao
-    abstract fun completedEventDao(): CompletedEventDao
+    abstract fun eventDao(): EventDao
     
     companion object {
         @Volatile
@@ -35,5 +33,7 @@ abstract class ScribCalDatabase : RoomDatabase() {
                 instance
             }
         }
+        
+        fun getInstance(context: Context): ScribCalDatabase = getDatabase(context)
     }
 }

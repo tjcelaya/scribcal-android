@@ -149,7 +149,7 @@ class CalendarRepository(private val context: Context) {
                     event.id,
                     eventType,
                     event.startTime,
-                    event.endTime,
+                    event.endTime ?: event.startTime, // Use startTime if endTime is null (ongoing event)
                     event.notes
                 )
                 
