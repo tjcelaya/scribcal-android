@@ -107,14 +107,9 @@ object CalendarUtils {
             put(CalendarContract.Events.DESCRIPTION, description ?: "")
             put(CalendarContract.Events.CALENDAR_ID, calendarId)
             put(CalendarContract.Events.EVENT_TIMEZONE, java.util.TimeZone.getDefault().id)
-            // For instant events (startTime == endTime), we want a short duration event, not all-day
+            // For instant events (startTime == endTime), we want zero-duration events, not all-day
             // Only set as all-day if explicitly requested (which we don't do for now)
             put(CalendarContract.Events.ALL_DAY, 0)
-            
-            // For instant events, make them 1 minute duration so they show up properly
-            if (startTime == endTime) {
-                put(CalendarContract.Events.DTEND, endTime + 60000) // Add 1 minute (60000 ms)
-            }
         }
         
         try {
@@ -155,13 +150,7 @@ object CalendarUtils {
             put(CalendarContract.Events.DESCRIPTION, description ?: "")
             put(CalendarContract.Events.EVENT_TIMEZONE, java.util.TimeZone.getDefault().id)
             put(CalendarContract.Events.ALL_DAY, 0)
-            
-            // For instant events, make them 1 minute duration so they show up properly
-            if (startTime == endTime) {
-                put(CalendarContract.Events.DTEND, endTime + 60000) // Add 1 minute (60000 ms)
-            } else {
-                put(CalendarContract.Events.DTEND, endTime)
-            }
+            put(CalendarContract.Events.DTEND, endTime)
         }
         
         try {
