@@ -37,6 +37,13 @@ android {
     buildFeatures {
         viewBinding = true
     }
+    
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            pickFirsts.add("/META-INF/DEPENDENCIES")
+        }
+    }
 }
 
 dependencies {
@@ -60,6 +67,23 @@ dependencies {
     // Fragment and Activity KTX
     implementation(libs.androidx.fragment.ktx)
     implementation(libs.androidx.activity.ktx)
+    
+    // Google Play Services for authentication
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
+    
+    // Google Drive API with conflict resolution
+    implementation("com.google.apis:google-api-services-drive:v3-rev136-1.25.0") {
+        exclude(group = "com.google.guava", module = "listenablefuture")
+    }
+    implementation("com.google.api-client:google-api-client-android:1.23.0") {
+        exclude(group = "com.google.guava", module = "listenablefuture")
+    }
+    implementation("com.google.http-client:google-http-client-gson:1.23.0") {
+        exclude(group = "com.google.guava", module = "listenablefuture")
+    }
+    
+    // Explicitly include Guava to resolve conflicts
+    implementation("com.google.guava:guava:32.1.3-android")
     
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

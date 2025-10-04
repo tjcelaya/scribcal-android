@@ -86,7 +86,8 @@ object CalendarUtils {
         title: String,
         startTime: Long,
         endTime: Long,
-        description: String? = null
+        description: String? = null,
+        photoPath: String? = null
     ): Long? = withContext(Dispatchers.IO) {
         if (!hasCalendarPermissions(context)) {
             return@withContext null
@@ -100,11 +101,14 @@ object CalendarUtils {
         
         val contentResolver = context.contentResolver
         
+        // Format description with photo link if available
+        val finalDescription = formatEventDescription(description, photoPath)
+        
         val values = ContentValues().apply {
             put(CalendarContract.Events.DTSTART, startTime)
             put(CalendarContract.Events.DTEND, endTime)
             put(CalendarContract.Events.TITLE, title)
-            put(CalendarContract.Events.DESCRIPTION, description ?: "")
+            put(CalendarContract.Events.DESCRIPTION, finalDescription)
             put(CalendarContract.Events.CALENDAR_ID, calendarId)
             put(CalendarContract.Events.EVENT_TIMEZONE, java.util.TimeZone.getDefault().id)
             // For instant events (startTime == endTime), we want zero-duration events, not all-day
@@ -136,7 +140,8 @@ object CalendarUtils {
         title: String,
         startTime: Long,
         endTime: Long,
-        description: String? = null
+        description: String? = null,
+        photoPath: String? = null
     ): Boolean = withContext(Dispatchers.IO) {
         if (!hasCalendarPermissions(context)) {
             return@withContext false
@@ -144,10 +149,13 @@ object CalendarUtils {
         
         val contentResolver = context.contentResolver
         
+        // Format description with photo link if available
+        val finalDescription = formatEventDescription(description, photoPath)
+        
         val values = ContentValues().apply {
             put(CalendarContract.Events.DTSTART, startTime)
             put(CalendarContract.Events.TITLE, title)
-            put(CalendarContract.Events.DESCRIPTION, description ?: "")
+            put(CalendarContract.Events.DESCRIPTION, finalDescription)
             put(CalendarContract.Events.EVENT_TIMEZONE, java.util.TimeZone.getDefault().id)
             put(CalendarContract.Events.ALL_DAY, 0)
             put(CalendarContract.Events.DTEND, endTime)
@@ -180,5 +188,48 @@ object CalendarUtils {
         } catch (e: Exception) {
             return@withContext false
         }
+    }
+    
+    /**
+     * Format event description with photo link if available
+     */
+    private fun formatEventDescription(description: String?, photoPath: String?): String {
+        val baseDescription = description?.trim() ?: ""
+        
+        return when {
+            photoPath.isNullOrEmpty() -> baseDescription
+            isDriveLink(photoPath) -> {
+                // Format Google Drive link nicely
+                val photoSection = "📷 Photo: $photoPath"
+                if (baseDescription.isEmpty()) {
+                    photoSection
+                } else {
+                    "$baseDescription\n\n$photoSection"
+                }
+            }
+            else -> {
+                // Local file path - indicate it's a local photo
+                val photoSection = "📷 Local Photo: ${extractFileName(photoPath)}"
+                if (baseDescription.isEmpty()) {
+                    photoSection
+                } else {
+                    "$baseDescription\n\n$photoSection"
+                }
+            }
+        }
+    }
+    
+    /**
+     * Check if a path is a Google Drive link
+     */
+    private fun isDriveLink(path: String): Boolean {
+        return path.startsWith("https://drive.google.com/")
+    }
+    
+    /**
+     * Extract filename from a file path
+     */
+    private fun extractFileName(path: String): String {
+        return path.substringAfterLast('/')
     }
 }

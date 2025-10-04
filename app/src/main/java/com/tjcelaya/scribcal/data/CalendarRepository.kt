@@ -74,10 +74,6 @@ class CalendarRepository(private val context: Context) {
             if (!notes.isNullOrBlank()) {
                 append("Notes: $notes")
             }
-            if (!photoPath.isNullOrBlank()) {
-                if (isNotEmpty()) append("\n\n")
-                append("📷 Photo attached: ${photoPath.substringAfterLast("/")}")
-            }
             if (!eventType.description.isNullOrBlank()) {
                 if (isNotEmpty()) append("\n\n")
                 append("Event Type: ${eventType.description}")
@@ -90,7 +86,8 @@ class CalendarRepository(private val context: Context) {
             title,
             startTime,
             endTime,
-            description
+            description,
+            photoPath
         )
     }
     
@@ -111,10 +108,6 @@ class CalendarRepository(private val context: Context) {
             if (!notes.isNullOrBlank()) {
                 append("Notes: $notes")
             }
-            if (!photoPath.isNullOrBlank()) {
-                if (isNotEmpty()) append("\n\n")
-                append("📷 Photo attached: ${photoPath.substringAfterLast("/")}")
-            }
             if (!eventType.description.isNullOrBlank()) {
                 if (isNotEmpty()) append("\n\n")
                 append("Event Type: ${eventType.description}")
@@ -127,7 +120,8 @@ class CalendarRepository(private val context: Context) {
             title,
             startTime,
             endTime,
-            description
+            description,
+            photoPath
         )
     }
     

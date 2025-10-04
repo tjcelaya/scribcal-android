@@ -18,9 +18,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.tjcelaya.scribcal.R
-import com.tjcelaya.scribcal.data.CalendarRepository
-import com.tjcelaya.scribcal.data.EventRepository
-import com.tjcelaya.scribcal.data.database.ScribCalDatabase
+import com.tjcelaya.scribcal.ScribCalApplication
 import com.tjcelaya.scribcal.data.database.OngoingEvent
 import com.tjcelaya.scribcal.data.database.EventType
 import com.tjcelaya.scribcal.databinding.FragmentTrackingBinding
@@ -78,9 +76,9 @@ class TrackingFragment : Fragment() {
     }
 
     private fun setupViewModel() {
-        val database = ScribCalDatabase.getDatabase(requireContext())
-        val eventRepository = EventRepository(database)
-        val calendarRepository = CalendarRepository(requireContext())
+        val app = requireActivity().application as ScribCalApplication
+        val eventRepository = app.eventRepository
+        val calendarRepository = app.calendarRepository
         
         // Ensure some default event types exist for testing
         lifecycleScope.launch {
@@ -296,22 +294,13 @@ class TrackingFragment : Fragment() {
     }
     
     private fun createInstantEventWithPhoto(eventTypeId: Long, photoPath: String, notes: String) {
-        // For now, we'll use a simple approach since TrackingViewModel uses the old interface
-        // In the future, we can refactor TrackingViewModel to use the new Event-based repository
-        viewModel.recordInstantaneousEvent(eventTypeId)
-        
-        val message = "Created instant event with photo!"
-        Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
-        Log.d("TrackingFragment", message)
+        Log.d("TrackingFragment", "Creating instant event with photo: $photoPath, notes: $notes")
+        viewModel.recordInstantaneousEventWithPhoto(eventTypeId, photoPath, notes)
     }
     
     private fun startTimedEventWithPhoto(eventTypeId: Long, photoPath: String, notes: String) {
-        // For now, we'll use a simple approach since TrackingViewModel uses the old interface
-        viewModel.startEvent(eventTypeId)
-        
-        val message = "Started timed event with photo!"
-        Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
-        Log.d("TrackingFragment", message)
+        Log.d("TrackingFragment", "Starting timed event with photo: $photoPath, notes: $notes")
+        viewModel.startTimedEventWithPhoto(eventTypeId, photoPath, notes)
     }
 
     override fun onDestroyView() {

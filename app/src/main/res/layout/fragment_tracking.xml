@@ -17,7 +17,7 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <!-- Ongoing Events Section -->
+            <!-- Ongoing Section -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/ongoingEventsCard"
                 android:layout_width="match_parent"
@@ -36,7 +36,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Ongoing Events"
+                        android:text="Ongoing"
                         android:textAppearance="@style/TextAppearance.Material3.HeadlineSmall"
                         android:layout_marginBottom="8dp" />
 
@@ -47,7 +47,6 @@
                         tools:listitem="@layout/item_ongoing_event" />
 
                 </LinearLayout>
-
             </com.google.android.material.card.MaterialCardView>
 
             <!-- Event Types Section -->

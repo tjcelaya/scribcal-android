@@ -1,18 +1,28 @@
 package com.tjcelaya.scribcal
 
+import android.accounts.Account
+import android.accounts.AccountManager
+import android.app.AlertDialog
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.findNavController
 import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupActionBarWithNavController
 import android.view.Menu
 import android.view.MenuItem
+import com.tjcelaya.scribcal.ScribCalApplication
 import com.tjcelaya.scribcal.databinding.ActivityMainBinding
 import com.tjcelaya.scribcal.ui.main.MainFragment
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 
@@ -20,6 +30,9 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var appBarConfiguration: AppBarConfiguration
     private lateinit var binding: ActivityMainBinding
+    
+    // Application repositories
+    private val app by lazy { application as ScribCalApplication }
     
     companion object {
         const val EXTRA_SHARED_PHOTO_PATH = "shared_photo_path"
@@ -57,8 +70,8 @@ class MainActivity : AppCompatActivity() {
                 val photoPath = copySharedImageToStorage(imageUri)
                 if (photoPath != null) {
                     Log.d("MainActivity", "Copied image to: $photoPath")
-                    // Navigate to the tracking fragment and pass the photo path
-                    handleSharedPhotoWithMainFragment(photoPath)
+                    // Initialize Google Drive first, then navigate
+                    initializeGoogleDriveForPhoto(photoPath)
                 } else {
                     Log.e("MainActivity", "Failed to copy shared image")
                 }
@@ -95,6 +108,24 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
+    
+    
+    private fun initializeGoogleDriveForPhoto(photoPath: String) {
+        // Check if Drive is already initialized by Application
+        if (app.isDriveReady()) {
+            Log.d("MainActivity", "Drive already initialized, proceeding with photo")
+            handleSharedPhotoWithMainFragment(photoPath)
+            return
+        }
+        
+        Log.w("MainActivity", "Drive not yet initialized by Application, waiting...")
+        showErrorToast("Google Drive is still initializing. Please try again in a moment.")
+        finish()
+    }
+    
+    
+    
+    
     private fun handleSharedPhotoWithMainFragment(photoPath: String) {
         // Wait a bit for the navigation to be fully set up, then handle the photo
         binding.root.post {
@@ -114,6 +145,12 @@ class MainActivity : AppCompatActivity() {
                 Log.e("MainActivity", "Error handling shared photo", e)
             }
         }
+    }
+    
+    
+    private fun showErrorToast(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+        Log.e("MainActivity", "Error: $message")
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {

@@ -1,5 +1,7 @@
 package com.tjcelaya.scribcal.data
 
+import android.accounts.Account
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MediatorLiveData
 import androidx.lifecycle.asLiveData
@@ -9,9 +11,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.text.SimpleDateFormat
 import java.util.*
 
-class EventRepository(private val database: ScribCalDatabase) {
+class EventRepository(
+    private val database: ScribCalDatabase,
+    private val driveRepository: DriveRepository? = null
+) {
     
     private val eventTypeDao = database.eventTypeDao()
     private val eventDao = database.eventDao()
@@ -81,8 +88,6 @@ class EventRepository(private val database: ScribCalDatabase) {
         eventId
     }
     
-    suspend fun createInstantEventWithPhoto(eventTypeId: Long, photoPath: String, notes: String = ""): Long =
-        createInstantEvent(eventTypeId, notes, photoPath)
     
     suspend fun startTimedEvent(eventTypeId: Long, notes: String = "", photoPath: String? = null): Long = withContext(Dispatchers.IO) {
         val event = Event(
@@ -95,8 +100,69 @@ class EventRepository(private val database: ScribCalDatabase) {
         eventDao.insertEvent(event)
     }
     
-    suspend fun startTimedEventWithPhoto(eventTypeId: Long, photoPath: String, notes: String = ""): Long =
-        startTimedEvent(eventTypeId, notes, photoPath)
+    suspend fun createInstantEventWithPhoto(eventTypeId: Long, photoPath: String, notes: String = ""): Long {
+        // Drive must be available for photo events
+        if (driveRepository?.isDriveInitialized() != true) {
+            throw IllegalStateException("Google Drive is not initialized. Cannot create photo events without Drive access.")
+        }
+        
+        val drivePhotoPath = uploadPhotoToDrive(photoPath)
+            ?: throw RuntimeException("Failed to upload photo to Google Drive. Photo path: $photoPath")
+            
+        return createInstantEvent(eventTypeId, notes, drivePhotoPath)
+    }
+    
+    suspend fun startTimedEventWithPhoto(eventTypeId: Long, photoPath: String, notes: String = ""): Long {
+        // Drive must be available for photo events
+        if (driveRepository?.isDriveInitialized() != true) {
+            throw IllegalStateException("Google Drive is not initialized. Cannot create photo events without Drive access.")
+        }
+        
+        val drivePhotoPath = uploadPhotoToDrive(photoPath)
+            ?: throw RuntimeException("Failed to upload photo to Google Drive. Photo path: $photoPath")
+            
+        return startTimedEvent(eventTypeId, notes, drivePhotoPath)
+    }
+    
+    // New methods with calendar sync and Google Drive integration
+    suspend fun createInstantEventWithPhotoAndSync(eventTypeId: Long, photoPath: String, notes: String = "", calendarRepository: CalendarRepository): Long = withContext(Dispatchers.IO) {
+        // Check if calendar is set up
+        if (!calendarRepository.isCalendarSetupComplete()) {
+            throw IllegalStateException("No calendar selected. Please select a calendar in settings first.")
+        }
+        
+        // Drive must be available for photo events
+        if (driveRepository?.isDriveInitialized() != true) {
+            throw IllegalStateException("Google Drive is not initialized. Cannot create photo events without Drive access.")
+        }
+        
+        Log.d("EventRepository", "Uploading photo to Google Drive: $photoPath")
+        val drivePhotoPath = uploadPhotoToDrive(photoPath)
+            ?: throw RuntimeException("Failed to upload photo to Google Drive during event sync. Photo path: $photoPath")
+        
+        val eventId = createInstantEvent(eventTypeId, notes, drivePhotoPath)
+        syncEventToCalendar(eventId, calendarRepository)
+        eventId
+    }
+    
+    suspend fun startTimedEventWithPhotoAndSync(eventTypeId: Long, photoPath: String, notes: String = ""): Long = withContext(Dispatchers.IO) {
+        // Check for existing ongoing events of this type
+        val ongoingCount = getOngoingEventCountForType(eventTypeId)
+        if (ongoingCount > 0) {
+            throw IllegalStateException("An event of this type is already in progress. Please stop the existing event first.")
+        }
+        
+        // Drive must be available for photo events
+        if (driveRepository?.isDriveInitialized() != true) {
+            throw IllegalStateException("Google Drive is not initialized. Cannot create photo events without Drive access.")
+        }
+        
+        Log.d("EventRepository", "Uploading photo to Google Drive: $photoPath")
+        val drivePhotoPath = uploadPhotoToDrive(photoPath)
+            ?: throw RuntimeException("Failed to upload photo to Google Drive during timed event sync. Photo path: $photoPath")
+        
+        startTimedEvent(eventTypeId, notes, drivePhotoPath)
+    }
     
     suspend fun completeOngoingEvent(eventId: Long): Boolean = withContext(Dispatchers.IO) {
         val event = eventDao.getEventById(eventId)
@@ -275,5 +341,87 @@ class EventRepository(private val database: ScribCalDatabase) {
             syncEventToCalendar(ongoingEventId, calendarRepository)
         }
         return success
+    }
+    
+    // Google Drive integration methods
+    
+    /**
+     * Upload a photo to Google Drive and return the shareable link
+     */
+    private suspend fun uploadPhotoToDrive(localPhotoPath: String): String? = withContext(Dispatchers.IO) {
+        return@withContext try {
+            val drive = driveRepository ?: return@withContext null
+            
+            if (!drive.isDriveInitialized()) {
+                Log.w("EventRepository", "Drive not initialized, cannot upload photo")
+                return@withContext null
+            }
+            
+            val localFile = File(localPhotoPath)
+            if (!localFile.exists()) {
+                Log.e("EventRepository", "Local photo file does not exist: $localPhotoPath")
+                return@withContext null
+            }
+            
+            // Generate filename with timestamp to avoid conflicts
+            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+            val fileName = "scribcal_photo_${timestamp}.jpg"
+            
+            Log.d("EventRepository", "Uploading photo $localPhotoPath as $fileName")
+            
+            val driveLink = drive.uploadPhotoAndGetLink(localPhotoPath, fileName)
+            
+            if (driveLink != null) {
+                Log.d("EventRepository", "Photo uploaded successfully: $driveLink")
+                
+                // Optionally delete local file after successful upload
+                try {
+                    if (localFile.delete()) {
+                        Log.d("EventRepository", "Deleted local photo file: $localPhotoPath")
+                    } else {
+                        Log.w("EventRepository", "Could not delete local photo file: $localPhotoPath")
+                    }
+                } catch (e: Exception) {
+                    Log.w("EventRepository", "Error deleting local photo file: $localPhotoPath", e)
+                }
+            } else {
+                Log.e("EventRepository", "Failed to upload photo to Drive: $localPhotoPath")
+            }
+            
+            driveLink
+        } catch (e: Exception) {
+            Log.e("EventRepository", "Exception uploading photo to Drive: $localPhotoPath", e)
+            null
+        }
+    }
+    
+    /**
+     * Initialize Google Drive with the given account
+     */
+    suspend fun initializeDriveForPhotos(account: Account): Boolean = withContext(Dispatchers.IO) {
+        return@withContext try {
+            val drive = driveRepository ?: return@withContext false
+            
+            Log.d("EventRepository", "Initializing Drive for photos with account: ${account.name}")
+            val success = drive.initializeDrive(account)
+            
+            if (success) {
+                Log.d("EventRepository", "Drive initialized successfully for photo uploads")
+            } else {
+                Log.e("EventRepository", "Failed to initialize Drive for photo uploads")
+            }
+            
+            success
+        } catch (e: Exception) {
+            Log.e("EventRepository", "Exception initializing Drive for photos", e)
+            false
+        }
+    }
+    
+    /**
+     * Check if Drive is available and initialized for photo uploads
+     */
+    fun isDriveAvailableForPhotos(): Boolean {
+        return driveRepository?.isDriveInitialized() == true
     }
 }

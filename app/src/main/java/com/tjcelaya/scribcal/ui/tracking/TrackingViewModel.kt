@@ -137,6 +137,28 @@ class TrackingViewModel(
     fun clearMessage() {
         _message.value = null
     }
+    
+    fun recordInstantaneousEventWithPhoto(eventTypeId: Long, photoPath: String, notes: String = "") {
+        viewModelScope.launch {
+            try {
+                eventRepository.createInstantEventWithPhotoAndSync(eventTypeId, photoPath, notes, calendarRepository)
+                _message.value = "Instant event with photo created and synced to calendar"
+            } catch (e: Exception) {
+                _message.value = "Error creating event with photo: ${e.message}"
+            }
+        }
+    }
+    
+    fun startTimedEventWithPhoto(eventTypeId: Long, photoPath: String, notes: String = "") {
+        viewModelScope.launch {
+            try {
+                eventRepository.startTimedEventWithPhotoAndSync(eventTypeId, photoPath, notes)
+                _message.value = "Timed event with photo started"
+            } catch (e: Exception) {
+                _message.value = "Error starting timed event with photo: ${e.message}"
+            }
+        }
+    }
 
     private fun updateCalendarStatus() {
         if (calendarRepository.isCalendarSetupComplete()) {
