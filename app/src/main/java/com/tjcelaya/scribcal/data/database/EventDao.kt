@@ -41,4 +41,7 @@ interface EventDao {
     
     @Query("UPDATE events SET endTime = :endTime WHERE id = :id")
     suspend fun completeEvent(id: Long, endTime: Long)
+    
+    @Query("SELECT COUNT(*) FROM events WHERE eventTypeId = :eventTypeId AND endTime IS NULL")
+    suspend fun getOngoingEventCountForType(eventTypeId: Long): Int
 }

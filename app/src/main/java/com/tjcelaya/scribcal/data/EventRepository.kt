@@ -1,6 +1,7 @@
 package com.tjcelaya.scribcal.data
 
 import androidx.lifecycle.LiveData
+import androidx.lifecycle.MediatorLiveData
 import androidx.lifecycle.asLiveData
 import androidx.lifecycle.liveData
 import com.tjcelaya.scribcal.data.database.*
@@ -157,7 +158,7 @@ class EventRepository(private val database: ScribCalDatabase) {
     
     // Helper methods
     suspend fun getOngoingEventCountForType(eventTypeId: Long): Int = withContext(Dispatchers.IO) {
-        eventDao.getOngoingEvents().count { it.eventTypeId == eventTypeId }
+        eventDao.getOngoingEventCountForType(eventTypeId)
     }
     
     // Calendar sync methods - placeholder implementations
@@ -198,33 +199,56 @@ class EventRepository(private val database: ScribCalDatabase) {
     
     // Compatibility methods for old TrackingViewModel interface
     fun getAllOngoingEvents(): LiveData<List<OngoingEvent>> {
-        // Convert Event entities to OngoingEvent entities for backward compatibility
-        return androidx.lifecycle.liveData {
-            try {
-                val ongoingEvents = eventDao.getOngoingEvents()
-                val ongoingEventsList = ongoingEvents.map { event ->
-                    OngoingEvent(
-                        id = event.id,
-                        eventTypeId = event.eventTypeId,
-                        startTime = event.startTime,
-                        notes = event.notes ?: ""
-                    )
+        // We need to create a proper LiveData that observes the database
+        // Since getOngoingEvents() returns a List, not LiveData, we need to observe changes differently
+        
+        // Use a MediatorLiveData that observes the ongoing events Flow
+        return MediatorLiveData<List<OngoingEvent>>().apply {
+            val source = eventDao.getOngoingEventsWithType().asLiveData()
+            addSource(source) { eventsWithType ->
+                try {
+                    val ongoingEventsList = eventsWithType
+                        .filter { it.event.isOngoing() }
+                        .map { eventWithType ->
+                            OngoingEvent(
+                                id = eventWithType.event.id,
+                                eventTypeId = eventWithType.event.eventTypeId,
+                                startTime = eventWithType.event.startTime,
+                                notes = eventWithType.event.notes ?: ""
+                            )
+                        }
+                    value = ongoingEventsList
+                    android.util.Log.d("EventRepository", "Updated ongoing events: ${ongoingEventsList.size}")
+                } catch (e: Exception) {
+                    android.util.Log.e("EventRepository", "Error updating ongoing events", e)
+                    value = emptyList()
                 }
-                emit(ongoingEventsList)
-            } catch (e: Exception) {
-                android.util.Log.e("EventRepository", "Error getting ongoing events", e)
-                emit(emptyList())
             }
         }
     }
     
     suspend fun startEvent(eventTypeId: Long, notes: String? = null): Long {
+        // Check if calendar is set up before creating event
+        // (We check this even for timed events since they'll need to sync when completed)
+        // TODO: We could make this check optional for timed events if needed
+        
+        // First check if there's already an ongoing event of this type
+        val ongoingCount = getOngoingEventCountForType(eventTypeId)
+        if (ongoingCount > 0) {
+            throw IllegalStateException("An event of this type is already in progress. Please stop the existing event first.")
+        }
+        
         val eventId = startTimedEvent(eventTypeId, notes ?: "")
         // Note: Timed events will be synced to calendar when completed, not when started
         return eventId
     }
     
     suspend fun recordInstantaneousEvent(eventTypeId: Long, calendarRepository: CalendarRepository): Long {
+        // Check if calendar is set up before creating event
+        if (!calendarRepository.isCalendarSetupComplete()) {
+            throw IllegalStateException("No calendar selected. Please select a calendar in settings before creating events.")
+        }
+        
         val eventId = createInstantEvent(eventTypeId)
         // Sync instant event to calendar immediately
         syncEventToCalendar(eventId, calendarRepository)
@@ -232,6 +256,11 @@ class EventRepository(private val database: ScribCalDatabase) {
     }
     
     suspend fun stopEvent(ongoingEventId: Long, calendarRepository: CalendarRepository): Boolean {
+        // Check if calendar is set up before completing event
+        if (!calendarRepository.isCalendarSetupComplete()) {
+            throw IllegalStateException("No calendar selected. Please select a calendar in settings before completing events.")
+        }
+        
         val success = completeOngoingEvent(ongoingEventId)
         if (success) {
             // Sync completed event to calendar
