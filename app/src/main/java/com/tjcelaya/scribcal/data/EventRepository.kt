@@ -63,6 +63,12 @@ class EventRepository(private val database: ScribCalDatabase) {
     // Event creation and management
     suspend fun createInstantEvent(eventTypeId: Long, notes: String = "", photoPath: String? = null): Long = withContext(Dispatchers.IO) {
         val currentTime = System.currentTimeMillis()
+        
+        // Debug logging
+        val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss z", java.util.Locale.getDefault())
+        val currentTimeString = dateFormat.format(java.util.Date(currentTime))
+        android.util.Log.d("EventRepository", "Creating instant event at: $currentTimeString (timestamp: $currentTime)")
+        
         val event = Event(
             eventTypeId = eventTypeId,
             startTime = currentTime,
@@ -70,7 +76,9 @@ class EventRepository(private val database: ScribCalDatabase) {
             notes = notes,
             photoPath = photoPath
         )
-        eventDao.insertEvent(event)
+        val eventId = eventDao.insertEvent(event)
+        android.util.Log.d("EventRepository", "Created event with ID: $eventId")
+        eventId
     }
     
     suspend fun createInstantEventWithPhoto(eventTypeId: Long, photoPath: String, notes: String = ""): Long =

@@ -92,6 +92,12 @@ object CalendarUtils {
             return@withContext null
         }
         
+        // Debug logging to diagnose timezone issues
+        val startDate = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss z", java.util.Locale.getDefault()).format(java.util.Date(startTime))
+        val endDate = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss z", java.util.Locale.getDefault()).format(java.util.Date(endTime))
+        android.util.Log.d("CalendarUtils", "Creating event '$title' from $startDate to $endDate")
+        android.util.Log.d("CalendarUtils", "Timezone: ${java.util.TimeZone.getDefault().id}, startTime: $startTime, endTime: $endTime")
+        
         val contentResolver = context.contentResolver
         
         val values = ContentValues().apply {
@@ -101,12 +107,25 @@ object CalendarUtils {
             put(CalendarContract.Events.DESCRIPTION, description ?: "")
             put(CalendarContract.Events.CALENDAR_ID, calendarId)
             put(CalendarContract.Events.EVENT_TIMEZONE, java.util.TimeZone.getDefault().id)
-            put(CalendarContract.Events.ALL_DAY, if (startTime == endTime) 1 else 0)
+            // For instant events (startTime == endTime), we want a short duration event, not all-day
+            // Only set as all-day if explicitly requested (which we don't do for now)
+            put(CalendarContract.Events.ALL_DAY, 0)
+            
+            // For instant events, make them 1 minute duration so they show up properly
+            if (startTime == endTime) {
+                put(CalendarContract.Events.DTEND, endTime + 60000) // Add 1 minute (60000 ms)
+            }
         }
         
         try {
             val uri: Uri? = contentResolver.insert(CalendarContract.Events.CONTENT_URI, values)
-            return@withContext uri?.lastPathSegment?.toLongOrNull()
+            val eventId = uri?.lastPathSegment?.toLongOrNull()
+            if (eventId != null) {
+                android.util.Log.d("CalendarUtils", "Successfully created calendar event with ID: $eventId")
+            } else {
+                android.util.Log.e("CalendarUtils", "Failed to create calendar event - no ID returned")
+            }
+            return@withContext eventId
         } catch (e: SecurityException) {
             // Handle permission error
             return@withContext null
@@ -132,10 +151,17 @@ object CalendarUtils {
         
         val values = ContentValues().apply {
             put(CalendarContract.Events.DTSTART, startTime)
-            put(CalendarContract.Events.DTEND, endTime)
             put(CalendarContract.Events.TITLE, title)
             put(CalendarContract.Events.DESCRIPTION, description ?: "")
             put(CalendarContract.Events.EVENT_TIMEZONE, java.util.TimeZone.getDefault().id)
+            put(CalendarContract.Events.ALL_DAY, 0)
+            
+            // For instant events, make them 1 minute duration so they show up properly
+            if (startTime == endTime) {
+                put(CalendarContract.Events.DTEND, endTime + 60000) // Add 1 minute (60000 ms)
+            } else {
+                put(CalendarContract.Events.DTEND, endTime)
+            }
         }
         
         try {
