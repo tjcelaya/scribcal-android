@@ -1,101 +1,97 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="8dp"
-    app:cardElevation="2dp"
-    app:cardCornerRadius="8dp"
+    android:layout_marginBottom="4dp"
+    android:background="?android:attr/selectableItemBackground"
     android:clickable="true"
-    android:focusable="true">
+    android:focusable="true"
+    android:gravity="center_vertical"
+    android:minHeight="72dp"
+    android:orientation="horizontal"
+    android:paddingStart="16dp"
+    android:paddingTop="12dp"
+    android:paddingEnd="16dp"
+    android:paddingBottom="12dp">
 
+    <!-- Color Indicator -->
+    <View
+        android:id="@+id/colorIndicator"
+        android:layout_width="12dp"
+        android:layout_height="12dp"
+        android:layout_marginEnd="16dp"
+        android:background="@drawable/circle_background"
+        tools:backgroundTint="?attr/colorPrimary" />
+
+    <!-- Event Type Info -->
     <LinearLayout
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="16dp"
-        android:gravity="center_vertical">
+        android:layout_weight="1"
+        android:orientation="vertical">
 
-        <!-- Color Indicator -->
-        <View
-            android:id="@+id/colorIndicator"
-            android:layout_width="16dp"
-            android:layout_height="16dp"
-            android:layout_marginEnd="16dp"
-            android:background="@drawable/circle_background"
-            tools:backgroundTint="@color/purple_500" />
-
-        <!-- Event Type Info -->
-        <LinearLayout
-            android:layout_width="0dp"
+        <TextView
+            android:id="@+id/eventTypeName"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
+            android:textColor="?android:attr/textColorPrimary"
+            tools:text="Exercise" />
 
-            <TextView
-                android:id="@+id/eventTypeName"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
-                android:textStyle="bold"
-                tools:text="Exercise" />
-
-            <TextView
-                android:id="@+id/eventTypeDescription"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
-                android:textColor="?attr/colorOnSurfaceVariant"
-                android:layout_marginTop="2dp"
-                android:visibility="gone"
-                tools:visibility="visible"
-                tools:text="Daily workout sessions" />
-
-            <!-- Ongoing Event Status -->
-            <TextView
-                android:id="@+id/ongoingStatusText"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textAppearance="@style/TextAppearance.Material3.LabelMedium"
-                android:textColor="?attr/colorPrimary"
-                android:layout_marginTop="4dp"
-                android:visibility="gone"
-                tools:visibility="visible"
-                tools:text="2? ongoing events" />
-
-        </LinearLayout>
-
-        <!-- Action Buttons -->
-        <LinearLayout
-            android:layout_width="wrap_content"
+        <TextView
+            android:id="@+id/eventTypeDescription"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            android:layout_marginTop="2dp"
+            android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
+            android:textColor="?android:attr/textColorSecondary"
+            android:visibility="gone"
+            tools:text="Daily workout sessions"
+            tools:visibility="visible" />
 
-            <!-- Instant Event Button -->
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/instantEventButton"
-                style="@style/Widget.Material3.Button.IconButton.Filled"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:layout_marginEnd="8dp"
-                android:contentDescription="Record Instant Event"
-                app:icon="@drawable/ic_flash"
-                app:iconSize="18dp"
-                tools:backgroundTint="?attr/colorSecondary" />
-
-            <!-- Start Event Button -->
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/startEventButton"
-                style="@style/Widget.Material3.Button.IconButton.Filled"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:contentDescription="Start Event"
-                app:icon="@drawable/ic_play"
-                app:iconSize="18dp" />
-
-        </LinearLayout>
+        <!-- Ongoing Event Status -->
+        <TextView
+            android:id="@+id/ongoingStatusText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textAppearance="@style/TextAppearance.Material3.LabelMedium"
+            android:textColor="?attr/colorPrimary"
+            android:visibility="gone"
+            tools:text="2 active events"
+            tools:visibility="visible" />
 
     </LinearLayout>
 
-</com.google.android.material.card.MaterialCardView>
+    <!-- Action Buttons -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <!-- Instant Event Button -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/instantEventButton"
+            style="@style/Widget.Material3.Button.IconButton.Outlined"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="8dp"
+            android:contentDescription="Record Instant Event"
+            app:icon="@drawable/ic_flash"
+            app:iconSize="16dp" />
+
+        <!-- Start Event Button -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/startEventButton"
+            style="@style/Widget.Material3.Button.IconButton.Filled"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:contentDescription="Start Event"
+            app:icon="@drawable/ic_play"
+            app:iconSize="16dp" />
+
+    </LinearLayout>
+
+</LinearLayout>
