@@ -69,8 +69,14 @@ class SettingsFragment : Fragment() {
     private fun setupDriveSection() {
         // Update Drive information
         binding.driveFolderText.text = driveRepository.getCurrentFolderName()
-        binding.driveStatusText.text = driveRepository.getDriveStatus()
-        binding.driveLastTestText.text = "Not tested"
+        updateDriveStatus()
+        
+        // Show last test time if available
+        val lastTestTime = driveRepository.getLastTestTime()?.let { timestamp ->
+            val formatter = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+            formatter.format(Date(timestamp))
+        } ?: "Not tested"
+        binding.driveLastTestText.text = lastTestTime
         
         // Set up test button
         binding.testDriveButton.setOnClickListener {
@@ -84,16 +90,16 @@ class SettingsFragment : Fragment() {
                 // Disable button and show testing state
                 binding.testDriveButton.isEnabled = false
                 binding.testDriveButton.text = "Testing..."
-                binding.driveStatusText.text = "Testing connection..."
+                binding.driveStatusText.text = "Testing..."
                 
                 // Test the connection
                 val result = driveRepository.testDriveConnection()
                 
-                // Update UI with results
-                binding.driveStatusText.text = result.status
+                // Update UI with results - use the short status from DriveRepository
+                updateDriveStatus()
                 
                 val lastTestTime = result.lastTestTime?.let { timestamp ->
-                    val formatter = SimpleDateFormat("MMM dd, HH:mm:ss", Locale.getDefault())
+                    val formatter = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
                     formatter.format(Date(timestamp))
                 } ?: "Never"
                 
@@ -107,7 +113,7 @@ class SettingsFragment : Fragment() {
                 }
                 
             } catch (e: Exception) {
-                binding.driveStatusText.text = "Error: ${e.message}"
+                binding.driveStatusText.text = "Error"
                 binding.driveStatusText.setTextColor(requireContext().getColor(android.R.color.holo_red_dark))
             } finally {
                 // Re-enable button
@@ -115,6 +121,14 @@ class SettingsFragment : Fragment() {
                 binding.testDriveButton.text = "Test Connection"
             }
         }
+    }
+    
+    private fun updateDriveStatus() {
+        // Get the short status message from DriveRepository
+        binding.driveStatusText.text = driveRepository.getDriveStatus()
+        
+        // Reset color to default
+        binding.driveStatusText.setTextColor(requireContext().getColor(android.R.color.tab_indicator_text))
     }
     
     override fun onDestroyView() {

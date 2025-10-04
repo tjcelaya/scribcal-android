@@ -26,6 +26,7 @@ class DriveRepository(private val context: Context) {
     
     private var driveService: Drive? = null
     private var scribcalFolderId: String? = null
+    private var lastConnectionTest: Long? = null
     
     /**
      * Initialize Google Drive service with the given account
@@ -217,9 +218,12 @@ class DriveRepository(private val context: Context) {
                 drive.files().delete(uploadedFile.id).execute()
                 Log.d(TAG, "Test file deleted successfully")
                 
+                // Store successful test time
+                lastConnectionTest = timestamp
+                
                 DriveConnectionResult(
                     isConnected = true,
-                    status = "Connected to Drive (ScribCal folder accessible)",
+                    status = "OK",
                     lastTestTime = timestamp
                 )
             } finally {
@@ -229,10 +233,13 @@ class DriveRepository(private val context: Context) {
             
         } catch (e: Exception) {
             Log.e(TAG, "Drive connection test failed", e)
+            val timestamp = System.currentTimeMillis()
+            lastConnectionTest = timestamp
+            
             DriveConnectionResult(
                 isConnected = false,
-                status = "Connection failed: ${e.message}",
-                lastTestTime = System.currentTimeMillis()
+                status = "Failed",
+                lastTestTime = timestamp
             )
         }
     }
@@ -247,9 +254,33 @@ class DriveRepository(private val context: Context) {
      */
     fun getDriveStatus(): String {
         return when {
-            driveService == null -> "Drive service not initialized"
-            scribcalFolderId == null -> "ScribCal folder not found"
-            else -> "Drive service initialized"
+            driveService == null -> "Not initialized"
+            scribcalFolderId == null -> "No folder"
+            lastConnectionTest != null -> {
+                val timeAgo = getTimeAgo(lastConnectionTest!!)
+                "OK ($timeAgo ago)"
+            }
+            else -> "Initialized"
+        }
+    }
+    
+    /**
+     * Get time since last connection test
+     */
+    fun getLastTestTime(): Long? = lastConnectionTest
+    
+    /**
+     * Format time difference as a short string
+     */
+    private fun getTimeAgo(timestamp: Long): String {
+        val now = System.currentTimeMillis()
+        val diff = now - timestamp
+        
+        return when {
+            diff < 60_000 -> "${diff / 1000}s" // seconds
+            diff < 3600_000 -> "${diff / 60_000}m" // minutes  
+            diff < 86400_000 -> "${diff / 3600_000}h" // hours
+            else -> "${diff / 86400_000}d" // days
         }
     }
 }
