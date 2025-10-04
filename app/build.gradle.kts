@@ -41,6 +41,7 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "/META-INF/INDEX.LIST"
             pickFirsts.add("/META-INF/DEPENDENCIES")
         }
     }
@@ -79,6 +80,11 @@ dependencies {
         exclude(group = "com.google.guava", module = "listenablefuture")
     }
     implementation("com.google.http-client:google-http-client-gson:1.23.0") {
+        exclude(group = "com.google.guava", module = "listenablefuture")
+    }
+    
+    // Google Photos API
+    implementation("com.google.photos.library:google-photos-library-client:1.7.3") {
         exclude(group = "com.google.guava", module = "listenablefuture")
     }
     

@@ -11,6 +11,7 @@ import com.tjcelaya.scribcal.R
 import com.tjcelaya.scribcal.ScribCalApplication
 import com.tjcelaya.scribcal.data.CalendarRepository
 import com.tjcelaya.scribcal.data.DriveRepository
+import com.tjcelaya.scribcal.data.PhotosRepository
 import com.tjcelaya.scribcal.databinding.FragmentSettingsBinding
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -23,6 +24,7 @@ class SettingsFragment : Fragment() {
     
     private lateinit var calendarRepository: CalendarRepository
     private lateinit var driveRepository: DriveRepository
+    private lateinit var photosRepository: PhotosRepository
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -34,6 +36,7 @@ class SettingsFragment : Fragment() {
         val app = requireActivity().application as ScribCalApplication
         calendarRepository = app.calendarRepository
         driveRepository = app.driveRepository
+        photosRepository = app.photosRepository
         
         setupUI()
         
@@ -43,6 +46,7 @@ class SettingsFragment : Fragment() {
     private fun setupUI() {
         setupCalendarSection()
         setupDriveSection()
+        setupPhotosSection()
     }
     
     private fun setupCalendarSection() {
@@ -129,6 +133,71 @@ class SettingsFragment : Fragment() {
         
         // Reset color to default
         binding.driveStatusText.setTextColor(requireContext().getColor(android.R.color.tab_indicator_text))
+    }
+    
+    private fun setupPhotosSection() {
+        // Update Photos information
+        binding.photosAlbumText.text = photosRepository.getCurrentAlbumName()
+        updatePhotosStatus()
+        
+        // Show last test time if available
+        val lastTestTime = photosRepository.getLastTestTime()?.let { timestamp ->
+            val formatter = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+            formatter.format(Date(timestamp))
+        } ?: "Not tested"
+        binding.photosLastTestText.text = lastTestTime
+        
+        // Set up test button
+        binding.testPhotosButton.setOnClickListener {
+            testPhotosConnection()
+        }
+    }
+    
+    private fun testPhotosConnection() {
+        lifecycleScope.launch {
+            try {
+                // Disable button and show testing state
+                binding.testPhotosButton.isEnabled = false
+                binding.testPhotosButton.text = "Testing..."
+                binding.photosStatusText.text = "Testing..."
+                
+                // Test the connection
+                val result = photosRepository.testPhotosConnection()
+                
+                // Update UI with results
+                updatePhotosStatus()
+                
+                val lastTestTime = result.lastTestTime?.let { timestamp ->
+                    val formatter = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+                    formatter.format(Date(timestamp))
+                } ?: "Never"
+                
+                binding.photosLastTestText.text = lastTestTime
+                
+                // Show connection status with color
+                if (result.isConnected) {
+                    binding.photosStatusText.setTextColor(requireContext().getColor(android.R.color.holo_green_dark))
+                } else {
+                    binding.photosStatusText.setTextColor(requireContext().getColor(android.R.color.holo_red_dark))
+                }
+                
+            } catch (e: Exception) {
+                binding.photosStatusText.text = "Error"
+                binding.photosStatusText.setTextColor(requireContext().getColor(android.R.color.holo_red_dark))
+            } finally {
+                // Re-enable button
+                binding.testPhotosButton.isEnabled = true
+                binding.testPhotosButton.text = "Test Connection"
+            }
+        }
+    }
+    
+    private fun updatePhotosStatus() {
+        // Get the short status message from PhotosRepository
+        binding.photosStatusText.text = photosRepository.getPhotosStatus()
+        
+        // Reset color to default
+        binding.photosStatusText.setTextColor(requireContext().getColor(android.R.color.tab_indicator_text))
     }
     
     override fun onDestroyView() {

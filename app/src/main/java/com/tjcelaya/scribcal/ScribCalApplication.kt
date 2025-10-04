@@ -7,6 +7,7 @@ import androidx.lifecycle.lifecycleScope
 import com.tjcelaya.scribcal.data.CalendarRepository
 import com.tjcelaya.scribcal.data.DriveRepository
 import com.tjcelaya.scribcal.data.EventRepository
+import com.tjcelaya.scribcal.data.PhotosRepository
 import com.tjcelaya.scribcal.data.database.ScribCalDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -25,6 +26,8 @@ class ScribCalApplication : Application() {
         private set
     lateinit var driveRepository: DriveRepository
         private set
+    lateinit var photosRepository: PhotosRepository
+        private set
     lateinit var eventRepository: EventRepository
         private set
 
@@ -39,48 +42,58 @@ class ScribCalApplication : Application() {
         // Initialize repositories
         initializeRepositories()
 
-        // Initialize Google Drive on app startup
-        initializeGoogleDriveAsync()
+        // Initialize Google services on app startup
+        initializeGoogleServicesAsync()
     }
 
     private fun initializeRepositories() {
         database = ScribCalDatabase.getDatabase(this)
         calendarRepository = CalendarRepository(this)
         driveRepository = DriveRepository(this)
+        photosRepository = PhotosRepository(this)
         eventRepository = EventRepository(database, driveRepository)
         
         Log.d(TAG, "Repositories initialized")
     }
 
-    private fun initializeGoogleDriveAsync() {
+    private fun initializeGoogleServicesAsync() {
         applicationScope.launch {
             try {
-                Log.d(TAG, "Starting Google Drive initialization...")
+                Log.d(TAG, "Starting Google services initialization...")
                 
                 // Get Google account from calendar setup
-                val account = getGoogleAccountForDrive()
+                val account = getGoogleAccountForServices()
                 
                 if (account != null) {
-                    Log.d(TAG, "Found Google account: ${account.name}, initializing Drive...")
+                    Log.d(TAG, "Found Google account: ${account.name}, initializing services...")
                     
-                    val success = eventRepository.initializeDriveForPhotos(account)
-                    
-                    if (success) {
-                        Log.d(TAG, "Google Drive initialized successfully on app startup")
+                    // Initialize Drive
+                    val driveSuccess = eventRepository.initializeDriveForPhotos(account)
+                    if (driveSuccess) {
+                        Log.d(TAG, "Google Drive initialized successfully")
                     } else {
-                        Log.w(TAG, "Google Drive initialization failed on app startup")
+                        Log.w(TAG, "Google Drive initialization failed")
                     }
+                    
+                    // Initialize Photos
+                    val photosSuccess = photosRepository.initializePhotos(account)
+                    if (photosSuccess) {
+                        Log.d(TAG, "Google Photos initialized successfully")
+                    } else {
+                        Log.w(TAG, "Google Photos initialization failed")
+                    }
+                    
                 } else {
-                    Log.d(TAG, "No Google account found for Drive initialization")
+                    Log.d(TAG, "No Google account found for services initialization")
                 }
                 
             } catch (e: Exception) {
-                Log.e(TAG, "Exception during Drive initialization on app startup", e)
+                Log.e(TAG, "Exception during Google services initialization", e)
             }
         }
     }
 
-    private suspend fun getGoogleAccountForDrive(): Account? {
+    private suspend fun getGoogleAccountForServices(): Account? {
         return try {
             val calendars = calendarRepository.getAvailableCalendars()
             val selectedCalendarId = calendarRepository.getSelectedCalendarId()
@@ -108,7 +121,7 @@ class ScribCalApplication : Application() {
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting Google account for Drive", e)
+            Log.e(TAG, "Error getting Google account for services", e)
             null
         }
     }
