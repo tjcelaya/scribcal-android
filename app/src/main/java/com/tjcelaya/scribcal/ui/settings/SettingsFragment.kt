@@ -1,9 +1,11 @@
 package com.tjcelaya.scribcal.ui.settings
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
@@ -27,6 +29,14 @@ class SettingsFragment : Fragment() {
     private lateinit var driveRepository: DriveRepository
     private lateinit var photosRepository: PhotosRepository
     private lateinit var storagePreferences: StoragePreferences
+    
+    // Activity result launcher for Google Photos consent screen
+    private val photosConsentLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        // After consent screen, re-test the connection
+        testPhotosConnection()
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -170,6 +180,16 @@ class SettingsFragment : Fragment() {
                 
                 // Test the connection
                 val result = photosRepository.testPhotosConnection()
+                
+                // Check if user consent is required
+                if (result.status == "Setup required") {
+                    // Get the consent intent and launch it
+                    val consentException = photosRepository.getUserConsentException()
+                    if (consentException != null) {
+                        photosConsentLauncher.launch(consentException.intent)
+                        return@launch // Exit early, don't update UI yet
+                    }
+                }
                 
                 // Update UI with results
                 updatePhotosStatus()

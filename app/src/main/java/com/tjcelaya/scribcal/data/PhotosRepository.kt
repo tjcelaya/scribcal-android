@@ -28,6 +28,7 @@ class PhotosRepository(private val context: Context) {
     private var currentAccount: Account? = null
     private var isInitialized = false
     private var scribcalAlbumReady = false
+    private var scribcalAlbumId: String? = null
     private var lastConnectionTest: Long? = null
     private var lastConnectionSuccessful = false
 
@@ -40,7 +41,7 @@ class PhotosRepository(private val context: Context) {
             Log.d(TAG, "Initializing Photos service with account: ${account.name}")
             
             // Test if we can get OAuth permissions for Photos
-            val hasPermission = checkPhotosPermission(account)
+            val (hasPermission, needsUserConsent) = checkPhotosPermission(account)
             if (hasPermission) {
                 currentAccount = account
                 isInitialized = true
@@ -48,6 +49,14 @@ class PhotosRepository(private val context: Context) {
                 
                 Log.d(TAG, "Photos service initialized successfully with permission validation")
                 true
+            } else if (needsUserConsent) {
+                // Still set up the account but mark as needing consent
+                currentAccount = account
+                isInitialized = true
+                scribcalAlbumReady = false // Not ready until consent is granted
+                
+                Log.d(TAG, "Photos service initialized but user consent required")
+                true // Return true so UI can show consent screen
             } else {
                 Log.w(TAG, "Photos permission not available for account: ${account.name}")
                 false
@@ -305,10 +314,10 @@ class PhotosRepository(private val context: Context) {
      */
     private suspend fun addToScribCalAlbum(mediaItemId: String, accessToken: String): Boolean = withContext(Dispatchers.IO) {
         try {
-            // First, find or create the ScribCal album
-            val albumId = findOrCreateScribCalAlbum(accessToken)
+            // Use cached album ID (should be set during connection test)
+            val albumId = scribcalAlbumId
             if (albumId == null) {
-                Log.w(TAG, "Could not find or create ScribCal album")
+                Log.w(TAG, "ScribCal album ID not available - connection test may have failed")
                 return@withContext false
             }
             
@@ -427,7 +436,7 @@ class PhotosRepository(private val context: Context) {
     }
 
     /**
-     * Test Photos connection by validating OAuth permissions
+     * Test Photos connection by validating OAuth permissions and creating album
      */
     suspend fun testPhotosConnection(): PhotosConnectionResult = withContext(Dispatchers.IO) {
         return@withContext try {
@@ -443,20 +452,66 @@ class PhotosRepository(private val context: Context) {
             Log.d(TAG, "Testing Photos connection for account: ${currentAccount?.name}")
 
             val account = currentAccount!!
-            val hasPermission = checkPhotosPermission(account)
+            val (hasPermission, needsUserConsent) = checkPhotosPermission(account)
             
             val timestamp = System.currentTimeMillis()
             lastConnectionTest = timestamp
             
-            if (hasPermission) {
-                lastConnectionSuccessful = true
-                Log.d(TAG, "Photos connection test successful with OAuth validation")
+            if (needsUserConsent) {
+                lastConnectionSuccessful = false
+                Log.w(TAG, "User consent required for Photos access")
                 
                 PhotosConnectionResult(
-                    isConnected = true,
-                    status = "OK",
+                    isConnected = false,
+                    status = "Setup required",
                     lastTestTime = timestamp
                 )
+            } else if (hasPermission) {
+                // Test by actually accessing the API and ensuring album exists
+                Log.d(TAG, "OAuth permission valid, testing API access...")
+                
+                val token = GoogleAuthUtil.getToken(
+                    context,
+                    account,
+                    "oauth2:$PHOTOS_SCOPE"
+                )
+                
+                if (token != null) {
+                    // Test API access and create/find ScribCal album
+                    val albumId = findOrCreateScribCalAlbum(token)
+                    if (albumId != null) {
+                        lastConnectionSuccessful = true
+                        scribcalAlbumReady = true
+                        scribcalAlbumId = albumId
+                        Log.d(TAG, "Photos connection test successful - album ready: $albumId")
+                        
+                        PhotosConnectionResult(
+                            isConnected = true,
+                            status = "OK",
+                            lastTestTime = timestamp
+                        )
+                    } else {
+                        lastConnectionSuccessful = false
+                        scribcalAlbumReady = false
+                        scribcalAlbumId = null
+                        Log.e(TAG, "Failed to create/access ScribCal album")
+                        
+                        PhotosConnectionResult(
+                            isConnected = false,
+                            status = "Album creation failed",
+                            lastTestTime = timestamp
+                        )
+                    }
+                } else {
+                    lastConnectionSuccessful = false
+                    Log.e(TAG, "Failed to get OAuth token")
+                    
+                    PhotosConnectionResult(
+                        isConnected = false,
+                        status = "Token error",
+                        lastTestTime = timestamp
+                    )
+                }
             } else {
                 lastConnectionSuccessful = false
                 Log.w(TAG, "Photos OAuth permission not available")
@@ -499,6 +554,30 @@ class PhotosRepository(private val context: Context) {
      * Get the current account name for debugging
      */
     fun getCurrentAccountName(): String? = currentAccount?.name
+    
+    /**
+     * Get the UserRecoverableAuthException for showing consent screen
+     */
+    suspend fun getUserConsentException(): com.google.android.gms.auth.UserRecoverableAuthException? = withContext(Dispatchers.IO) {
+        try {
+            val account = currentAccount ?: return@withContext null
+            
+            GoogleAuthUtil.getToken(
+                context,
+                account,
+                "oauth2:$PHOTOS_SCOPE"
+            )
+            
+            // If we get here, no exception was thrown
+            null
+        } catch (e: com.google.android.gms.auth.UserRecoverableAuthException) {
+            Log.d(TAG, "Got UserRecoverableAuthException for consent screen")
+            e
+        } catch (e: Exception) {
+            Log.w(TAG, "Got non-recoverable exception: ${e.message}")
+            null
+        }
+    }
 
     /**
      * Get Photos connection status without testing
@@ -507,7 +586,7 @@ class PhotosRepository(private val context: Context) {
         return when {
             !isInitialized -> "Not initialized"
             currentAccount == null -> "No account"
-            !scribcalAlbumReady -> "Album not ready"
+            !scribcalAlbumReady || scribcalAlbumId == null -> "Album not ready"
             lastConnectionTest != null -> {
                 val timeAgo = getTimeAgo(lastConnectionTest!!)
                 if (lastConnectionSuccessful) {
@@ -542,8 +621,9 @@ class PhotosRepository(private val context: Context) {
 
     /**
      * Check if we have permission to access Photos
+     * Returns a Pair<hasPermission, needsUserConsent>
      */
-    suspend fun checkPhotosPermission(account: Account): Boolean = withContext(Dispatchers.IO) {
+    suspend fun checkPhotosPermission(account: Account): Pair<Boolean, Boolean> = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "Checking Photos permission for account: ${account.name}")
             
@@ -587,7 +667,7 @@ class PhotosRepository(private val context: Context) {
                 Log.w(TAG, "No Photos OAuth token obtained with any scope")
             }
             
-            hasPermission
+            Pair(hasPermission, false)
         } catch (e: Exception) {
             Log.e(TAG, "Exception checking Photos permission for ${account.name}: ${e.message}", e)
             
@@ -595,8 +675,8 @@ class PhotosRepository(private val context: Context) {
             when (e) {
                 is com.google.android.gms.auth.UserRecoverableAuthException -> {
                     Log.w(TAG, "User recoverable auth exception - user needs to grant permission")
-                    // This is actually a semi-success - we can recover from this
-                    return@withContext true
+                    // This means user consent is needed
+                    return@withContext Pair(false, true)
                 }
                 is com.google.android.gms.auth.GoogleAuthException -> {
                     Log.w(TAG, "Google auth exception: ${e.message}")
@@ -607,7 +687,7 @@ class PhotosRepository(private val context: Context) {
                 }
             }
             
-            false
+            Pair(false, false)
         }
     }
 }

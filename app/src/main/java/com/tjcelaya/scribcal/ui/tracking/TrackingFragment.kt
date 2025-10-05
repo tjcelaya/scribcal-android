@@ -178,7 +178,7 @@ class TrackingFragment : Fragment() {
         // Observe messages
         viewModel.message.observe(viewLifecycleOwner) { message ->
             if (message != null) {
-                Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
                 viewModel.clearMessage()
             }
         }
