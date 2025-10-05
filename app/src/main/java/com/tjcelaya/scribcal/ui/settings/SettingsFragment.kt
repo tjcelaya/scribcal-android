@@ -183,6 +183,9 @@ class SettingsFragment : Fragment() {
                 
                 // Check if user consent is required
                 if (result.status == "Setup required") {
+                    // Clear cached tokens first to ensure fresh consent
+                    photosRepository.clearCachedTokens()
+                    
                     // Get the consent intent and launch it
                     val consentException = photosRepository.getUserConsentException()
                     if (consentException != null) {

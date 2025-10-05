@@ -70,8 +70,8 @@ class MainActivity : AppCompatActivity() {
                 val photoPath = copySharedImageToStorage(imageUri)
                 if (photoPath != null) {
                     Log.d("MainActivity", "Copied image to: $photoPath")
-                    // Initialize Google Drive first, then navigate
-                    initializeGoogleDriveForPhoto(photoPath)
+                    // Check storage preference and initialize accordingly
+                    initializeStorageServiceForPhoto(photoPath)
                 } else {
                     Log.e("MainActivity", "Failed to copy shared image")
                 }
@@ -110,17 +110,38 @@ class MainActivity : AppCompatActivity() {
     
     
     
-    private fun initializeGoogleDriveForPhoto(photoPath: String) {
-        // Check if Drive is already initialized by Application
-        if (app.isDriveReady()) {
-            Log.d("MainActivity", "Drive already initialized, proceeding with photo")
-            handleSharedPhotoWithMainFragment(photoPath)
-            return
-        }
+    private fun initializeStorageServiceForPhoto(photoPath: String) {
+        val storagePreferences = app.storagePreferences
         
-        Log.w("MainActivity", "Drive not yet initialized by Application, waiting...")
-        showErrorToast("Google Drive is still initializing. Please try again in a moment.")
-        finish()
+        when {
+            storagePreferences.isGoogleDriveSelected() -> {
+                // Check if Drive is ready
+                if (app.driveRepository.isDriveReady()) {
+                    Log.d("MainActivity", "Google Drive ready, proceeding with photo")
+                    handleSharedPhotoWithMainFragment(photoPath)
+                } else {
+                    Log.w("MainActivity", "Google Drive not ready")
+                    showErrorToast("Google Drive is not set up. Please configure it in Settings.")
+                    finish()
+                }
+            }
+            storagePreferences.isGooglePhotosSelected() -> {
+                // Check if Photos is ready
+                if (app.photosRepository.isPhotosReady()) {
+                    Log.d("MainActivity", "Google Photos ready, proceeding with photo")
+                    handleSharedPhotoWithMainFragment(photoPath)
+                } else {
+                    Log.w("MainActivity", "Google Photos not ready")
+                    showErrorToast("Google Photos is not set up. Please configure it in Settings.")
+                    finish()
+                }
+            }
+            else -> {
+                Log.w("MainActivity", "No storage service selected")
+                showErrorToast("No photo storage service selected. Please choose one in Settings.")
+                finish()
+            }
+        }
     }
     
     

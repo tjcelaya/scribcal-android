@@ -21,7 +21,8 @@ class PhotosRepository(private val context: Context) {
     companion object {
         private const val TAG = "PhotosRepository"
         private const val SCRIBCAL_ALBUM_NAME = "ScribCal Events"
-        private const val PHOTOS_SCOPE = "https://www.googleapis.com/auth/photoslibrary"
+        // Request both scopes for comprehensive permissions
+        private const val PHOTOS_SCOPE = "https://www.googleapis.com/auth/photoslibrary https://www.googleapis.com/auth/photoslibrary.appendonly"
         private const val PHOTOS_READONLY_SCOPE = "https://www.googleapis.com/auth/photoslibrary.readonly"
     }
 
@@ -578,6 +579,38 @@ class PhotosRepository(private val context: Context) {
             null
         }
     }
+    
+    /**
+     * Clear cached OAuth tokens to force fresh consent
+     */
+    suspend fun clearCachedTokens(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val account = currentAccount ?: return@withContext false
+            
+            // Try to clear cached token
+            try {
+                val existingToken = GoogleAuthUtil.getToken(context, account, "oauth2:$PHOTOS_SCOPE")
+                if (existingToken != null) {
+                    GoogleAuthUtil.clearToken(context, existingToken)
+                    Log.d(TAG, "Cleared cached OAuth token for Photos")
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "No cached token to clear or error clearing: ${e.message}")
+            }
+            
+            // Reset album state to force re-creation
+            scribcalAlbumReady = false
+            scribcalAlbumId = null
+            lastConnectionSuccessful = false
+            lastConnectionTest = null
+            
+            Log.d(TAG, "Reset Photos connection state")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to clear cached tokens", e)
+            false
+        }
+    }
 
     /**
      * Get Photos connection status without testing
@@ -642,23 +675,9 @@ class PhotosRepository(private val context: Context) {
                     Log.d(TAG, "Successfully obtained Photos OAuth token with full scope")
                 }
             } catch (e: Exception) {
-                Log.w(TAG, "Failed to get full Photos scope, trying read-only: ${e.message}")
-                
-                // Try read-only scope as fallback
-                try {
-                    token = GoogleAuthUtil.getToken(
-                        context,
-                        account,
-                        "oauth2:$PHOTOS_READONLY_SCOPE"
-                    )
-                    hasPermission = !token.isNullOrEmpty()
-                    if (hasPermission) {
-                        Log.d(TAG, "Successfully obtained Photos OAuth token with read-only scope")
-                    }
-                } catch (e2: Exception) {
-                    Log.w(TAG, "Failed to get read-only Photos scope: ${e2.message}")
-                    throw e // Re-throw original exception
-                }
+                Log.w(TAG, "Failed to get full Photos scope: ${e.message}")
+                // Don't fall back to read-only since we need full access for album creation
+                throw e
             }
             
             Log.d(TAG, "Photos permission check result: $hasPermission")
