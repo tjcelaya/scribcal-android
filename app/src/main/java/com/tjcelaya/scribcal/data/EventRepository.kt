@@ -418,9 +418,10 @@ class EventRepository(
                 return@withContext null
             }
             
-            // Generate filename with timestamp to avoid conflicts
+            // Generate filename with event type name and timestamp
+            val eventTypeName = getEventTypeNameForFilename(eventId)
             val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-            val fileName = "scribcal_photo_${timestamp}.jpg"
+            val fileName = "scribcal_${eventTypeName}_${timestamp}.jpg"
             
             Log.d("EventRepository", "Uploading photo $localPhotoPath as $fileName to Google Drive")
             
@@ -468,9 +469,10 @@ class EventRepository(
                 return@withContext null
             }
             
-            // Generate filename with timestamp to avoid conflicts
+            // Generate filename with event type name and timestamp
+            val eventTypeName = getEventTypeNameForFilename(eventId)
             val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-            val fileName = "scribcal_photo_${timestamp}.jpg"
+            val fileName = "scribcal_${eventTypeName}_${timestamp}.jpg"
             
             Log.d("EventRepository", "Uploading photo $localPhotoPath as $fileName to Google Photos")
             
@@ -665,5 +667,39 @@ class EventRepository(
         val cutoffTime = System.currentTimeMillis() - PhotoUploadProgress.AUTO_REMOVE_DELAY_MS
         photoUploadProgressDao.deleteExpiredCompletedUploads(cutoffTime)
         Log.d("EventRepository", "Cleaned up expired upload progress entries")
+    }
+    
+    /**
+     * Get event type name for use in filename, with safe formatting
+     */
+    private suspend fun getEventTypeNameForFilename(eventId: Long?): String = withContext(Dispatchers.IO) {
+        try {
+            if (eventId == null) {
+                return@withContext "unknown"
+            }
+            
+            val event = eventDao.getEventById(eventId)
+            if (event == null) {
+                return@withContext "unknown"
+            }
+            
+            val eventType = eventTypeDao.getEventTypeById(event.eventTypeId)
+            if (eventType == null) {
+                return@withContext "unknown"
+            }
+            
+            // Clean the name for use in filename: remove special characters and convert to lowercase
+            val cleanName = eventType.name
+                .lowercase()
+                .replace(Regex("[^a-z0-9_-]"), "_")
+                .replace(Regex("_{2,}"), "_") // Replace multiple underscores with single
+                .trim('_') // Remove leading/trailing underscores
+            
+            if (cleanName.isEmpty()) "unknown" else cleanName
+            
+        } catch (e: Exception) {
+            Log.w("EventRepository", "Failed to get event type name for filename: ${e.message}")
+            "unknown"
+        }
     }
 }

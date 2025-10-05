@@ -198,9 +198,10 @@ object CalendarUtils {
         
         return when {
             photoPath.isNullOrEmpty() -> baseDescription
-            isDriveLink(photoPath) -> {
-                // Format Google Drive link nicely
-                val photoSection = "📷 Photo: $photoPath"
+            isDriveLink(photoPath) || isPhotosLink(photoPath) -> {
+                // Format cloud storage link as clickable URL
+                val linkText = if (isDriveLink(photoPath)) "Google Drive" else "Google Photos"
+                val photoSection = "📷 Photo: $linkText\n$photoPath"
                 if (baseDescription.isEmpty()) {
                     photoSection
                 } else {
@@ -224,6 +225,13 @@ object CalendarUtils {
      */
     private fun isDriveLink(path: String): Boolean {
         return path.startsWith("https://drive.google.com/")
+    }
+    
+    /**
+     * Check if a path is a Google Photos link
+     */
+    private fun isPhotosLink(path: String): Boolean {
+        return path.startsWith("https://photos.google.com/")
     }
     
     /**
