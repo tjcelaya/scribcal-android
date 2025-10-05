@@ -2,6 +2,7 @@ package com.tjcelaya.scribcal.data
 
 import android.accounts.Account
 import android.content.Context
+import android.content.SharedPreferences
 import android.util.Log
 import com.google.android.gms.auth.GoogleAuthUtil
 import com.google.api.client.extensions.android.http.AndroidHttp
@@ -15,23 +16,40 @@ import java.net.URL
 import org.json.JSONObject
 import org.json.JSONArray
 import java.io.RandomAccessFile
+import com.tjcelaya.scribcal.data.database.ScribCalDatabase
+import com.tjcelaya.scribcal.data.database.AlbumConfig
 
-class PhotosRepository(private val context: Context) {
+class PhotosRepository(
+    private val context: Context,
+    private val database: ScribCalDatabase
+) {
 
     companion object {
         private const val TAG = "PhotosRepository"
         private const val SCRIBCAL_ALBUM_NAME = "ScribCal Events"
-        // Request both scopes for comprehensive permissions
-        private const val PHOTOS_SCOPE = "https://www.googleapis.com/auth/photoslibrary https://www.googleapis.com/auth/photoslibrary.appendonly"
+        // Request full scope for both read and write permissions
+        private const val PHOTOS_SCOPE = "https://www.googleapis.com/auth/photoslibrary"
         private const val PHOTOS_READONLY_SCOPE = "https://www.googleapis.com/auth/photoslibrary.readonly"
+        
+        // SharedPreferences keys
+        private const val PREFS_NAME = "photos_repository_prefs"
+        private const val KEY_SCRIBCAL_ALBUM_ID = "scribcal_album_id"
+        private const val KEY_ALBUM_LAST_VERIFIED = "album_last_verified"
     }
 
+    private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    
     private var currentAccount: Account? = null
     private var isInitialized = false
     private var scribcalAlbumReady = false
     private var scribcalAlbumId: String? = null
     private var lastConnectionTest: Long? = null
     private var lastConnectionSuccessful = false
+    
+    init {
+        // Note: Album ID will be loaded from database when needed
+        // We can't do async operations in init block
+    }
 
     /**
      * Initialize Google Photos service with the given account
@@ -281,22 +299,46 @@ class PhotosRepository(private val context: Context) {
             }
             
             val responseCode = connection.responseCode
+            Log.d(TAG, "Create media item response code: $responseCode")
+            
             if (responseCode == 200) {
                 val response = connection.inputStream.bufferedReader().use { it.readText() }
+                Log.d(TAG, "Create media item response: $response")
+                
                 val responseJson = JSONObject(response)
                 val results = responseJson.getJSONArray("newMediaItemResults")
                 
                 if (results.length() > 0) {
                     val result = results.getJSONObject(0)
-                    val status = result.getJSONObject("status")
-                    if (status.getInt("code") == 0) {
+                    Log.d(TAG, "First result: $result")
+                    
+                    // Check if this result has a mediaItem (success case)
+                    if (result.has("mediaItem")) {
                         val mediaItem = result.getJSONObject("mediaItem")
                         val mediaItemId = mediaItem.getString("id")
-                        Log.d(TAG, "Media item created: $mediaItemId")
+                        Log.d(TAG, "Media item created successfully: $mediaItemId")
                         return@withContext mediaItemId
-                    } else {
-                        Log.e(TAG, "Media item creation failed: ${status.getString("message")}")
                     }
+                    
+                    // Check if this result has a status (error case)
+                    if (result.has("status")) {
+                        val status = result.getJSONObject("status")
+                        Log.d(TAG, "Status object: $status")
+                        
+                        val code = status.optInt("code", -1)
+                        val message = status.optString("message", "Unknown error")
+                        
+                        if (code == 0) {
+                            // Success but no mediaItem? This shouldn't happen
+                            Log.e(TAG, "Success status but no mediaItem in result")
+                        } else {
+                            Log.e(TAG, "Media item creation failed with code $code: $message")
+                        }
+                    } else {
+                        Log.e(TAG, "Result has neither mediaItem nor status: $result")
+                    }
+                } else {
+                    Log.e(TAG, "No results in response")
                 }
             } else {
                 val errorStream = connection.errorStream?.bufferedReader()?.use { it.readText() }
@@ -357,40 +399,52 @@ class PhotosRepository(private val context: Context) {
     }
     
     /**
-     * Find or create the ScribCal album
+     * Find or create the ScribCal album using database storage
      */
     private suspend fun findOrCreateScribCalAlbum(accessToken: String): String? = withContext(Dispatchers.IO) {
         try {
-            // First try to find existing album
-            val url = URL("https://photoslibrary.googleapis.com/v1/albums")
-            val connection = url.openConnection() as HttpURLConnection
+            val albumConfigDao = database.albumConfigDao()
             
-            connection.requestMethod = "GET"
-            connection.setRequestProperty("Authorization", "Bearer $accessToken")
+            // Check if we have an album ID stored in database
+            val albumConfig = albumConfigDao.getAlbumConfig()
             
-            val responseCode = connection.responseCode
-            if (responseCode == 200) {
-                val response = connection.inputStream.bufferedReader().use { it.readText() }
-                val responseJson = JSONObject(response)
-                val albums = responseJson.optJSONArray("albums")
+            if (albumConfig?.googlePhotosAlbumId != null) {
+                Log.d(TAG, "Using stored album ID from database: ${albumConfig.googlePhotosAlbumId}")
                 
-                if (albums != null) {
-                    for (i in 0 until albums.length()) {
-                        val album = albums.getJSONObject(i)
-                        if (album.getString("title") == SCRIBCAL_ALBUM_NAME) {
-                            val albumId = album.getString("id")
-                            Log.d(TAG, "Found existing ScribCal album: $albumId")
-                            return@withContext albumId
-                        }
-                    }
-                }
+                // Update in-memory cache
+                scribcalAlbumId = albumConfig.googlePhotosAlbumId
+                
+                // Update last verified time
+                albumConfigDao.updateLastVerified(System.currentTimeMillis())
+                
+                return@withContext albumConfig.googlePhotosAlbumId
             }
             
-            // Album doesn't exist, create it
-            return@withContext createScribCalAlbum(accessToken)
+            // No stored album, create a new one
+            Log.d(TAG, "No stored album found, creating new ScribCal album...")
+            val newAlbumId = createScribCalAlbum(accessToken)
+            
+            if (newAlbumId != null) {
+                Log.d(TAG, "Created new album: $newAlbumId, saving to database")
+                
+                // Save to database
+                val config = AlbumConfig(
+                    id = 1,
+                    googlePhotosAlbumId = newAlbumId,
+                    googlePhotosAlbumName = SCRIBCAL_ALBUM_NAME,
+                    createdAt = System.currentTimeMillis(),
+                    lastVerified = System.currentTimeMillis()
+                )
+                albumConfigDao.insertAlbumConfig(config)
+                
+                // Update in-memory cache
+                scribcalAlbumId = newAlbumId
+            }
+            
+            return@withContext newAlbumId
             
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to find ScribCal album", e)
+            Log.e(TAG, "Failed to find or create ScribCal album", e)
             null
         }
     }
@@ -598,6 +652,14 @@ class PhotosRepository(private val context: Context) {
                 Log.w(TAG, "No cached token to clear or error clearing: ${e.message}")
             }
             
+            // Clear stored album configuration from database
+            try {
+                database.albumConfigDao().clearAlbumConfig()
+                Log.d(TAG, "Cleared album configuration from database")
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to clear album configuration: ${e.message}")
+            }
+            
             // Reset album state to force re-creation
             scribcalAlbumReady = false
             scribcalAlbumId = null
@@ -611,6 +673,7 @@ class PhotosRepository(private val context: Context) {
             false
         }
     }
+    
 
     /**
      * Get Photos connection status without testing

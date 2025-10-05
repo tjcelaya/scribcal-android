@@ -53,7 +53,7 @@ class ScribCalApplication : Application() {
         database = ScribCalDatabase.getDatabase(this)
         calendarRepository = CalendarRepository(this)
         driveRepository = DriveRepository(this)
-        photosRepository = PhotosRepository(this)
+        photosRepository = PhotosRepository(this, database)
         storagePreferences = StoragePreferences(this)
         eventRepository = EventRepository(database, driveRepository, photosRepository, storagePreferences)
         

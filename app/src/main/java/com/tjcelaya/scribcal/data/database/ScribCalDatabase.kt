@@ -9,9 +9,10 @@ import androidx.room.RoomDatabase
     entities = [
         EventType::class,
         Event::class,
-        PhotoUploadProgress::class
+        PhotoUploadProgress::class,
+        AlbumConfig::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class ScribCalDatabase : RoomDatabase() {
@@ -19,6 +20,7 @@ abstract class ScribCalDatabase : RoomDatabase() {
     abstract fun eventTypeDao(): EventTypeDao
     abstract fun eventDao(): EventDao
     abstract fun photoUploadProgressDao(): PhotoUploadProgressDao
+    abstract fun albumConfigDao(): AlbumConfigDao
     
     companion object {
         @Volatile
