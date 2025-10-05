@@ -35,6 +35,9 @@ class PhotosRepository(
         private const val PREFS_NAME = "photos_repository_prefs"
         private const val KEY_SCRIBCAL_ALBUM_ID = "scribcal_album_id"
         private const val KEY_ALBUM_LAST_VERIFIED = "album_last_verified"
+        private const val KEY_LAST_CONNECTION_TEST = "last_connection_test"
+        private const val KEY_LAST_CONNECTION_SUCCESSFUL = "last_connection_successful"
+        private const val KEY_CURRENT_ACCOUNT_NAME = "current_account_name"
     }
 
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -47,8 +50,90 @@ class PhotosRepository(
     private var lastConnectionSuccessful = false
     
     init {
-        // Note: Album ID will be loaded from database when needed
-        // We can't do async operations in init block
+        // Load persisted connection state
+        loadPersistedState()
+    }
+    
+    /**
+     * Initialize async data loading (call after construction)
+     */
+    suspend fun initializeAsyncData() {
+        loadAlbumConfiguration()
+    }
+    
+    /**
+     * Load persisted connection state from SharedPreferences
+     */
+    private fun loadPersistedState() {
+        try {
+            // Load connection test state
+            val lastTestTime = prefs.getLong(KEY_LAST_CONNECTION_TEST, 0L)
+            lastConnectionTest = if (lastTestTime > 0) lastTestTime else null
+            
+            lastConnectionSuccessful = prefs.getBoolean(KEY_LAST_CONNECTION_SUCCESSFUL, false)
+            
+            // Load account info
+            val accountName = prefs.getString(KEY_CURRENT_ACCOUNT_NAME, null)
+            if (accountName != null) {
+                currentAccount = Account(accountName, "com.google")
+                isInitialized = true
+            }
+            
+            Log.d(TAG, "Loaded persisted state - lastTest: $lastConnectionTest, successful: $lastConnectionSuccessful, account: $accountName")
+            
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to load persisted state: ${e.message}")
+        }
+    }
+    
+    /**
+     * Load album configuration from database
+     */
+    private suspend fun loadAlbumConfiguration() {
+        try {
+            val albumConfig = database.albumConfigDao().getAlbumConfig()
+            if (albumConfig?.googlePhotosAlbumId != null) {
+                scribcalAlbumId = albumConfig.googlePhotosAlbumId
+                scribcalAlbumReady = true
+                Log.d(TAG, "Loaded album configuration from database: ${albumConfig.googlePhotosAlbumId}")
+            } else {
+                Log.d(TAG, "No album configuration found in database")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to load album configuration: ${e.message}")
+        }
+    }
+    
+    /**
+     * Save connection state to SharedPreferences
+     */
+    private fun saveConnectionState() {
+        try {
+            val editor = prefs.edit()
+            
+            // Save connection test state
+            if (lastConnectionTest != null) {
+                editor.putLong(KEY_LAST_CONNECTION_TEST, lastConnectionTest!!)
+            } else {
+                editor.remove(KEY_LAST_CONNECTION_TEST)
+            }
+            
+            editor.putBoolean(KEY_LAST_CONNECTION_SUCCESSFUL, lastConnectionSuccessful)
+            
+            // Save current account
+            if (currentAccount != null) {
+                editor.putString(KEY_CURRENT_ACCOUNT_NAME, currentAccount!!.name)
+            } else {
+                editor.remove(KEY_CURRENT_ACCOUNT_NAME)
+            }
+            
+            editor.apply()
+            
+            Log.d(TAG, "Saved connection state - lastTest: $lastConnectionTest, successful: $lastConnectionSuccessful")
+            
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to save connection state: ${e.message}")
+        }
     }
 
     /**
@@ -516,6 +601,9 @@ class PhotosRepository(
                 lastConnectionSuccessful = false
                 Log.w(TAG, "User consent required for Photos access")
                 
+                // Save connection state
+                saveConnectionState()
+                
                 PhotosConnectionResult(
                     isConnected = false,
                     status = "Setup required",
@@ -540,6 +628,9 @@ class PhotosRepository(
                         scribcalAlbumId = albumId
                         Log.d(TAG, "Photos connection test successful - album ready: $albumId")
                         
+                        // Save connection state
+                        saveConnectionState()
+                        
                         PhotosConnectionResult(
                             isConnected = true,
                             status = "OK",
@@ -551,6 +642,9 @@ class PhotosRepository(
                         scribcalAlbumId = null
                         Log.e(TAG, "Failed to create/access ScribCal album")
                         
+                        // Save connection state
+                        saveConnectionState()
+                        
                         PhotosConnectionResult(
                             isConnected = false,
                             status = "Album creation failed",
@@ -561,6 +655,9 @@ class PhotosRepository(
                     lastConnectionSuccessful = false
                     Log.e(TAG, "Failed to get OAuth token")
                     
+                    // Save connection state
+                    saveConnectionState()
+                    
                     PhotosConnectionResult(
                         isConnected = false,
                         status = "Token error",
@@ -570,6 +667,9 @@ class PhotosRepository(
             } else {
                 lastConnectionSuccessful = false
                 Log.w(TAG, "Photos OAuth permission not available")
+                
+                // Save connection state
+                saveConnectionState()
                 
                 PhotosConnectionResult(
                     isConnected = false,
@@ -592,11 +692,17 @@ class PhotosRepository(
                 else -> "Not available"
             }
 
+            // Save connection state
+            saveConnectionState()
+            
             PhotosConnectionResult(
                 isConnected = false,
                 status = errorStatus,
                 lastTestTime = timestamp
             )
+        }.also {
+            // Always save connection state after test
+            saveConnectionState()
         }
     }
 
@@ -666,7 +772,14 @@ class PhotosRepository(
             lastConnectionSuccessful = false
             lastConnectionTest = null
             
-            Log.d(TAG, "Reset Photos connection state")
+            // Clear persistent connection state
+            prefs.edit()
+                .remove(KEY_LAST_CONNECTION_TEST)
+                .remove(KEY_LAST_CONNECTION_SUCCESSFUL)
+                .remove(KEY_CURRENT_ACCOUNT_NAME)
+                .apply()
+            
+            Log.d(TAG, "Reset Photos connection state and cleared persistent data")
             true
         } catch (e: Exception) {
             Log.e(TAG, "Failed to clear cached tokens", e)

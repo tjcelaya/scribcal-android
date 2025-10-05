@@ -47,6 +47,16 @@ class ScribCalApplication : Application() {
 
         // Initialize Google services on app startup
         initializeGoogleServicesAsync()
+        
+        // Load persisted album configuration
+        applicationScope.launch {
+            try {
+                photosRepository.initializeAsyncData()
+                Log.d(TAG, "Photos repository async data initialized")
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to initialize photos repository async data", e)
+            }
+        }
     }
 
     private fun initializeRepositories() {
@@ -82,6 +92,8 @@ class ScribCalApplication : Application() {
                     // Initialize Photos
                     val photosSuccess = photosRepository.initializePhotos(account)
                     if (photosSuccess) {
+                        // Load persistent album configuration
+                        photosRepository.initializeAsyncData()
                         Log.d(TAG, "Google Photos initialized successfully")
                     } else {
                         Log.w(TAG, "Google Photos initialization failed")
