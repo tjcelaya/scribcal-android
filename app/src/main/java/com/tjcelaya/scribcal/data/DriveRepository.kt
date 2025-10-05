@@ -27,6 +27,7 @@ class DriveRepository(private val context: Context) {
     private var driveService: Drive? = null
     private var scribcalFolderId: String? = null
     private var lastConnectionTest: Long? = null
+    private var lastConnectionSuccessful = false
     
     /**
      * Initialize Google Drive service with the given account
@@ -64,6 +65,11 @@ class DriveRepository(private val context: Context) {
      * Check if Drive service is initialized
      */
     fun isDriveInitialized(): Boolean = driveService != null && scribcalFolderId != null
+    
+    /**
+     * Check if Drive service is ready for photo operations (initialized and tested successfully)
+     */
+    fun isDriveReady(): Boolean = isDriveInitialized() && lastConnectionSuccessful
     
     /**
      * Create or find the ScribCal folder in Google Drive
@@ -220,6 +226,7 @@ class DriveRepository(private val context: Context) {
                 
                 // Store successful test time
                 lastConnectionTest = timestamp
+                lastConnectionSuccessful = true
                 
                 DriveConnectionResult(
                     isConnected = true,
@@ -235,6 +242,7 @@ class DriveRepository(private val context: Context) {
             Log.e(TAG, "Drive connection test failed", e)
             val timestamp = System.currentTimeMillis()
             lastConnectionTest = timestamp
+            lastConnectionSuccessful = false
             
             DriveConnectionResult(
                 isConnected = false,
@@ -258,7 +266,11 @@ class DriveRepository(private val context: Context) {
             scribcalFolderId == null -> "No folder"
             lastConnectionTest != null -> {
                 val timeAgo = getTimeAgo(lastConnectionTest!!)
-                "OK ($timeAgo ago)"
+                if (lastConnectionSuccessful) {
+                    "Connected ($timeAgo ago)"
+                } else {
+                    "Failed ($timeAgo ago)"
+                }
             }
             else -> "Initialized"
         }

@@ -18,6 +18,7 @@ class PhotosRepository(private val context: Context) {
     private var isInitialized = false
     private var currentAccount: Account? = null
     private var lastConnectionTest: Long? = null
+    private var lastConnectionSuccessful = false
 
     /**
      * Initialize Google Photos service with the given account
@@ -43,6 +44,11 @@ class PhotosRepository(private val context: Context) {
      * Check if Photos service is initialized
      */
     fun isPhotosInitialized(): Boolean = isInitialized && currentAccount != null
+    
+    /**
+     * Check if Photos service is ready for photo operations (initialized and tested successfully)
+     */
+    fun isPhotosReady(): Boolean = isPhotosInitialized() && lastConnectionSuccessful
 
     /**
      * Upload a photo to the ScribCal album and return a shareable link
@@ -97,6 +103,7 @@ class PhotosRepository(private val context: Context) {
 
             if (hasPermission) {
                 Log.d(TAG, "Photos connection test successful")
+                lastConnectionSuccessful = true
                 PhotosConnectionResult(
                     isConnected = true,
                     status = "OK",
@@ -104,6 +111,7 @@ class PhotosRepository(private val context: Context) {
                 )
             } else {
                 Log.d(TAG, "Photos permission not available")
+                lastConnectionSuccessful = false
                 PhotosConnectionResult(
                     isConnected = false,
                     status = "No permission",
@@ -115,6 +123,7 @@ class PhotosRepository(private val context: Context) {
             Log.e(TAG, "Photos connection test failed", e)
             val timestamp = System.currentTimeMillis()
             lastConnectionTest = timestamp
+            lastConnectionSuccessful = false
 
             PhotosConnectionResult(
                 isConnected = false,
@@ -138,7 +147,11 @@ class PhotosRepository(private val context: Context) {
             currentAccount == null -> "No account"
             lastConnectionTest != null -> {
                 val timeAgo = getTimeAgo(lastConnectionTest!!)
-                "OK ($timeAgo ago)"
+                if (lastConnectionSuccessful) {
+                    "Connected ($timeAgo ago)"
+                } else {
+                    "Failed ($timeAgo ago)"
+                }
             }
             else -> "Initialized"
         }

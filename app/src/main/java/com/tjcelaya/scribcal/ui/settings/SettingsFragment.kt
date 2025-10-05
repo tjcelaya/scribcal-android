@@ -12,6 +12,7 @@ import com.tjcelaya.scribcal.ScribCalApplication
 import com.tjcelaya.scribcal.data.CalendarRepository
 import com.tjcelaya.scribcal.data.DriveRepository
 import com.tjcelaya.scribcal.data.PhotosRepository
+import com.tjcelaya.scribcal.data.StoragePreferences
 import com.tjcelaya.scribcal.databinding.FragmentSettingsBinding
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -25,6 +26,7 @@ class SettingsFragment : Fragment() {
     private lateinit var calendarRepository: CalendarRepository
     private lateinit var driveRepository: DriveRepository
     private lateinit var photosRepository: PhotosRepository
+    private lateinit var storagePreferences: StoragePreferences
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -37,6 +39,7 @@ class SettingsFragment : Fragment() {
         calendarRepository = app.calendarRepository
         driveRepository = app.driveRepository
         photosRepository = app.photosRepository
+        storagePreferences = app.storagePreferences
         
         setupUI()
         
@@ -47,6 +50,7 @@ class SettingsFragment : Fragment() {
         setupCalendarSection()
         setupDriveSection()
         setupPhotosSection()
+        setupStorageSelection()
     }
     
     private fun setupCalendarSection() {
@@ -123,6 +127,9 @@ class SettingsFragment : Fragment() {
                 // Re-enable button
                 binding.testDriveButton.isEnabled = true
                 binding.testDriveButton.text = "Test Connection"
+                
+                // Update storage selection status
+                updateStorageSelectionStatus()
             }
         }
     }
@@ -188,6 +195,9 @@ class SettingsFragment : Fragment() {
                 // Re-enable button
                 binding.testPhotosButton.isEnabled = true
                 binding.testPhotosButton.text = "Test Connection"
+                
+                // Update storage selection status
+                updateStorageSelectionStatus()
             }
         }
     }
@@ -198,6 +208,76 @@ class SettingsFragment : Fragment() {
         
         // Reset color to default
         binding.photosStatusText.setTextColor(requireContext().getColor(android.R.color.tab_indicator_text))
+    }
+    
+    private fun setupStorageSelection() {
+        // Load current selection
+        when {
+            storagePreferences.isGoogleDriveSelected() -> {
+                binding.radioGoogleDrive.isChecked = true
+            }
+            storagePreferences.isGooglePhotosSelected() -> {
+                binding.radioGooglePhotos.isChecked = true
+            }
+        }
+        
+        // Set up radio group listener
+        binding.storageSelectionRadioGroup.setOnCheckedChangeListener { _, checkedId ->
+            when (checkedId) {
+                R.id.radio_google_drive -> {
+                    storagePreferences.setPhotoStorageType(StoragePreferences.STORAGE_TYPE_GOOGLE_DRIVE)
+                    updateStorageSelectionStatus()
+                }
+                R.id.radio_google_photos -> {
+                    storagePreferences.setPhotoStorageType(StoragePreferences.STORAGE_TYPE_GOOGLE_PHOTOS)
+                    updateStorageSelectionStatus()
+                }
+            }
+        }
+        
+        // Update initial state
+        updateStorageSelectionStatus()
+    }
+    
+    private fun updateStorageSelectionStatus() {
+        val isDriveReady = driveRepository.isDriveReady()
+        val isPhotosReady = photosRepository.isPhotosReady()
+        
+        // Enable/disable radio buttons based on connection status
+        binding.radioGoogleDrive.isEnabled = isDriveReady
+        binding.radioGooglePhotos.isEnabled = isPhotosReady
+        
+        // Update status text
+        val statusText = when {
+            !isDriveReady && !isPhotosReady -> "Test connections above to enable options"
+            isDriveReady && !isPhotosReady -> "Only Google Drive is available"
+            !isDriveReady && isPhotosReady -> "Only Google Photos is available"
+            else -> {
+                val selectedType = storagePreferences.getPhotoStorageType()
+                when (selectedType) {
+                    StoragePreferences.STORAGE_TYPE_GOOGLE_DRIVE -> "Using Google Drive for photo storage"
+                    StoragePreferences.STORAGE_TYPE_GOOGLE_PHOTOS -> "Using Google Photos for photo storage"
+                    else -> "Select a storage option above"
+                }
+            }
+        }
+        
+        binding.storageSelectionStatusText.text = statusText
+        
+        // Clear selection if the selected service becomes unavailable
+        val currentSelection = storagePreferences.getPhotoStorageType()
+        if (currentSelection != null) {
+            val isCurrentSelectionValid = when (currentSelection) {
+                StoragePreferences.STORAGE_TYPE_GOOGLE_DRIVE -> isDriveReady
+                StoragePreferences.STORAGE_TYPE_GOOGLE_PHOTOS -> isPhotosReady
+                else -> false
+            }
+            
+            if (!isCurrentSelectionValid) {
+                storagePreferences.clearPhotoStorageType()
+                binding.storageSelectionRadioGroup.clearCheck()
+            }
+        }
     }
     
     override fun onDestroyView() {

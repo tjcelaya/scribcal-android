@@ -8,6 +8,7 @@ import com.tjcelaya.scribcal.data.CalendarRepository
 import com.tjcelaya.scribcal.data.DriveRepository
 import com.tjcelaya.scribcal.data.EventRepository
 import com.tjcelaya.scribcal.data.PhotosRepository
+import com.tjcelaya.scribcal.data.StoragePreferences
 import com.tjcelaya.scribcal.data.database.ScribCalDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -27,6 +28,8 @@ class ScribCalApplication : Application() {
     lateinit var driveRepository: DriveRepository
         private set
     lateinit var photosRepository: PhotosRepository
+        private set
+    lateinit var storagePreferences: StoragePreferences
         private set
     lateinit var eventRepository: EventRepository
         private set
@@ -51,7 +54,8 @@ class ScribCalApplication : Application() {
         calendarRepository = CalendarRepository(this)
         driveRepository = DriveRepository(this)
         photosRepository = PhotosRepository(this)
-        eventRepository = EventRepository(database, driveRepository)
+        storagePreferences = StoragePreferences(this)
+        eventRepository = EventRepository(database, driveRepository, photosRepository, storagePreferences)
         
         Log.d(TAG, "Repositories initialized")
     }
