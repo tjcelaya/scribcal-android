@@ -9,7 +9,9 @@ import androidx.lifecycle.liveData
 import com.tjcelaya.scribcal.data.database.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.text.SimpleDateFormat
@@ -24,6 +26,7 @@ class EventRepository(
     
     private val eventTypeDao = database.eventTypeDao()
     private val eventDao = database.eventDao()
+    private val photoUploadProgressDao = database.photoUploadProgressDao()
     
     // Flag to ensure default event types are only created once per app session
     private var defaultEventTypesEnsured = false
@@ -103,10 +106,21 @@ class EventRepository(
     }
     
     suspend fun createInstantEventWithPhoto(eventTypeId: Long, photoPath: String, notes: String = ""): Long {
-        val uploadedPhotoPath = uploadPhotoToSelectedStorage(photoPath)
+        // Create the event first so we have an ID for progress tracking
+        val eventId = createInstantEvent(eventTypeId, notes, null) // Start without photo
+        
+        // Now upload the photo with progress tracking
+        val uploadedPhotoPath = uploadPhotoToSelectedStorage(photoPath, eventId)
             ?: throw RuntimeException("Failed to upload photo to selected storage. Photo path: $photoPath")
+        
+        // Update the event with the photo path
+        val event = eventDao.getEventById(eventId)
+        if (event != null) {
+            val updatedEvent = event.copy(photoPath = uploadedPhotoPath)
+            eventDao.updateEvent(updatedEvent)
+        }
             
-        return createInstantEvent(eventTypeId, notes, uploadedPhotoPath)
+        return eventId
     }
     
     suspend fun startTimedEventWithPhoto(eventTypeId: Long, photoPath: String, notes: String = ""): Long {
@@ -330,27 +344,57 @@ class EventRepository(
     /**
      * Upload a photo to the selected storage (Google Drive or Google Photos) and return the shareable link
      */
-    private suspend fun uploadPhotoToSelectedStorage(localPhotoPath: String): String? = withContext(Dispatchers.IO) {
+    private suspend fun uploadPhotoToSelectedStorage(localPhotoPath: String, eventId: Long? = null): String? = withContext(Dispatchers.IO) {
         return@withContext try {
             val selectedStorage = storagePreferences?.getPhotoStorageType()
             
-            when (selectedStorage) {
+            // Extract filename for progress tracking
+            val fileName = java.io.File(localPhotoPath).name
+            
+            // Start progress tracking if eventId is provided
+            if (eventId != null) {
+                startPhotoUpload(eventId, fileName)
+            }
+            
+            val result = when (selectedStorage) {
                 StoragePreferences.STORAGE_TYPE_GOOGLE_DRIVE -> {
-                    uploadPhotoToDrive(localPhotoPath)
+                    if (eventId != null) markPhotoUploadStarted(eventId)
+                    uploadPhotoToDrive(localPhotoPath, eventId)
                 }
                 StoragePreferences.STORAGE_TYPE_GOOGLE_PHOTOS -> {
-                    uploadPhotoToPhotos(localPhotoPath)
+                    if (eventId != null) markPhotoUploadStarted(eventId)
+                    uploadPhotoToPhotos(localPhotoPath, eventId)
                 }
                 null -> {
+                    if (eventId != null) {
+                        markPhotoUploadFailed(eventId, "No photo storage option selected")
+                    }
                     Log.e("EventRepository", "No photo storage option selected")
                     throw IllegalStateException("No photo storage option selected. Please select Google Drive or Google Photos in settings.")
                 }
                 else -> {
+                    if (eventId != null) {
+                        markPhotoUploadFailed(eventId, "Unknown storage type: $selectedStorage")
+                    }
                     Log.e("EventRepository", "Unknown storage type: $selectedStorage")
                     null
                 }
             }
+            
+            // Mark as completed or failed based on result
+            if (eventId != null) {
+                if (result != null) {
+                    markPhotoUploadCompleted(eventId, result)
+                } else {
+                    markPhotoUploadFailed(eventId, "Photo upload returned null")
+                }
+            }
+            
+            result
         } catch (e: Exception) {
+            if (eventId != null) {
+                markPhotoUploadFailed(eventId, "Exception: ${e.message}")
+            }
             Log.e("EventRepository", "Exception uploading photo to selected storage: $localPhotoPath", e)
             null
         }
@@ -359,7 +403,7 @@ class EventRepository(
     /**
      * Upload a photo to Google Drive and return the shareable link
      */
-    private suspend fun uploadPhotoToDrive(localPhotoPath: String): String? = withContext(Dispatchers.IO) {
+    private suspend fun uploadPhotoToDrive(localPhotoPath: String, eventId: Long? = null): String? = withContext(Dispatchers.IO) {
         return@withContext try {
             val drive = driveRepository ?: return@withContext null
             
@@ -409,7 +453,7 @@ class EventRepository(
     /**
      * Upload a photo to Google Photos and return the shareable link
      */
-    private suspend fun uploadPhotoToPhotos(localPhotoPath: String): String? = withContext(Dispatchers.IO) {
+    private suspend fun uploadPhotoToPhotos(localPhotoPath: String, eventId: Long? = null): String? = withContext(Dispatchers.IO) {
         return@withContext try {
             val photos = photosRepository ?: return@withContext null
             
@@ -430,7 +474,16 @@ class EventRepository(
             
             Log.d("EventRepository", "Uploading photo $localPhotoPath as $fileName to Google Photos")
             
-            val photosLink = photos.uploadPhotoAndGetLink(localPhotoPath, fileName)
+            // Create progress callback
+            val progressCallback: ((Int) -> Unit)? = if (eventId != null) {
+                { percent -> 
+                    kotlinx.coroutines.runBlocking {
+                        updatePhotoUploadProgress(eventId, percent)
+                    }
+                }
+            } else null
+            
+            val photosLink = photos.uploadPhotoAndGetLink(localPhotoPath, fileName, progressCallback)
             
             if (photosLink != null) {
                 Log.d("EventRepository", "Photo uploaded successfully to Photos: $photosLink")
@@ -502,5 +555,115 @@ class EventRepository(
     @Deprecated("Use isPhotoStorageAvailable() instead")
     fun isDriveAvailableForPhotos(): Boolean {
         return driveRepository?.isDriveInitialized() == true
+    }
+    
+    // Photo Upload Progress Methods
+    
+    /**
+     * Start tracking photo upload progress for an event
+     */
+    suspend fun startPhotoUpload(eventId: Long, fileName: String) = withContext(Dispatchers.IO) {
+        val progress = PhotoUploadProgress(
+            eventId = eventId,
+            fileName = fileName,
+            status = PhotoUploadStatus.PREPARING,
+            progressPercent = 0
+        )
+        photoUploadProgressDao.insertOrUpdateUploadProgress(progress)
+        Log.d("EventRepository", "Started tracking photo upload for event $eventId: $fileName")
+    }
+    
+    /**
+     * Update photo upload progress percentage
+     */
+    suspend fun updatePhotoUploadProgress(eventId: Long, percent: Int) = withContext(Dispatchers.IO) {
+        photoUploadProgressDao.updateUploadPercentage(eventId, percent)
+        Log.d("EventRepository", "Updated photo upload progress for event $eventId: $percent%")
+    }
+    
+    /**
+     * Mark photo upload as uploading
+     */
+    suspend fun markPhotoUploadStarted(eventId: Long) = withContext(Dispatchers.IO) {
+        val existing = photoUploadProgressDao.getUploadProgressForEvent(eventId)
+        if (existing != null) {
+            val updated = existing.copy(status = PhotoUploadStatus.UPLOADING, progressPercent = 5)
+            photoUploadProgressDao.updateUploadProgress(updated)
+            Log.d("EventRepository", "Marked photo upload as started for event $eventId")
+        }
+    }
+    
+    /**
+     * Mark photo upload as completed successfully
+     */
+    suspend fun markPhotoUploadCompleted(eventId: Long, photoUrl: String) = withContext(Dispatchers.IO) {
+        val completedTime = System.currentTimeMillis()
+        photoUploadProgressDao.markUploadCompleted(
+            eventId = eventId,
+            status = PhotoUploadStatus.COMPLETED,
+            completedTime = completedTime,
+            photoUrl = photoUrl
+        )
+        Log.d("EventRepository", "Marked photo upload as completed for event $eventId")
+    }
+    
+    /**
+     * Mark photo upload as failed
+     */
+    suspend fun markPhotoUploadFailed(eventId: Long, errorMessage: String) = withContext(Dispatchers.IO) {
+        val completedTime = System.currentTimeMillis()
+        photoUploadProgressDao.markUploadFailed(
+            eventId = eventId,
+            status = PhotoUploadStatus.FAILED,
+            completedTime = completedTime,
+            errorMessage = errorMessage
+        )
+        Log.d("EventRepository", "Marked photo upload as failed for event $eventId: $errorMessage")
+    }
+    
+    /**
+     * Get ongoing events with photo upload progress
+     */
+    fun getOngoingEventsWithUploadProgress(): Flow<List<OngoingEventWithProgress>> {
+        return database.eventDao().getOngoingEventsWithType().map { eventsWithType ->
+            val ongoingEvents = eventsWithType.filter { it.event.isOngoing() }
+            
+            // Get upload progress for all events
+            val uploadProgressList = photoUploadProgressDao.getAllUploadProgress().first()
+            val uploadProgressMap = uploadProgressList.associateBy { it.eventId }
+            
+            // Combine ongoing events with their upload progress
+            val ongoingWithProgress = ongoingEvents.map { eventWithType ->
+                OngoingEventWithProgress.fromEvent(
+                    event = eventWithType.event,
+                    uploadProgress = uploadProgressMap[eventWithType.event.id]
+                )
+            }
+            
+            // Add completed/failed uploads that should still be shown (not auto-removed yet)
+            val recentCompletedUploads = uploadProgressList
+                .filter { !it.shouldAutoRemove() && it.isCompleted() || it.isFailed() }
+                .filter { progress -> ongoingEvents.none { it.event.id == progress.eventId } }
+                .mapNotNull { progress ->
+                    // Get the completed event
+                    val event = eventDao.getEventById(progress.eventId)
+                    if (event != null) {
+                        OngoingEventWithProgress.fromEvent(event, progress)
+                    } else null
+                }
+            
+            // Combine and sort by start time (most recent first)
+            (ongoingWithProgress + recentCompletedUploads)
+                .sortedByDescending { it.startTime }
+        }
+    }
+    
+    /**
+     * Clean up expired upload progress entries
+     */
+    suspend fun cleanupExpiredUploads() = withContext(Dispatchers.IO) {
+        val cutoffTime = System.currentTimeMillis() - PhotoUploadProgress.AUTO_REMOVE_DELAY_MS
+        photoUploadProgressDao.deleteExpiredCompletedUploads(cutoffTime)
+        Log.d("EventRepository", "Cleaned up expired upload progress entries")
     }
 }

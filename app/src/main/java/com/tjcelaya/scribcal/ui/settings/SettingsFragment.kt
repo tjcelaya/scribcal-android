@@ -249,15 +249,15 @@ class SettingsFragment : Fragment() {
         
         // Update status text
         val statusText = when {
-            !isDriveReady && !isPhotosReady -> "Test connections above to enable options"
+            !isDriveReady && !isPhotosReady -> "Test connections above to enable storage options"
             isDriveReady && !isPhotosReady -> "Only Google Drive is available"
             !isDriveReady && isPhotosReady -> "Only Google Photos is available"
             else -> {
                 val selectedType = storagePreferences.getPhotoStorageType()
                 when (selectedType) {
-                    StoragePreferences.STORAGE_TYPE_GOOGLE_DRIVE -> "Using Google Drive for photo storage"
-                    StoragePreferences.STORAGE_TYPE_GOOGLE_PHOTOS -> "Using Google Photos for photo storage"
-                    else -> "Select a storage option above"
+                    StoragePreferences.STORAGE_TYPE_GOOGLE_DRIVE -> "✓ Using Google Drive for photo storage"
+                    StoragePreferences.STORAGE_TYPE_GOOGLE_PHOTOS -> "✓ Using Google Photos for photo storage"
+                    else -> "Both services available - select your preferred storage option"
                 }
             }
         }
