@@ -120,7 +120,7 @@ class TrackingFragment : Fragment() {
 
     private fun setupClickListeners() {
         binding.fab.setOnClickListener {
-            findNavController().navigate(R.id.eventsFragment)
+            findNavController().navigate(R.id.addEventFragment)
         }
 
         binding.manageEventTypesButton.setOnClickListener {

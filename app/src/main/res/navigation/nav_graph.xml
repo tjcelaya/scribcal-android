@@ -20,6 +20,9 @@
         <action
             android:id="@+id/action_tracking_to_calendar_setup"
             app:destination="@id/calendarSetupFragment" />
+        <action
+            android:id="@+id/action_tracking_to_add_event"
+            app:destination="@id/addEventFragment" />
     </fragment>
     
     <fragment
@@ -69,6 +72,17 @@
 
         <action
             android:id="@+id/action_calendar_setup_to_tracking"
+            app:destination="@id/trackingFragment" />
+    </fragment>
+    
+    <fragment
+        android:id="@+id/addEventFragment"
+        android:name="com.tjcelaya.scribcal.ui.events.AddEventFragment"
+        android:label="Add Event"
+        tools:layout="@layout/fragment_add_event">
+
+        <action
+            android:id="@+id/action_add_event_to_tracking"
             app:destination="@id/trackingFragment" />
     </fragment>
 </navigation>

@@ -242,7 +242,7 @@ class EventRepository(
         // For now, do nothing
     }
     
-    private suspend fun syncEventToCalendar(eventId: Long, calendarRepository: CalendarRepository) = withContext(Dispatchers.IO) {
+    suspend fun syncEventToCalendar(eventId: Long, calendarRepository: CalendarRepository) = withContext(Dispatchers.IO) {
         try {
             val event = eventDao.getEventById(eventId)
             val eventType = event?.let { eventTypeDao.getEventTypeById(it.eventTypeId) }
