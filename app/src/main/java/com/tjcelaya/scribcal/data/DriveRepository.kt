@@ -4,7 +4,6 @@ import android.accounts.Account
 import android.content.Context
 import android.util.Log
 import com.google.android.gms.auth.GoogleAuthUtil
-import com.google.android.gms.common.api.Scope
 import com.google.api.client.extensions.android.http.AndroidHttp
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.http.FileContent
@@ -15,7 +14,6 @@ import com.google.api.services.drive.model.File
 import com.google.api.services.drive.model.Permission
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.io.IOException
 
 class DriveRepository(private val context: Context) {
     
@@ -143,17 +141,18 @@ class DriveRepository(private val context: Context) {
             null
         }
     }
-    
+
     /**
      * Get a direct download link for viewing the image
      */
+    @Deprecated("Probably being removed?")
     suspend fun getDirectImageLink(fileId: String): String? = withContext(Dispatchers.IO) {
         try {
             val drive = driveService ?: throw IllegalStateException("Drive service not initialized")
-            
+
             // Get file metadata to verify it exists
             val file = drive.files().get(fileId).execute()
-            
+
             // Return direct view link that works for embedding
             "https://drive.google.com/uc?id=$fileId"
         } catch (e: Exception) {
@@ -161,20 +160,21 @@ class DriveRepository(private val context: Context) {
             null
         }
     }
-    
+
     /**
      * Check if we have permission to access Drive
      */
     suspend fun checkDrivePermission(account: Account): Boolean = withContext(Dispatchers.IO) {
         try {
-            val token = GoogleAuthUtil.getToken(
+            val tokenNotEmpty = GoogleAuthUtil.getToken(
                 context,
                 account,
                 "oauth2:${DriveScopes.DRIVE_FILE}"
-            )
-            
+            ) != ""
+
             // If we can get a token, we have permission
-            token != null
+            Log.i(TAG, "Token fetched successfully")
+            tokenNotEmpty
         } catch (e: Exception) {
             Log.e(TAG, "Failed to check Drive permission", e)
             false
