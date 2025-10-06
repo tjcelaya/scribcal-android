@@ -9,6 +9,9 @@ interface EventTypeDao {
     @Query("SELECT * FROM event_types ORDER BY name ASC")
     fun getAllEventTypes(): LiveData<List<EventType>>
     
+    @Query("SELECT * FROM event_types ORDER BY name ASC")
+    suspend fun getAllEventTypesSync(): List<EventType>
+    
     @Query("SELECT * FROM event_types WHERE id = :id")
     suspend fun getEventTypeById(id: Long): EventType?
     

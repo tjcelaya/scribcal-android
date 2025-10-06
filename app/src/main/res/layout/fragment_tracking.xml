@@ -63,7 +63,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="Event Types"
+                        android:text="Events"
                         android:textAppearance="@style/TextAppearance.Material3.TitleLarge"
                         android:textColor="?android:attr/textColorPrimary" />
 
@@ -141,15 +141,40 @@
 
     </ScrollView>
 
-    <!-- Floating Action Button -->
+    <!-- Floating Action Buttons -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fab"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="16dp"
+        android:layout_marginEnd="32dp"
+        android:layout_marginBottom="32dp"
         android:contentDescription="Add Event Type"
-        app:srcCompat="@drawable/ic_add" />
+        app:srcCompat="@drawable/ic_add"
+        app:fabSize="auto" />
+
+    <!-- Camera FAB -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/cameraFab"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="32dp"
+        android:layout_marginBottom="112dp"
+        android:contentDescription="Take Photo"
+        app:srcCompat="@android:drawable/ic_menu_camera"
+        app:fabSize="auto" />
+
+    <!-- Image Picker FAB -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/imageFab"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="32dp"
+        android:layout_marginBottom="192dp"
+        android:contentDescription="Select Image"
+        app:srcCompat="@android:drawable/ic_menu_gallery"
+        app:fabSize="auto" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

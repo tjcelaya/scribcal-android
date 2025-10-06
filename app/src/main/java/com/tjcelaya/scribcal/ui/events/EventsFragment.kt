@@ -114,7 +114,10 @@ class EventsFragment : Fragment() {
     }
 
     private fun navigateToAddEditEventType(eventType: EventType?) {
-        findNavController().navigate(R.id.action_events_to_add_edit_event_type)
+        val action = EventsFragmentDirections.actionEventsToAddEditEventType(
+            eventTypeId = eventType?.id ?: 0L
+        )
+        findNavController().navigate(action)
     }
 
     override fun onDestroyView() {

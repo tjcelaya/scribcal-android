@@ -43,6 +43,12 @@ class EventRepository(
         eventTypeDao.getEventTypeById(id)
     }
     
+    suspend fun getAllEventTypesSync(): List<EventType> = withContext(Dispatchers.IO) {
+        // Get all event types synchronously by converting LiveData to a one-time fetch
+        // This is a simple solution - in a real app you might want to use Flow instead
+        eventTypeDao.getAllEventTypesSync()
+    }
+    
     suspend fun insertEventType(eventType: EventType): Long = withContext(Dispatchers.IO) {
         eventTypeDao.insertEventType(eventType)
     }
@@ -77,9 +83,9 @@ class EventRepository(
         val eventTime = timestamp ?: System.currentTimeMillis()
         
         // Debug logging
-        val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss z", java.util.Locale.getDefault())
-        val eventTimeString = dateFormat.format(java.util.Date(eventTime))
-        android.util.Log.d("EventRepository", "Creating instant event at: $eventTimeString (timestamp: $eventTime)")
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss z", Locale.getDefault())
+        val eventTimeString = dateFormat.format(Date(eventTime))
+        Log.d("EventRepository", "Creating instant event at: $eventTimeString (timestamp: $eventTime)")
         
         val event = Event(
             eventTypeId = eventTypeId,
@@ -89,7 +95,7 @@ class EventRepository(
             photoPath = photoPath
         )
         val eventId = eventDao.insertEvent(event)
-        android.util.Log.d("EventRepository", "Created event with ID: $eventId")
+        Log.d("EventRepository", "Created event with ID: $eventId")
         eventId
     }
     
@@ -178,23 +184,23 @@ class EventRepository(
     suspend fun ensureDefaultEventTypes() = withContext(Dispatchers.IO) {
         // Skip if we've already ensured default types in this app session
         if (defaultEventTypesEnsured) {
-            android.util.Log.d("EventRepository", "Default event types check already completed in this session")
+            Log.d("EventRepository", "Default event types check already completed in this session")
             return@withContext
         }
         
         try {
             // Use a direct database query instead of LiveData to check existing types
             val existingCount = eventTypeDao.getEventTypeCount()
-            android.util.Log.d("EventRepository", "Found $existingCount existing event types")
+            Log.d("EventRepository", "Found $existingCount existing event types")
             
             // No longer creating default event types - users will create their own via the UI
             if (existingCount == 0) {
-                android.util.Log.d("EventRepository", "No event types found - users can create them via the Add Event form")
+                Log.d("EventRepository", "No event types found - users can create them via the Add Event form")
             } else {
-                android.util.Log.d("EventRepository", "Event types already exist")
+                Log.d("EventRepository", "Event types already exist")
             }
         } catch (e: Exception) {
-            android.util.Log.e("EventRepository", "Error in ensureDefaultEventTypes", e)
+            Log.e("EventRepository", "Error in ensureDefaultEventTypes", e)
         } finally {
             // Mark as ensured regardless of success/failure to prevent repeated attempts
             defaultEventTypesEnsured = true
@@ -203,14 +209,14 @@ class EventRepository(
     
     suspend fun removeDuplicateEventTypes() = withContext(Dispatchers.IO) {
         try {
-            android.util.Log.d("EventRepository", "Checking for duplicate event types")
+            Log.d("EventRepository", "Checking for duplicate event types")
             
             // We need to add a synchronous method to get all event types
             // For now, let's just log that duplicates need to be manually cleaned up
-            android.util.Log.d("EventRepository", "Duplicate cleanup - please clear app data if you see duplicates")
+            Log.d("EventRepository", "Duplicate cleanup - please clear app data if you see duplicates")
             
         } catch (e: Exception) {
-            android.util.Log.e("EventRepository", "Error in duplicate cleanup", e)
+            Log.e("EventRepository", "Error in duplicate cleanup", e)
         }
     }
     
@@ -251,7 +257,7 @@ class EventRepository(
             }
         } catch (e: Exception) {
             // Log error but don't fail the event creation
-            android.util.Log.e("EventRepository", "Failed to sync event $eventId to calendar", e)
+            Log.e("EventRepository", "Failed to sync event $eventId to calendar", e)
         }
     }
     
@@ -276,9 +282,9 @@ class EventRepository(
                             )
                         }
                     value = ongoingEventsList
-                    android.util.Log.d("EventRepository", "Updated ongoing events: ${ongoingEventsList.size}")
+                    Log.d("EventRepository", "Updated ongoing events: ${ongoingEventsList.size}")
                 } catch (e: Exception) {
-                    android.util.Log.e("EventRepository", "Error updating ongoing events", e)
+                    Log.e("EventRepository", "Error updating ongoing events", e)
                     value = emptyList()
                 }
             }
@@ -337,7 +343,7 @@ class EventRepository(
             val selectedStorage = storagePreferences?.getPhotoStorageType()
             
             // Extract filename for progress tracking
-            val fileName = java.io.File(localPhotoPath).name
+            val fileName = File(localPhotoPath).name
             
             // Start progress tracking if eventId is provided
             if (eventId != null) {

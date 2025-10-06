@@ -1,14 +1,20 @@
 package com.tjcelaya.scribcal.ui.tracking
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.MediaStore
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.core.content.FileProvider
+import java.io.File
+import java.io.IOException
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
@@ -24,6 +30,7 @@ import com.tjcelaya.scribcal.data.database.EventType
 import com.tjcelaya.scribcal.databinding.FragmentTrackingBinding
 import com.tjcelaya.scribcal.ui.main.PhotoEventDialog
 import com.tjcelaya.scribcal.MainActivity
+import com.tjcelaya.scribcal.data.StoragePreferences
 import android.util.Log
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -41,6 +48,9 @@ class TrackingFragment : Fragment() {
     // Timer for real-time updates
     private val timerHandler = Handler(Looper.getMainLooper())
     private var timerRunnable: Runnable? = null
+    
+    // Photo capture variables
+    private var currentPhotoUri: Uri? = null
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -50,6 +60,45 @@ class TrackingFragment : Fragment() {
         
         if (calendarReadGranted && calendarWriteGranted) {
             viewModel.onCalendarPermissionsGranted()
+        }
+    }
+    
+    // Camera permission launcher
+    private val requestCameraPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            launchCamera()
+        } else {
+            Toast.makeText(requireContext(), "Camera permission is required to take photos", Toast.LENGTH_LONG).show()
+        }
+    }
+    
+    // Camera launcher
+    private val cameraLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            currentPhotoUri?.let { uri ->
+                val filePath = getFilePathFromUri(uri)
+                if (filePath != null) {
+                    handleCapturedPhoto(filePath)
+                }
+            }
+        }
+    }
+    
+    // Image picker launcher
+    private val imagePickerLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            result.data?.data?.let { uri ->
+                val filePath = getFilePathFromUri(uri)
+                if (filePath != null) {
+                    handleSelectedImage(filePath)
+                }
+            }
         }
     }
 
@@ -116,6 +165,14 @@ class TrackingFragment : Fragment() {
     private fun setupClickListeners() {
         binding.fab.setOnClickListener {
             findNavController().navigate(R.id.addEventFragment)
+        }
+
+        binding.cameraFab.setOnClickListener {
+            checkStorageConfigurationThenOpenCamera()
+        }
+        
+        binding.imageFab.setOnClickListener {
+            checkStorageConfigurationThenOpenImagePicker()
         }
 
         binding.manageEventTypesButton.setOnClickListener {
@@ -296,6 +353,164 @@ class TrackingFragment : Fragment() {
     private fun startTimedEventWithPhoto(eventTypeId: Long, photoPath: String, notes: String) {
         Log.d("TrackingFragment", "Starting timed event with photo: $photoPath, notes: $notes")
         viewModel.startTimedEventWithPhoto(eventTypeId, photoPath, notes)
+    }
+
+    // Camera and image picker methods
+    
+    private fun checkStorageConfigurationThenOpenCamera() {
+        if (isPhotoStorageConfigured()) {
+            openCamera()
+        } else {
+            showStorageConfigurationDialog()
+        }
+    }
+    
+    private fun checkStorageConfigurationThenOpenImagePicker() {
+        if (isPhotoStorageConfigured()) {
+            openImagePicker()
+        } else {
+            showStorageConfigurationDialog()
+        }
+    }
+    
+    private fun isPhotoStorageConfigured(): Boolean {
+        val app = requireActivity().application as ScribCalApplication
+        val storagePreferences = app.storagePreferences
+        val driveRepository = app.driveRepository
+        val photosRepository = app.photosRepository
+        
+        val selectedStorageType = storagePreferences.getPhotoStorageType()
+        
+        return when (selectedStorageType) {
+            StoragePreferences.STORAGE_TYPE_GOOGLE_DRIVE -> {
+                driveRepository.isDriveReady()
+            }
+            StoragePreferences.STORAGE_TYPE_GOOGLE_PHOTOS -> {
+                photosRepository.isPhotosReady()
+            }
+            else -> false // No storage type selected
+        }
+    }
+    
+    private fun showStorageConfigurationDialog() {
+        AlertDialog.Builder(requireContext())
+            .setTitle("Photo Storage Required")
+            .setMessage("Please set up photo storage first before taking or selecting photos.")
+            .setPositiveButton("Go to Settings") { _, _ ->
+                findNavController().navigate(R.id.settingsFragment)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+    
+    private fun openCamera() {
+        val hasCameraPermission = ContextCompat.checkSelfPermission(
+            requireContext(), Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+        
+        if (hasCameraPermission) {
+            launchCamera()
+        } else {
+            requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+    
+    private fun launchCamera() {
+        val photoFile = createImageFile()
+        if (photoFile != null) {
+            currentPhotoUri = FileProvider.getUriForFile(
+                requireContext(),
+                "${requireContext().packageName}.fileprovider",
+                photoFile
+            )
+            
+            val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
+                putExtra(MediaStore.EXTRA_OUTPUT, currentPhotoUri)
+            }
+            
+            cameraLauncher.launch(intent)
+        } else {
+            Toast.makeText(requireContext(), "Unable to create photo file", Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    private fun openImagePicker() {
+        val intent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI).apply {
+            type = "image/*"
+        }
+        imagePickerLauncher.launch(intent)
+    }
+    
+    private fun createImageFile(): File? {
+        return try {
+            val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+            val imageFileName = "SCRIBCAL_${timeStamp}_"
+            val storageDir = File(requireContext().getExternalFilesDir(android.os.Environment.DIRECTORY_PICTURES), "ScribCal")
+            
+            if (!storageDir.exists()) {
+                storageDir.mkdirs()
+            }
+            
+            File.createTempFile(imageFileName, ".jpg", storageDir)
+        } catch (ex: IOException) {
+            Log.e("TrackingFragment", "Error creating image file", ex)
+            null
+        }
+    }
+    
+    private fun getFilePathFromUri(uri: Uri): String? {
+        return try {
+            val inputStream = requireContext().contentResolver.openInputStream(uri)
+            if (inputStream != null) {
+                val file = createImageFile()
+                if (file != null) {
+                    file.outputStream().use { outputStream ->
+                        inputStream.copyTo(outputStream)
+                    }
+                    inputStream.close()
+                    file.absolutePath
+                } else null
+            } else null
+        } catch (e: Exception) {
+            Log.e("TrackingFragment", "Error copying file from URI", e)
+            null
+        }
+    }
+    
+    private fun handleCapturedPhoto(photoPath: String) {
+        // Get available event types and show photo dialog
+        viewModel.eventTypes.observe(viewLifecycleOwner) { eventTypes ->
+            if (eventTypes.isNotEmpty()) {
+                showPhotoEventDialog(photoPath, eventTypes)
+            } else {
+                Toast.makeText(requireContext(), "No event types available. Create an event type first.", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+    
+    private fun handleSelectedImage(imagePath: String) {
+        // Get available event types and show photo dialog
+        viewModel.eventTypes.observe(viewLifecycleOwner) { eventTypes ->
+            if (eventTypes.isNotEmpty()) {
+                showPhotoEventDialog(imagePath, eventTypes)
+            } else {
+                Toast.makeText(requireContext(), "No event types available. Create an event type first.", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+    
+    private fun showPhotoEventDialog(photoPath: String, eventTypes: List<EventType>) {
+        PhotoEventDialog.show(
+            requireContext(),
+            photoPath,
+            eventTypes
+        ) { eventType, notes, isInstant ->
+            if (isInstant) {
+                createInstantEventWithPhoto(eventType.id, photoPath, notes)
+            } else {
+                startTimedEventWithPhoto(eventType.id, photoPath, notes)
+            }
+        }
     }
 
     override fun onDestroyView() {

@@ -11,6 +11,7 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
+import androidx.navigation.fragment.navArgs
 import com.google.android.material.button.MaterialButton
 import com.tjcelaya.scribcal.R
 import com.tjcelaya.scribcal.data.EventRepository
@@ -22,6 +23,7 @@ class AddEditEventTypeFragment : Fragment() {
 
     private var _binding: FragmentAddEditEventTypeBinding? = null
     private val binding get() = _binding!!
+    private val args: AddEditEventTypeFragmentArgs by navArgs()
 
     private lateinit var viewModel: AddEditEventTypeViewModel
     private var editingEventType: EventType? = null
@@ -62,13 +64,10 @@ class AddEditEventTypeFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         setupViewModel()
+        loadEventTypeFromArguments()
         setupColorGrid()
         setupClickListeners()
         observeViewModel()
-
-        // TODO: Get event type from arguments if editing
-        // For now, we'll assume we're always creating new
-        updateUI()
     }
 
     private fun setupViewModel() {
@@ -76,6 +75,17 @@ class AddEditEventTypeFragment : Fragment() {
         val eventRepository = EventRepository(database)
         val factory = AddEditEventTypeViewModelFactory(eventRepository)
         viewModel = ViewModelProvider(this, factory)[AddEditEventTypeViewModel::class.java]
+    }
+    
+    private fun loadEventTypeFromArguments() {
+        val eventTypeId = args.eventTypeId
+        if (eventTypeId > 0L) {
+            // We're editing an existing event type
+            viewModel.loadEventType(eventTypeId)
+        } else {
+            // We're creating a new event type
+            updateUI()
+        }
     }
 
     private fun setupColorGrid() {
@@ -156,6 +166,11 @@ class AddEditEventTypeFragment : Fragment() {
                 binding.nameInputLayout.error = message
                 viewModel.clearErrorMessage()
             }
+        }
+        
+        viewModel.loadedEventType.observe(viewLifecycleOwner) { eventType ->
+            editingEventType = eventType
+            updateUI()
         }
     }
 

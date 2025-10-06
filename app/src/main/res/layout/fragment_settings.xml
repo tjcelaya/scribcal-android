@@ -239,29 +239,24 @@
             android:paddingEnd="16dp"
             android:paddingBottom="12dp">
 
-            <LinearLayout
+            <!-- Album Name Input -->
+            <com.google.android.material.textfield.TextInputLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
-                android:orientation="horizontal">
+                android:layout_marginBottom="12dp"
+                android:hint="Album Name"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
 
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Album Name"
-                    android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
-                    android:textColor="?android:attr/textColorPrimary" />
-
-                <TextView
-                    android:id="@+id/photos_album_text"
-                    android:layout_width="wrap_content"
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/photos_album_name_edit"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="ScribCal Events"
-                    android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
-                    android:textColor="?android:attr/textColorSecondary" />
+                    android:inputType="text"
+                    android:maxLines="1"
+                    android:imeOptions="actionDone" />
 
-            </LinearLayout>
+            </com.google.android.material.textfield.TextInputLayout>
 
             <LinearLayout
                 android:layout_width="match_parent"

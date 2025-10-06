@@ -248,11 +248,11 @@ class PhotosRepository(
                 "oauth2:$PHOTOS_SCOPE"
             )
             
-            if (token == null) {
+            if (token == "") {
                 Log.e(TAG, "Failed to get OAuth token for Google Photos")
                 return@withContext null
             }
-            
+
             progressCallback?.invoke(40)
             
             // Step 1: Upload photo bytes to get upload token
@@ -484,8 +484,52 @@ class PhotosRepository(
     }
     
     /**
-     * Find or create the ScribCal album using database storage
+     * Set the selected album for ScribCal photos (replaces auto-creation approach)
      */
+    suspend fun setSelectedAlbum(albumId: String, albumTitle: String): Boolean {
+        return try {
+            val albumConfigDao = database.albumConfigDao()
+            
+            val config = AlbumConfig(
+                id = 1, // Always use ID 1 since we only have one album config
+                googlePhotosAlbumId = albumId,
+                googlePhotosAlbumName = albumTitle,
+                createdAt = System.currentTimeMillis(),
+                lastVerified = System.currentTimeMillis()
+            )
+            
+            // Save to database
+            albumConfigDao.insertAlbumConfig(config)
+            
+            // Update in-memory cache
+            scribcalAlbumId = albumId
+            scribcalAlbumReady = true
+            
+            Log.d(TAG, "Selected album set: $albumTitle ($albumId)")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to set selected album", e)
+            false
+        }
+    }
+    
+    /**
+     * Get the currently selected album info
+     */
+    suspend fun getSelectedAlbum(): AlbumConfig? {
+        return try {
+            database.albumConfigDao().getAlbumConfig()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to get selected album", e)
+            null
+        }
+    }
+    
+    /**
+     * Find or create the ScribCal album using database storage with remote verification
+     * @deprecated Use setSelectedAlbum instead of auto-creating albums
+     */
+    @Deprecated("Use setSelectedAlbum to let users choose their album instead")
     private suspend fun findOrCreateScribCalAlbum(accessToken: String): String? = withContext(Dispatchers.IO) {
         try {
             val albumConfigDao = database.albumConfigDao()
@@ -494,36 +538,59 @@ class PhotosRepository(
             val albumConfig = albumConfigDao.getAlbumConfig()
             
             if (albumConfig?.googlePhotosAlbumId != null) {
-                Log.d(TAG, "Using stored album ID from database: ${albumConfig.googlePhotosAlbumId}")
+                Log.d(TAG, "Found stored album ID: ${albumConfig.googlePhotosAlbumId}, verifying it still exists...")
                 
-                // Update in-memory cache
-                scribcalAlbumId = albumConfig.googlePhotosAlbumId
+                // Verify the album actually exists in Google Photos
+                val albumExists = verifyAlbumExists(accessToken, albumConfig.googlePhotosAlbumId)
                 
-                // Update last verified time
-                albumConfigDao.updateLastVerified(System.currentTimeMillis())
-                
-                return@withContext albumConfig.googlePhotosAlbumId
+                if (albumExists) {
+                    Log.d(TAG, "Album verified to exist remotely: ${albumConfig.googlePhotosAlbumId}")
+                    
+                    // Update in-memory cache
+                    scribcalAlbumId = albumConfig.googlePhotosAlbumId
+                    
+                    // Update last verified time
+                    albumConfigDao.updateLastVerified(System.currentTimeMillis())
+                    
+                    return@withContext albumConfig.googlePhotosAlbumId
+                } else {
+                    Log.w(TAG, "Stored album no longer exists remotely, will create new one")
+                    
+                    // Clear the invalid album config from database
+                    albumConfigDao.clearAlbumConfig()
+                    
+                    // Reset in-memory state
+                    scribcalAlbumId = null
+                    scribcalAlbumReady = false
+                }
             }
             
-            // No stored album, create a new one
-            Log.d(TAG, "No stored album found, creating new ScribCal album...")
+            // No stored album OR stored album was deleted, create a new one
+            Log.d(TAG, "Creating new ScribCal album...")
             val newAlbumId = createScribCalAlbum(accessToken)
             
             if (newAlbumId != null) {
                 Log.d(TAG, "Created new album: $newAlbumId, saving to database")
                 
-                // Save to database
+                // Save to database - use upsert to handle both new creation and replacement
                 val config = AlbumConfig(
-                    id = 1,
+                    id = 1, // Always use ID 1 since we only have one album config
                     googlePhotosAlbumId = newAlbumId,
                     googlePhotosAlbumName = SCRIBCAL_ALBUM_NAME,
                     createdAt = System.currentTimeMillis(),
                     lastVerified = System.currentTimeMillis()
                 )
+                
+                // Use insertAlbumConfig which should handle replace/upsert
                 albumConfigDao.insertAlbumConfig(config)
                 
                 // Update in-memory cache
                 scribcalAlbumId = newAlbumId
+                scribcalAlbumReady = true
+                
+                Log.d(TAG, "ScribCal album created/updated successfully with new ID: $newAlbumId")
+            } else {
+                Log.e(TAG, "Failed to create new ScribCal album")
             }
             
             return@withContext newAlbumId
@@ -531,6 +598,102 @@ class PhotosRepository(
         } catch (e: Exception) {
             Log.e(TAG, "Failed to find or create ScribCal album", e)
             null
+        }
+    }
+    
+    /**
+     * Verify that an album still exists in Google Photos
+     */
+    private suspend fun verifyAlbumExists(accessToken: String, albumId: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Verifying album exists: $albumId")
+            val url = URL("https://photoslibrary.googleapis.com/v1/albums/$albumId")
+            val connection = url.openConnection() as HttpURLConnection
+            
+            connection.requestMethod = "GET"
+            connection.setRequestProperty("Authorization", "Bearer $accessToken")
+            connection.setRequestProperty("Content-Type", "application/json")
+            
+            val responseCode = connection.responseCode
+            if (responseCode == 200) {
+                Log.d(TAG, "Album verified to exist: $albumId")
+                true
+            } else {
+                Log.w(TAG, "Album not found or inaccessible (code $responseCode): $albumId")
+                false
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to verify album exists: $albumId", e)
+            false
+        }
+    }
+    
+    /**
+     * Data class for album information
+     */
+    data class AlbumInfo(
+        val id: String,
+        val title: String,
+        val totalMediaItems: Int = 0
+    )
+    
+    /**
+     * List all albums available to the user
+     */
+    suspend fun listAlbums(accessToken: String): List<AlbumInfo> = withContext(Dispatchers.IO) {
+        try {
+            val albums = mutableListOf<AlbumInfo>()
+            var nextPageToken: String? = null
+            
+            do {
+                val url = if (nextPageToken != null) {
+                    URL("https://photoslibrary.googleapis.com/v1/albums?pageSize=50&pageToken=$nextPageToken")
+                } else {
+                    URL("https://photoslibrary.googleapis.com/v1/albums?pageSize=50")
+                }
+                
+                val connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.setRequestProperty("Authorization", "Bearer $accessToken")
+                connection.setRequestProperty("Content-Type", "application/json")
+                
+                val responseCode = connection.responseCode
+                if (responseCode == 200) {
+                    val response = connection.inputStream.bufferedReader().use { it.readText() }
+                    val responseJson = JSONObject(response)
+                    
+                    if (responseJson.has("albums")) {
+                        val albumsArray = responseJson.getJSONArray("albums")
+                        
+                        for (i in 0 until albumsArray.length()) {
+                            val album = albumsArray.getJSONObject(i)
+                            val albumId = album.getString("id")
+                            val title = album.getString("title")
+                            val mediaItemsCount = album.optInt("totalMediaItems", 0)
+                            
+                            albums.add(AlbumInfo(albumId, title, mediaItemsCount))
+                        }
+                    }
+                    
+                    // Check if there are more pages
+                    nextPageToken = if (responseJson.has("nextPageToken")) {
+                        responseJson.getString("nextPageToken")
+                    } else {
+                        null
+                    }
+                } else {
+                    val errorStream = connection.errorStream?.bufferedReader()?.use { it.readText() }
+                    Log.e(TAG, "Failed to list albums with code $responseCode: $errorStream")
+                    break
+                }
+            } while (nextPageToken != null)
+            
+            Log.d(TAG, "Listed ${albums.size} albums")
+            albums.sortedBy { it.title.lowercase() }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to list albums", e)
+            emptyList()
         }
     }
     
@@ -618,46 +781,69 @@ class PhotosRepository(
                     account,
                     "oauth2:$PHOTOS_SCOPE"
                 )
-                
-                if (token != null) {
-                    // Test API access and create/find ScribCal album
-                    val albumId = findOrCreateScribCalAlbum(token)
-                    if (albumId != null) {
-                        lastConnectionSuccessful = true
-                        scribcalAlbumReady = true
-                        scribcalAlbumId = albumId
-                        Log.d(TAG, "Photos connection test successful - album ready: $albumId")
+
+                if (token != "") {
+                    // Check if user has selected an album
+                    val selectedAlbum = getSelectedAlbum()
+                    
+                    if (selectedAlbum?.googlePhotosAlbumId != null) {
+                        // Test API access by verifying the selected album still exists
+                        val albumExists = verifyAlbumExists(token, selectedAlbum.googlePhotosAlbumId)
                         
-                        // Save connection state
-                        saveConnectionState()
-                        
-                        PhotosConnectionResult(
-                            isConnected = true,
-                            status = "OK",
-                            lastTestTime = timestamp
-                        )
+                        if (albumExists) {
+                            lastConnectionSuccessful = true
+                            scribcalAlbumReady = true
+                            scribcalAlbumId = selectedAlbum.googlePhotosAlbumId
+                            Log.d(TAG, "Photos connection test successful - selected album verified: ${selectedAlbum.googlePhotosAlbumName}")
+
+                            // Update last verified time
+                            database.albumConfigDao().updateLastVerified(System.currentTimeMillis())
+
+                            // Save connection state
+                            saveConnectionState()
+
+                            PhotosConnectionResult(
+                                isConnected = true,
+                                status = "OK",
+                                lastTestTime = timestamp
+                            )
+                        } else {
+                            lastConnectionSuccessful = false
+                            scribcalAlbumReady = false
+                            scribcalAlbumId = null
+                            Log.w(TAG, "Selected album no longer exists: ${selectedAlbum.googlePhotosAlbumName}")
+
+                            // Save connection state
+                            saveConnectionState()
+
+                            PhotosConnectionResult(
+                                isConnected = false,
+                                status = "Selected album not found - please choose a different album",
+                                lastTestTime = timestamp
+                            )
+                        }
                     } else {
                         lastConnectionSuccessful = false
                         scribcalAlbumReady = false
                         scribcalAlbumId = null
-                        Log.e(TAG, "Failed to create/access ScribCal album")
-                        
+                        Log.i(TAG, "No album selected yet")
+
                         // Save connection state
                         saveConnectionState()
-                        
+
                         PhotosConnectionResult(
                             isConnected = false,
-                            status = "Album creation failed",
+                            status = "No album selected - please choose an album",
                             lastTestTime = timestamp
                         )
                     }
                 } else {
                     lastConnectionSuccessful = false
                     Log.e(TAG, "Failed to get OAuth token")
-                    
+
                     // Save connection state
                     saveConnectionState()
-                    
+
                     PhotosConnectionResult(
                         isConnected = false,
                         status = "Token error",
@@ -750,10 +936,11 @@ class PhotosRepository(
             // Try to clear cached token
             try {
                 val existingToken = GoogleAuthUtil.getToken(context, account, "oauth2:$PHOTOS_SCOPE")
-                if (existingToken != null) {
-                    GoogleAuthUtil.clearToken(context, existingToken)
-                    Log.d(TAG, "Cleared cached OAuth token for Photos")
+                if (existingToken == "") {
+                    Log.d(TAG, "Photos token was empty? we're clearing it anyways")
                 }
+                GoogleAuthUtil.clearToken(context, existingToken)
+                Log.d(TAG, "Cleared cached OAuth token for Photos")
             } catch (e: Exception) {
                 Log.w(TAG, "No cached token to clear or error clearing: ${e.message}")
             }

@@ -45,6 +45,11 @@
         android:label="@string/fragment_add_edit_event_type_label"
         tools:layout="@layout/fragment_add_edit_event_type">
 
+        <argument
+            android:name="eventTypeId"
+            app:argType="long"
+            android:defaultValue="0L" />
+
         <action
             android:id="@+id/action_add_edit_event_type_to_events"
             app:destination="@id/eventsFragment" />
