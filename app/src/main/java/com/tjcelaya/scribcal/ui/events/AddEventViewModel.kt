@@ -27,11 +27,11 @@ class AddEventViewModel(
     private val _navigateBack = MutableLiveData<Boolean>()
     val navigateBack: LiveData<Boolean> = _navigateBack
 
-    fun recordInstantEvent(eventTypeName: String) {
+    fun recordInstantEvent(eventTypeName: String, customTimestamp: Long? = null) {
         viewModelScope.launch {
             try {
                 val eventTypeId = getOrCreateEventType(eventTypeName)
-                val eventId = eventRepository.createInstantEvent(eventTypeId)
+                val eventId = eventRepository.createInstantEvent(eventTypeId, timestamp = customTimestamp)
                 
                 // Sync to calendar if available
                 try {
@@ -52,7 +52,7 @@ class AddEventViewModel(
         }
     }
 
-    fun startTimedEvent(eventTypeName: String) {
+    fun startTimedEvent(eventTypeName: String, customTimestamp: Long? = null) {
         viewModelScope.launch {
             try {
                 val eventTypeId = getOrCreateEventType(eventTypeName)
@@ -64,7 +64,7 @@ class AddEventViewModel(
                     return@launch
                 }
                 
-                eventRepository.startTimedEvent(eventTypeId)
+                eventRepository.startTimedEvent(eventTypeId, timestamp = customTimestamp)
                 _message.value = "Timed event started successfully"
                 _navigateBack.value = true
             } catch (e: Exception) {

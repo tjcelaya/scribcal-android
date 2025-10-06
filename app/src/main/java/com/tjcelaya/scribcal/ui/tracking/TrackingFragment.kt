@@ -80,11 +80,6 @@ class TrackingFragment : Fragment() {
         val eventRepository = app.eventRepository
         val calendarRepository = app.calendarRepository
         
-        // Ensure some default event types exist for testing
-        lifecycleScope.launch {
-            eventRepository.ensureDefaultEventTypes()
-        }
-        
         val factory = TrackingViewModelFactory(eventRepository, calendarRepository)
         viewModel = ViewModelProvider(this, factory)[TrackingViewModel::class.java]
     }

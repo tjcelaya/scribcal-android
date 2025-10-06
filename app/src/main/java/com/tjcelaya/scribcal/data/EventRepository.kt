@@ -73,18 +73,18 @@ class EventRepository(
     fun getOngoingEventsWithType(): Flow<List<EventWithType>> = eventDao.getOngoingEventsWithType()
     
     // Event creation and management
-    suspend fun createInstantEvent(eventTypeId: Long, notes: String = "", photoPath: String? = null): Long = withContext(Dispatchers.IO) {
-        val currentTime = System.currentTimeMillis()
+    suspend fun createInstantEvent(eventTypeId: Long, notes: String = "", photoPath: String? = null, timestamp: Long? = null): Long = withContext(Dispatchers.IO) {
+        val eventTime = timestamp ?: System.currentTimeMillis()
         
         // Debug logging
         val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss z", java.util.Locale.getDefault())
-        val currentTimeString = dateFormat.format(java.util.Date(currentTime))
-        android.util.Log.d("EventRepository", "Creating instant event at: $currentTimeString (timestamp: $currentTime)")
+        val eventTimeString = dateFormat.format(java.util.Date(eventTime))
+        android.util.Log.d("EventRepository", "Creating instant event at: $eventTimeString (timestamp: $eventTime)")
         
         val event = Event(
             eventTypeId = eventTypeId,
-            startTime = currentTime,
-            endTime = currentTime, // Same time for instant events
+            startTime = eventTime,
+            endTime = eventTime, // Same time for instant events
             notes = notes,
             photoPath = photoPath
         )
@@ -94,10 +94,11 @@ class EventRepository(
     }
     
     
-    suspend fun startTimedEvent(eventTypeId: Long, notes: String = "", photoPath: String? = null): Long = withContext(Dispatchers.IO) {
+    suspend fun startTimedEvent(eventTypeId: Long, notes: String = "", photoPath: String? = null, timestamp: Long? = null): Long = withContext(Dispatchers.IO) {
+        val startTime = timestamp ?: System.currentTimeMillis()
         val event = Event(
             eventTypeId = eventTypeId,
-            startTime = System.currentTimeMillis(),
+            startTime = startTime,
             endTime = null, // Null indicates ongoing event
             notes = notes,
             photoPath = photoPath
@@ -177,7 +178,7 @@ class EventRepository(
     suspend fun ensureDefaultEventTypes() = withContext(Dispatchers.IO) {
         // Skip if we've already ensured default types in this app session
         if (defaultEventTypesEnsured) {
-            android.util.Log.d("EventRepository", "Default event types already ensured in this session")
+            android.util.Log.d("EventRepository", "Default event types check already completed in this session")
             return@withContext
         }
         
@@ -186,24 +187,11 @@ class EventRepository(
             val existingCount = eventTypeDao.getEventTypeCount()
             android.util.Log.d("EventRepository", "Found $existingCount existing event types")
             
+            // No longer creating default event types - users will create their own via the UI
             if (existingCount == 0) {
-                android.util.Log.d("EventRepository", "No event types found, creating defaults")
-                
-                // Create a single default event type for testing
-                val defaultTypes = listOf(
-                    EventType(name = "TEST", description = "Test event type for debugging")
-                )
-                
-                defaultTypes.forEach { eventType ->
-                    try {
-                        insertEventType(eventType)
-                        android.util.Log.d("EventRepository", "Created default event type: ${eventType.name}")
-                    } catch (e: Exception) {
-                        android.util.Log.e("EventRepository", "Failed to create event type: ${eventType.name}", e)
-                    }
-                }
+                android.util.Log.d("EventRepository", "No event types found - users can create them via the Add Event form")
             } else {
-                android.util.Log.d("EventRepository", "Event types already exist, skipping default creation")
+                android.util.Log.d("EventRepository", "Event types already exist")
             }
         } catch (e: Exception) {
             android.util.Log.e("EventRepository", "Error in ensureDefaultEventTypes", e)

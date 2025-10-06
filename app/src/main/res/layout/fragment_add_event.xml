@@ -54,6 +54,47 @@
             
     </LinearLayout>
 
+    <!-- Date Time Input -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="32dp"
+        android:orientation="vertical">
+        
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Date &amp; Time"
+            android:textAppearance="?attr/textAppearanceBodyMedium"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:layout_marginBottom="8dp" />
+        
+        <TextView
+            android:id="@+id/dateTimeDisplay"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/text_input_underline_selector"
+            android:paddingTop="16dp"
+            android:paddingBottom="16dp"
+            android:paddingStart="0dp"
+            android:paddingEnd="0dp"
+            android:textAppearance="?attr/textAppearanceBodyLarge"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?android:attr/selectableItemBackground"
+            android:drawableEnd="@drawable/ic_calendar_today"
+            android:drawablePadding="12dp" />
+            
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Tap to select date and time for the event"
+            android:textAppearance="?attr/textAppearanceCaption"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:layout_marginTop="4dp" />
+            
+    </LinearLayout>
+
     <!-- Action Buttons -->
     <LinearLayout
         android:layout_width="match_parent"
@@ -66,9 +107,11 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
-            android:text="Record Instant Event"
+            android:text="Save Right Now"
             android:textAppearance="?attr/textAppearanceButton"
             android:paddingVertical="16dp"
+            app:icon="@drawable/ic_flash"
+            app:iconGravity="start"
             style="@style/Widget.Material3.Button" />
 
         <Button
@@ -79,6 +122,8 @@
             android:text="Start Timed Event"
             android:textAppearance="?attr/textAppearanceButton"
             android:paddingVertical="16dp"
+            app:icon="@drawable/ic_play"
+            app:iconGravity="start"
             style="@style/Widget.Material3.Button.OutlinedButton" />
 
     </LinearLayout>
@@ -88,7 +133,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="24dp"
-        android:text="• Instant Event: Records a zero-duration event at the current time\n• Timed Event: Starts a stopwatch that you can stop later\n• New event types are automatically created when you enter them"
+        android:text="• Instant Event: Records a zero-duration event at the selected date/time\n• Timed Event: Starts a stopwatch at the selected date/time\n• New event types are automatically created when you enter them"
         android:textAppearance="?attr/textAppearanceCaption"
         android:textColor="?attr/colorOnSurfaceVariant"
         android:padding="16dp" />

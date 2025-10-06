@@ -1,5 +1,7 @@
 package com.tjcelaya.scribcal.ui.events
 
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -18,6 +20,8 @@ import com.tjcelaya.scribcal.ScribCalApplication
 import com.tjcelaya.scribcal.data.database.EventType
 import com.tjcelaya.scribcal.databinding.FragmentAddEventBinding
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.*
 
 class AddEventFragment : Fragment() {
 
@@ -27,6 +31,8 @@ class AddEventFragment : Fragment() {
     private lateinit var viewModel: AddEventViewModel
     private lateinit var autocompleteAdapter: EventTypeAutocompleteAdapter
     private var eventTypes: List<EventType> = emptyList()
+    private var selectedDateTime: Calendar = Calendar.getInstance()
+    private val dateTimeFormat = SimpleDateFormat("MMM d, yyyy 'at' h:mm a", Locale.getDefault())
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -42,6 +48,7 @@ class AddEventFragment : Fragment() {
 
         setupViewModel()
         setupAutoCompleteTextView()
+        setupDateTimeDisplay()
         setupClickListeners()
         observeViewModel()
     }
@@ -82,6 +89,66 @@ class AddEventFragment : Fragment() {
             val selectedEventType = autocompleteAdapter.getItem(position)
             binding.eventTypeAutoComplete.setText(selectedEventType.name)
         }
+    }
+
+    private fun setupDateTimeDisplay() {
+        // Initialize with current date/time
+        updateDateTimeDisplay()
+        
+        // Handle click to show date/time picker
+        binding.dateTimeDisplay.setOnClickListener {
+            showDateTimePicker()
+        }
+    }
+
+    private fun updateDateTimeDisplay() {
+        binding.dateTimeDisplay.text = dateTimeFormat.format(selectedDateTime.time)
+    }
+
+    private fun showDateTimePicker() {
+        val currentDate = selectedDateTime
+        
+        // Show date picker first
+        val datePickerDialog = DatePickerDialog(
+            requireContext(),
+            { _, year, month, dayOfMonth ->
+                // Update selected date
+                selectedDateTime.set(Calendar.YEAR, year)
+                selectedDateTime.set(Calendar.MONTH, month)
+                selectedDateTime.set(Calendar.DAY_OF_MONTH, dayOfMonth)
+                
+                // Now show time picker
+                showTimePicker()
+            },
+            currentDate.get(Calendar.YEAR),
+            currentDate.get(Calendar.MONTH),
+            currentDate.get(Calendar.DAY_OF_MONTH)
+        )
+        
+        datePickerDialog.show()
+    }
+    
+    private fun showTimePicker() {
+        val currentTime = selectedDateTime
+        
+        val timePickerDialog = TimePickerDialog(
+            requireContext(),
+            { _, hourOfDay, minute ->
+                // Update selected time
+                selectedDateTime.set(Calendar.HOUR_OF_DAY, hourOfDay)
+                selectedDateTime.set(Calendar.MINUTE, minute)
+                selectedDateTime.set(Calendar.SECOND, 0)
+                selectedDateTime.set(Calendar.MILLISECOND, 0)
+                
+                // Update display
+                updateDateTimeDisplay()
+            },
+            currentTime.get(Calendar.HOUR_OF_DAY),
+            currentTime.get(Calendar.MINUTE),
+            false // Use 12-hour format
+        )
+        
+        timePickerDialog.show()
     }
 
     private fun setupClickListeners() {
@@ -137,9 +204,9 @@ class AddEventFragment : Fragment() {
         lifecycleScope.launch {
             try {
                 if (isInstant) {
-                    viewModel.recordInstantEvent(eventTypeName)
+                    viewModel.recordInstantEvent(eventTypeName, selectedDateTime.timeInMillis)
                 } else {
-                    viewModel.startTimedEvent(eventTypeName)
+                    viewModel.startTimedEvent(eventTypeName, selectedDateTime.timeInMillis)
                 }
             } catch (e: Exception) {
                 Toast.makeText(requireContext(), "Error: ${e.message}", Toast.LENGTH_LONG).show()
