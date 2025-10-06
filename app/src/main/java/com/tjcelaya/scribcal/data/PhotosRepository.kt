@@ -477,25 +477,33 @@ class PhotosRepository(
             
             progressCallback?.invoke(70)
             
-            // Step 2: Create media item in Google Photos
-            val mediaItemId = createMediaItem(uploadToken, fileName, token)
-            if (mediaItemId == null) {
+            // Step 2: Create media item in Google Photos and get response with URLs
+            val createResult = createMediaItemWithResponse(uploadToken, fileName, token)
+            if (createResult == null) {
                 Log.e(TAG, "Failed to create media item")
                 return@withContext null
             }
             
+            val (mediaItemId, responseJson) = createResult
             progressCallback?.invoke(85)
             
-            // Step 3: Add to ScribCal album
+            // Step 3: Add to ScribCal album (required for ScribCal photos)
+            val albumId = scribcalAlbumId
+            if (albumId == null) {
+                Log.e(TAG, "No ScribCal album configured - this is required for photo uploads. User should configure an album in Settings first.")
+                return@withContext null
+            }
+            
             val success = addToScribCalAlbum(mediaItemId, token)
             if (!success) {
-                Log.w(TAG, "Failed to add to ScribCal album, but photo was uploaded")
+                Log.e(TAG, "Failed to add photo to ScribCal album - upload failed")
+                return@withContext null
             }
             
             progressCallback?.invoke(95)
             
-            // Return a Google Photos URL
-            val photoUrl = "https://photos.google.com/lr/photo/$mediaItemId"
+            // Try to get the shareable URL directly from the create response to avoid additional API calls
+            val photoUrl = extractPhotoUrlFromCreateResponse(responseJson) ?: getMediaItemShareableUrl(mediaItemId, token)
             Log.d(TAG, "Successfully uploaded photo to Google Photos: $photoUrl")
             
             photoUrl
@@ -563,7 +571,95 @@ class PhotosRepository(
     }
     
     /**
-     * Create media item from upload token
+     * Create media item from upload token and return both the ID and response JSON
+     */
+    private suspend fun createMediaItemWithResponse(
+        uploadToken: String, 
+        fileName: String, 
+        accessToken: String
+    ): Pair<String, JSONObject>? = withContext(Dispatchers.IO) {
+        try {
+            val url = URL("https://photoslibrary.googleapis.com/v1/mediaItems:batchCreate")
+            val connection = url.openConnection() as HttpURLConnection
+            
+            connection.requestMethod = "POST"
+            connection.setRequestProperty("Authorization", "Bearer $accessToken")
+            connection.setRequestProperty("Content-Type", "application/json")
+            connection.doOutput = true
+            
+            // Create request JSON
+            val requestJson = JSONObject().apply {
+                put("newMediaItems", JSONArray().apply {
+                    put(JSONObject().apply {
+                        put("description", "ScribCal event photo")
+                        put("simpleMediaItem", JSONObject().apply {
+                            put("uploadToken", uploadToken)
+                            put("fileName", fileName)
+                        })
+                    })
+                })
+            }
+            
+            connection.outputStream.use { outputStream ->
+                outputStream.write(requestJson.toString().toByteArray())
+            }
+            
+            val responseCode = connection.responseCode
+            Log.d(TAG, "Create media item response code: $responseCode")
+            
+            if (responseCode == 200) {
+                val response = connection.inputStream.bufferedReader().use { it.readText() }
+                Log.d(TAG, "Create media item response: $response")
+                
+                val responseJson = JSONObject(response)
+                val results = responseJson.getJSONArray("newMediaItemResults")
+                
+                if (results.length() > 0) {
+                    val result = results.getJSONObject(0)
+                    Log.d(TAG, "First result: $result")
+                    
+                    // Check if this result has a mediaItem (success case)
+                    if (result.has("mediaItem")) {
+                        val mediaItem = result.getJSONObject("mediaItem")
+                        val mediaItemId = mediaItem.getString("id")
+                        Log.d(TAG, "Media item created successfully: $mediaItemId")
+                        return@withContext Pair(mediaItemId, result)
+                    }
+                    
+                    // Check if this result has a status (error case)
+                    if (result.has("status")) {
+                        val status = result.getJSONObject("status")
+                        Log.d(TAG, "Status object: $status")
+                        
+                        val code = status.optInt("code", -1)
+                        val message = status.optString("message", "Unknown error")
+                        
+                        if (code == 0) {
+                            // Success but no mediaItem? This shouldn't happen
+                            Log.e(TAG, "Success status but no mediaItem in result")
+                        } else {
+                            Log.e(TAG, "Media item creation failed with code $code: $message")
+                        }
+                    } else {
+                        Log.e(TAG, "Result has neither mediaItem nor status: $result")
+                    }
+                } else {
+                    Log.e(TAG, "No results in response")
+                }
+            } else {
+                val errorStream = connection.errorStream?.bufferedReader()?.use { it.readText() }
+                Log.e(TAG, "Create media item failed with code $responseCode: $errorStream")
+            }
+            
+            null
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to create media item", e)
+            null
+        }
+    }
+    
+    /**
+     * Create media item from upload token (legacy method - returns only ID)
      */
     private suspend fun createMediaItem(
         uploadToken: String, 
@@ -647,6 +743,100 @@ class PhotosRepository(
         } catch (e: Exception) {
             Log.e(TAG, "Failed to create media item", e)
             null
+        }
+    }
+    
+    /**
+     * Extract photo URL directly from the create media item response to avoid additional API calls
+     */
+    private fun extractPhotoUrlFromCreateResponse(createResultJson: JSONObject): String? {
+        return try {
+            if (!createResultJson.has("mediaItem")) {
+                Log.d(TAG, "No mediaItem in create result")
+                return null
+            }
+            
+            val mediaItem = createResultJson.getJSONObject("mediaItem")
+            Log.d(TAG, "MediaItem from create response: $mediaItem")
+            
+            // Priority 1: baseUrl - provides direct access to the image file
+            // Note: baseUrl expires after about 60 minutes but works immediately
+            if (mediaItem.has("baseUrl")) {
+                val baseUrl = mediaItem.getString("baseUrl")
+                Log.d(TAG, "Using baseUrl from create response for direct image access: $baseUrl")
+                // Add parameters for better web viewing
+                return "$baseUrl=w2048-h2048"
+            }
+            
+            // Priority 2: productUrl - links to Google Photos web interface
+            if (mediaItem.has("productUrl")) {
+                val productUrl = mediaItem.getString("productUrl")
+                Log.d(TAG, "Using productUrl from create response for Google Photos link: $productUrl")
+                return productUrl
+            }
+            
+            Log.w(TAG, "No baseUrl or productUrl found in create response mediaItem")
+            null
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to extract photo URL from create response", e)
+            null
+        }
+    }
+    
+    /**
+     * Get the shareable URL for a media item
+     * This prioritizes baseUrl for direct access, falling back to productUrl for sharing
+     */
+    private suspend fun getMediaItemShareableUrl(mediaItemId: String, accessToken: String): String? = withContext(Dispatchers.IO) {
+        try {
+            // Get the media item details to access baseUrl and productUrl
+            val url = URL("https://photoslibrary.googleapis.com/v1/mediaItems/$mediaItemId")
+            val connection = url.openConnection() as HttpURLConnection
+            
+            connection.requestMethod = "GET"
+            connection.setRequestProperty("Authorization", "Bearer $accessToken")
+            connection.setRequestProperty("Content-Type", "application/json")
+            
+            val responseCode = connection.responseCode
+            if (responseCode == 200) {
+                val response = connection.inputStream.bufferedReader().use { it.readText() }
+                val responseJson = JSONObject(response)
+                
+                Log.d(TAG, "Media item response: $response")
+                
+                // Priority 1: baseUrl - provides direct access to the image file
+                // Note: baseUrl expires after about 60 minutes but works immediately
+                if (responseJson.has("baseUrl")) {
+                    val baseUrl = responseJson.getString("baseUrl")
+                    Log.d(TAG, "Using baseUrl for direct image access: $baseUrl")
+                    // Add parameters for better web viewing
+                    return@withContext "$baseUrl=w2048-h2048"
+                }
+                
+                // Priority 2: productUrl - links to Google Photos web interface
+                if (responseJson.has("productUrl")) {
+                    val productUrl = responseJson.getString("productUrl")
+                    Log.d(TAG, "Using productUrl for Google Photos link: $productUrl")
+                    return@withContext productUrl
+                }
+                
+                Log.w(TAG, "No baseUrl or productUrl found in media item response")
+            } else {
+                val errorStream = connection.errorStream?.bufferedReader()?.use { it.readText() }
+                Log.e(TAG, "Failed to get media item details with code $responseCode: $errorStream")
+            }
+            
+            // Fallback: Return a simple Google Photos link (may not work without authentication)
+            val fallbackUrl = "https://photos.google.com/photo/$mediaItemId"
+            Log.w(TAG, "Using fallback URL: $fallbackUrl")
+            return@withContext fallbackUrl
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to get shareable URL for media item: $mediaItemId", e)
+            // Final fallback
+            val fallbackUrl = "https://photos.google.com/photo/$mediaItemId"
+            Log.w(TAG, "Exception occurred, using fallback URL: $fallbackUrl")
+            return@withContext fallbackUrl
         }
     }
     

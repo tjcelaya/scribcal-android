@@ -192,14 +192,14 @@ class TrackingFragment : Fragment() {
                 if (eventTypesWithCounts.isEmpty()) View.VISIBLE else View.GONE
         }
 
-        // Observe ongoing events with types for ongoing adapter
-        viewModel.ongoingEventsWithTypes.observe(viewLifecycleOwner) { ongoingEventsWithTypes ->
-            ongoingEventsAdapter.submitList(ongoingEventsWithTypes)
+        // Observe displayable ongoing items (both events and photo uploads)
+        viewModel.displayableOngoingItems.observe(viewLifecycleOwner) { displayableItems ->
+            ongoingEventsAdapter.submitList(displayableItems)
             binding.ongoingEventsCard.visibility = 
-                if (ongoingEventsWithTypes.isNotEmpty()) View.VISIBLE else View.GONE
+                if (displayableItems.isNotEmpty()) View.VISIBLE else View.GONE
             
-            // Start or stop timer based on whether there are ongoing events
-            if (ongoingEventsWithTypes.isNotEmpty()) {
+            // Start or stop timer based on whether there are ongoing items
+            if (displayableItems.isNotEmpty()) {
                 startTimerUpdates()
             } else {
                 stopTimerUpdates()

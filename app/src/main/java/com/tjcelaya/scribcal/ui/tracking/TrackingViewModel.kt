@@ -83,6 +83,68 @@ class TrackingViewModel(
             update()
         }
     }
+    
+    // Combined LiveData for both ongoing events and photo uploads
+    val displayableOngoingItems: LiveData<List<DisplayableOngoingItem>> = MediatorLiveData<List<DisplayableOngoingItem>>().apply {
+        var eventTypesList: List<EventType> = emptyList()
+        var ongoingEventsList: List<OngoingEvent> = emptyList()
+        var photoUploadsList: List<PhotoUpload> = emptyList()
+        
+        fun update() {
+            val eventTypesMap = eventTypesList.associateBy { it.id }
+            val items = mutableListOf<DisplayableOngoingItem>()
+            
+            // Add regular ongoing events
+            ongoingEventsList.forEach { ongoingEvent ->
+                eventTypesMap[ongoingEvent.eventTypeId]?.let { eventType ->
+                    items.add(
+                        DisplayableOngoingItem(
+                            id = "event_${ongoingEvent.id}",
+                            eventType = eventType,
+                            startTime = ongoingEvent.startTime,
+                            notes = ongoingEvent.notes,
+                            type = DisplayableOngoingItem.Type.REGULAR_EVENT,
+                            ongoingEvent = ongoingEvent
+                        )
+                    )
+                }
+            }
+            
+            // Add photo uploads in progress
+            photoUploadsList.forEach { photoUpload ->
+                eventTypesMap[photoUpload.eventTypeId]?.let { eventType ->
+                    items.add(
+                        DisplayableOngoingItem(
+                            id = "upload_${photoUpload.id}",
+                            eventType = eventType,
+                            startTime = photoUpload.startTime,
+                            notes = photoUpload.notes,
+                            type = DisplayableOngoingItem.Type.PHOTO_UPLOAD,
+                            photoUpload = photoUpload
+                        )
+                    )
+                }
+            }
+            
+            // Sort by start time (newest first)
+            value = items.sortedByDescending { it.startTime }
+        }
+        
+        addSource(eventTypes) { types ->
+            eventTypesList = types
+            update()
+        }
+        
+        addSource(ongoingEvents) { events ->
+            ongoingEventsList = events
+            update()
+        }
+        
+        addSource(eventRepository.photoUploads) { uploads ->
+            photoUploadsList = uploads
+            update()
+        }
+    }
 
     fun onCalendarPermissionsGranted() {
         updateCalendarStatus()

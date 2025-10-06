@@ -136,13 +136,17 @@ class MainActivity : AppCompatActivity() {
             if (isPhotosEnabled && !isPhotosHealthy) enabledButNotHealthy.add("Google Photos")
             
             val errorMsg = if (enabledButNotHealthy.isNotEmpty()) {
-                "${enabledButNotHealthy.joinToString(" and ")} not set up properly. Please test connections in Settings."
+                if (enabledButNotHealthy.contains("Google Photos")) {
+                    "Google Photos needs album setup. Go to Settings → Google Photos → Connect to select/create an album."
+                } else {
+                    "${enabledButNotHealthy.joinToString(" and ")} not set up properly. Please test connections in Settings."
+                }
             } else {
                 "No photo storage service selected. Please choose at least one in Settings."
             }
             
             Log.w("MainActivity", "No storage service available: $errorMsg")
-            showErrorToast(errorMsg)
+            showDetailedErrorDialog(enabledButNotHealthy, isDriveEnabled, isPhotosEnabled)
             finish()
         }
     }
@@ -175,6 +179,63 @@ class MainActivity : AppCompatActivity() {
     private fun showErrorToast(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_LONG).show()
         Log.e("MainActivity", "Error: $message")
+    }
+    
+    private fun showDetailedErrorDialog(enabledButNotHealthy: List<String>, isDriveEnabled: Boolean, isPhotosEnabled: Boolean) {
+        val title = "Photo Sharing Setup Required"
+        val message = buildDetailedErrorMessage(enabledButNotHealthy, isDriveEnabled, isPhotosEnabled)
+        
+        AlertDialog.Builder(this)
+            .setTitle(title)
+            .setMessage(message)
+            .setPositiveButton("Go to Settings") { _, _ ->
+                // Navigate to settings when user clicks the button
+                try {
+                    val navController = findNavController(R.id.nav_host_fragment_content_main)
+                    navController.navigate(R.id.settingsFragment)
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "Error navigating to settings", e)
+                    // Fallback: just finish the activity
+                    finish()
+                }
+            }
+            .setNegativeButton("Cancel") { _, _ ->
+                finish()
+            }
+            .setCancelable(false)
+            .show()
+    }
+    
+    private fun buildDetailedErrorMessage(enabledButNotHealthy: List<String>, isDriveEnabled: Boolean, isPhotosEnabled: Boolean): String {
+        val sb = StringBuilder()
+        
+        sb.append("To share photos to ScribCal, you need at least one photo storage service properly configured.\n\n")
+        
+        if (enabledButNotHealthy.isNotEmpty()) {
+            sb.append("Issues found:\n")
+            
+            if (enabledButNotHealthy.contains("Google Photos")) {
+                sb.append("\u2022 Google Photos: No album selected for storing ScribCal photos\n")
+                sb.append("  → Go to Settings → Google Photos → Enter album name → Click Connect\n")
+                sb.append("  → Choose to create the album when prompted\n\n")
+            }
+            
+            if (enabledButNotHealthy.contains("Google Drive")) {
+                sb.append("\u2022 Google Drive: Connection not properly established\n")
+                sb.append("  → Go to Settings → Google Drive → Click Connect\n")
+                sb.append("  → Grant necessary permissions when prompted\n\n")
+            }
+        } else {
+            sb.append("No photo storage services are currently enabled.\n\n")
+            sb.append("Available options:\n")
+            sb.append("\u2022 Google Photos: Store photos in a Google Photos album\n")
+            sb.append("\u2022 Google Drive: Store photos in your Google Drive\n\n")
+            sb.append("Go to Settings to enable and configure at least one option.\n")
+        }
+        
+        sb.append("After setup is complete, try sharing the image again.")
+        
+        return sb.toString()
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {

@@ -12,7 +12,8 @@
 /captures
 .externalNativeBuild
 .cxx
-local.properties
+.kotlin
 
+local.properties
 .env
 *client_secret_*.json*

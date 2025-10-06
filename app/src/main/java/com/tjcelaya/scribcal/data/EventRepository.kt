@@ -4,9 +4,11 @@ import android.accounts.Account
 import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MediatorLiveData
+import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.asLiveData
 import androidx.lifecycle.liveData
 import com.tjcelaya.scribcal.data.database.*
+import com.tjcelaya.scribcal.ui.tracking.PhotoUpload
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -16,6 +18,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 
 class EventRepository(
     private val database: ScribCalDatabase,
@@ -30,6 +33,46 @@ class EventRepository(
     
     // Flag to ensure default event types are only created once per app session
     private var defaultEventTypesEnsured = false
+    
+    // Photo upload tracking
+    private val activeUploads = ConcurrentHashMap<String, PhotoUpload>()
+    private val _photoUploads = MutableLiveData<List<PhotoUpload>>(emptyList())
+    val photoUploads: LiveData<List<PhotoUpload>> = _photoUploads
+    
+    // Photo upload tracking methods for UI display
+    private fun startPhotoUploadTracking(eventTypeId: Long, fileName: String): String {
+        val uploadId = UUID.randomUUID().toString()
+        val photoUpload = PhotoUpload(
+            id = uploadId,
+            eventTypeId = eventTypeId,
+            fileName = fileName,
+            startTime = System.currentTimeMillis(),
+            progress = 0,
+            status = "Preparing upload..."
+        )
+        
+        activeUploads[uploadId] = photoUpload
+        updatePhotoUploadsLiveData()
+        
+        return uploadId
+    }
+    
+    private fun updatePhotoUploadProgressTracking(uploadId: String, progress: Int, status: String) {
+        activeUploads[uploadId]?.let { upload ->
+            val updatedUpload = upload.copy(progress = progress, status = status)
+            activeUploads[uploadId] = updatedUpload
+            updatePhotoUploadsLiveData()
+        }
+    }
+    
+    private fun completePhotoUploadTracking(uploadId: String) {
+        activeUploads.remove(uploadId)
+        updatePhotoUploadsLiveData()
+    }
+    
+    private fun updatePhotoUploadsLiveData() {
+        _photoUploads.postValue(activeUploads.values.toList())
+    }
     
     // Event Type operations
     fun getAllEventTypes(): LiveData<List<EventType>> = eventTypeDao.getAllEventTypes()
@@ -354,10 +397,15 @@ class EventRepository(
             
             // Extract filename for progress tracking
             val fileName = File(localPhotoPath).name
+            var uploadId: String? = null
             
             // Start progress tracking if eventId is provided
             if (eventId != null) {
-                startPhotoUpload(eventId, fileName)
+                // We need to get the eventTypeId from the eventId
+                val event = eventDao.getEventById(eventId)
+                val eventTypeIdForUpload = event?.eventTypeId ?: 0L
+                uploadId = startPhotoUploadTracking(eventTypeIdForUpload, fileName)
+                startPhotoUpload(eventId, fileName) // For database tracking
                 markPhotoUploadStarted(eventId)
             }
             
@@ -365,10 +413,12 @@ class EventRepository(
             
             // Upload to Google Drive if enabled
             if (isDriveEnabled) {
+                uploadId?.let { updatePhotoUploadProgressTracking(it, 10, "Uploading to Google Drive...") }
                 Log.d("EventRepository", "Uploading photo to Google Drive: $localPhotoPath")
                 val driveLink = uploadPhotoToDrive(localPhotoPath, eventId)
                 if (driveLink != null) {
                     results.add(PhotoUploadResult(service = "Google Drive", link = driveLink))
+                    uploadId?.let { updatePhotoUploadProgressTracking(it, 50, "Drive upload complete") }
                     Log.d("EventRepository", "Successfully uploaded to Google Drive: $driveLink")
                 } else {
                     Log.w("EventRepository", "Failed to upload photo to Google Drive")
@@ -377,10 +427,13 @@ class EventRepository(
             
             // Upload to Google Photos if enabled
             if (isPhotosEnabled) {
+                val baseProgress = if (isDriveEnabled) 50 else 10
+                uploadId?.let { updatePhotoUploadProgressTracking(it, baseProgress + 10, "Uploading to Google Photos...") }
                 Log.d("EventRepository", "Uploading photo to Google Photos: $localPhotoPath")
                 val photosLink = uploadPhotoToPhotos(localPhotoPath, eventId)
                 if (photosLink != null) {
                     results.add(PhotoUploadResult(service = "Google Photos", link = photosLink))
+                    uploadId?.let { updatePhotoUploadProgressTracking(it, baseProgress + 40, "Photos upload complete") }
                     Log.d("EventRepository", "Successfully uploaded to Google Photos: $photosLink")
                 } else {
                     Log.w("EventRepository", "Failed to upload photo to Google Photos")
@@ -407,6 +460,10 @@ class EventRepository(
             // Mark as completed or failed based on result
             if (eventId != null) {
                 if (combinedResult != null) {
+                    uploadId?.let { 
+                        updatePhotoUploadProgressTracking(it, 100, "Upload complete!")
+                        completePhotoUploadTracking(it)
+                    }
                     markPhotoUploadCompleted(eventId, combinedResult)
                     Log.d("EventRepository", "Photo upload completed with ${results.size} successful uploads")
                 } else {
@@ -426,6 +483,7 @@ class EventRepository(
                         isPhotosEnabled -> "Google Photos upload failed. Please check connection in Settings."
                         else -> "No photo storage configured"
                     }
+                    uploadId?.let { completePhotoUploadTracking(it) }
                     markPhotoUploadFailed(eventId, errorMsg)
                 }
             }

@@ -104,9 +104,42 @@ data class OngoingEventWithType(
     val eventType: EventType
 )
 
+/**
+ * Represents a photo upload in progress
+ */
+data class PhotoUpload(
+    val id: String, // Unique identifier for this upload
+    val eventTypeId: Long,
+    val fileName: String,
+    val startTime: Long,
+    val progress: Int, // 0-100
+    val status: String, // "Uploading to Google Drive", "Uploading to Google Photos", etc.
+    val notes: String? = null
+)
+
+/**
+ * Combined type for displaying both real ongoing events and photo uploads
+ */
+data class DisplayableOngoingItem(
+    val id: String,
+    val eventType: EventType,
+    val startTime: Long,
+    val notes: String?,
+    val type: Type,
+    // For regular ongoing events
+    val ongoingEvent: OngoingEvent? = null,
+    // For photo uploads
+    val photoUpload: PhotoUpload? = null
+) {
+    enum class Type {
+        REGULAR_EVENT,
+        PHOTO_UPLOAD
+    }
+}
+
 class OngoingEventsAdapter(
     private val onStopEvent: (OngoingEvent) -> Unit
-) : ListAdapter<OngoingEventWithType, OngoingEventsAdapter.ViewHolder>(OngoingEventWithTypeDiffCallback()) {
+) : ListAdapter<DisplayableOngoingItem, OngoingEventsAdapter.ViewHolder>(DisplayableOngoingItemDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = LayoutInflater.from(parent.context)
@@ -129,11 +162,21 @@ class OngoingEventsAdapter(
         private val startedAtText: TextView = itemView.findViewById(R.id.startedAtText)
         private val stopEventButton: MaterialButton = itemView.findViewById(R.id.stopEventButton)
 
-        fun bind(ongoingEventWithType: OngoingEventWithType) {
-            val ongoingEvent = ongoingEventWithType.ongoingEvent
-            val eventType = ongoingEventWithType.eventType
+        fun bind(item: DisplayableOngoingItem) {
+            eventTypeName.text = item.eventType.name
             
-            eventTypeName.text = eventType.name
+            when (item.type) {
+                DisplayableOngoingItem.Type.REGULAR_EVENT -> {
+                    bindRegularEvent(item)
+                }
+                DisplayableOngoingItem.Type.PHOTO_UPLOAD -> {
+                    bindPhotoUpload(item)
+                }
+            }
+        }
+        
+        private fun bindRegularEvent(item: DisplayableOngoingItem) {
+            val ongoingEvent = item.ongoingEvent!!
             
             // Format started time
             val startTime = Date(ongoingEvent.startTime)
@@ -143,10 +186,29 @@ class OngoingEventsAdapter(
             // Calculate and display elapsed time
             updateElapsedTime(ongoingEvent.startTime)
             
-            // Set click listener
+            // Enable stop button for regular events
+            stopEventButton.isEnabled = true
+            stopEventButton.text = "Stop"
             stopEventButton.setOnClickListener {
                 onStopEvent(ongoingEvent)
             }
+        }
+        
+        private fun bindPhotoUpload(item: DisplayableOngoingItem) {
+            val photoUpload = item.photoUpload!!
+            
+            // Format started time
+            val startTime = Date(photoUpload.startTime)
+            val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+            startedAtText.text = "Started at ${timeFormat.format(startTime)}"
+            
+            // Show upload progress instead of elapsed time
+            elapsedTimeText.text = "${photoUpload.status} (${photoUpload.progress}%)"
+            
+            // Disable stop button for photo uploads (they can't be manually stopped)
+            stopEventButton.isEnabled = false
+            stopEventButton.text = "Uploading..."
+            stopEventButton.setOnClickListener(null)
         }
         
         private fun updateElapsedTime(startTime: Long) {
@@ -160,6 +222,16 @@ class OngoingEventsAdapter(
             
             elapsedTimeText.text = String.format("%02d:%02d:%02d", hours, minutes, seconds)
         }
+    }
+}
+
+class DisplayableOngoingItemDiffCallback : DiffUtil.ItemCallback<DisplayableOngoingItem>() {
+    override fun areItemsTheSame(oldItem: DisplayableOngoingItem, newItem: DisplayableOngoingItem): Boolean {
+        return oldItem.id == newItem.id && oldItem.type == newItem.type
+    }
+
+    override fun areContentsTheSame(oldItem: DisplayableOngoingItem, newItem: DisplayableOngoingItem): Boolean {
+        return oldItem == newItem
     }
 }
 
