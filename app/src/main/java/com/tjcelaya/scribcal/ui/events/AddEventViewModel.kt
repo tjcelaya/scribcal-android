@@ -43,11 +43,11 @@ class AddEventViewModel(
                     // Don't fail the whole operation if calendar sync fails
                 }
                 
-                _message.value = "Instant event recorded successfully"
+                _message.value = "SUCCESS_INSTANT_EVENT"
                 _navigateBack.value = true
             } catch (e: Exception) {
                 Log.e("AddEventViewModel", "Error recording instant event", e)
-                _message.value = "Error recording event: ${e.message}"
+                _message.value = "ERROR_RECORDING_EVENT:${e.message}"
             }
         }
     }
@@ -60,16 +60,16 @@ class AddEventViewModel(
                 // Check if there's already an ongoing event of this type
                 val existingOngoing = eventRepository.getOngoingEventCountForType(eventTypeId)
                 if (existingOngoing > 0) {
-                    _message.value = "There's already an ongoing event of this type. Please stop it first."
+                    _message.value = "ERROR_ONGOING_EVENT_EXISTS"
                     return@launch
                 }
                 
                 eventRepository.startTimedEvent(eventTypeId, timestamp = customTimestamp)
-                _message.value = "Timed event started successfully"
+                _message.value = "SUCCESS_TIMED_EVENT"
                 _navigateBack.value = true
             } catch (e: Exception) {
                 Log.e("AddEventViewModel", "Error starting timed event", e)
-                _message.value = "Error starting event: ${e.message}"
+                _message.value = "ERROR_STARTING_EVENT:${e.message}"
             }
         }
     }

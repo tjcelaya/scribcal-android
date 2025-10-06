@@ -175,7 +175,21 @@ class AddEventFragment : Fragment() {
         // Observe messages
         viewModel.message.observe(viewLifecycleOwner) { message ->
             if (message != null) {
-                Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
+                val displayMessage = when {
+                    message == "SUCCESS_INSTANT_EVENT" -> getString(R.string.instant_event_recorded)
+                    message == "SUCCESS_TIMED_EVENT" -> getString(R.string.timed_event_started)
+                    message == "ERROR_ONGOING_EVENT_EXISTS" -> getString(R.string.ongoing_event_exists)
+                    message.startsWith("ERROR_RECORDING_EVENT:") -> {
+                        val errorMsg = message.substringAfter(":")
+                        getString(R.string.error_recording_event, errorMsg)
+                    }
+                    message.startsWith("ERROR_STARTING_EVENT:") -> {
+                        val errorMsg = message.substringAfter(":")
+                        getString(R.string.error_starting_event, errorMsg)
+                    }
+                    else -> message // Fallback to original message
+                }
+                Toast.makeText(requireContext(), displayMessage, Toast.LENGTH_LONG).show()
                 viewModel.clearMessage()
             }
         }
@@ -194,7 +208,7 @@ class AddEventFragment : Fragment() {
         val eventTypeName = binding.eventTypeAutoComplete.text.toString().trim()
         
         if (eventTypeName.isEmpty()) {
-            Toast.makeText(requireContext(), "Please enter an event type", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), getString(R.string.please_enter_event_type), Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -209,7 +223,7 @@ class AddEventFragment : Fragment() {
                     viewModel.startTimedEvent(eventTypeName, selectedDateTime.timeInMillis)
                 }
             } catch (e: Exception) {
-                Toast.makeText(requireContext(), "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(requireContext(), getString(R.string.error_format, e.message), Toast.LENGTH_LONG).show()
                 setLoadingState(false)
             }
         }
@@ -221,11 +235,11 @@ class AddEventFragment : Fragment() {
         binding.eventTypeAutoComplete.isEnabled = !loading
         
         if (loading) {
-            binding.recordInstantEventButton.text = "Recording..."
-            binding.startTimedEventButton.text = "Starting..."
+            binding.recordInstantEventButton.text = getString(R.string.recording)
+            binding.startTimedEventButton.text = getString(R.string.starting)
         } else {
-            binding.recordInstantEventButton.text = "Record Instant Event"
-            binding.startTimedEventButton.text = "Start Timed Event"
+            binding.recordInstantEventButton.text = getString(R.string.save_right_now)
+            binding.startTimedEventButton.text = getString(R.string.start_timed_event)
         }
     }
 

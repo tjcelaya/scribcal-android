@@ -11,7 +11,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="32dp"
-        android:text="Record New Event"
+        android:text="@string/record_new_event"
         android:textAppearance="?attr/textAppearanceHeadline5"
         android:textAlignment="center" />
 
@@ -25,7 +25,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Event Type"
+            android:text="@string/event_type"
             android:textAppearance="?attr/textAppearanceBodyMedium"
             android:textColor="?attr/colorOnSurfaceVariant"
             android:layout_marginBottom="8dp" />
@@ -36,7 +36,7 @@
             android:layout_height="wrap_content"
             android:inputType="text"
             android:completionThreshold="1"
-            android:hint="Type or select an event type"
+            android:hint="@string/event_type_hint"
             android:background="@drawable/text_input_underline_selector"
             android:paddingTop="16dp"
             android:paddingBottom="16dp"
@@ -47,7 +47,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Type or select an event type"
+            android:text="@string/event_type_helper"
             android:textAppearance="?attr/textAppearanceCaption"
             android:textColor="?attr/colorOnSurfaceVariant"
             android:layout_marginTop="4dp" />
@@ -64,7 +64,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Date &amp; Time"
+            android:text="@string/date_time"
             android:textAppearance="?attr/textAppearanceBodyMedium"
             android:textColor="?attr/colorOnSurfaceVariant"
             android:layout_marginBottom="8dp" />
@@ -88,7 +88,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Tap to select date and time for the event"
+            android:text="@string/date_time_helper"
             android:textAppearance="?attr/textAppearanceCaption"
             android:textColor="?attr/colorOnSurfaceVariant"
             android:layout_marginTop="4dp" />
@@ -107,7 +107,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
-            android:text="Save Right Now"
+            android:text="@string/save_right_now"
             android:textAppearance="?attr/textAppearanceButton"
             android:paddingVertical="16dp"
             app:icon="@drawable/ic_flash"
@@ -119,7 +119,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
-            android:text="Start Timed Event"
+            android:text="@string/start_timed_event"
             android:textAppearance="?attr/textAppearanceButton"
             android:paddingVertical="16dp"
             app:icon="@drawable/ic_play"
@@ -133,7 +133,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="24dp"
-        android:text="• Instant Event: Records a zero-duration event at the selected date/time\n• Timed Event: Starts a stopwatch at the selected date/time\n• New event types are automatically created when you enter them"
+        android:text="@string/add_event_help_text"
         android:textAppearance="?attr/textAppearanceCaption"
         android:textColor="?attr/colorOnSurfaceVariant"
         android:padding="16dp" />
@@ -149,7 +149,7 @@
         android:id="@+id/cancelButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Cancel"
+        android:text="@string/cancel"
         android:textAppearance="?attr/textAppearanceButton"
         android:paddingVertical="16dp"
         style="@style/Widget.Material3.Button.TextButton" />
