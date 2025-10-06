@@ -113,34 +113,35 @@ class MainActivity : AppCompatActivity() {
     private fun initializeStorageServiceForPhoto(photoPath: String) {
         val storagePreferences = app.storagePreferences
         
-        when {
-            storagePreferences.isGoogleDriveSelected() -> {
-                // Check if Drive is ready
-                if (app.driveRepository.isDriveReady()) {
-                    Log.d("MainActivity", "Google Drive ready, proceeding with photo")
-                    handleSharedPhotoWithMainFragment(photoPath)
-                } else {
-                    Log.w("MainActivity", "Google Drive not ready")
-                    showErrorToast("Google Drive is not set up. Please configure it in Settings.")
-                    finish()
-                }
+        val isDriveEnabled = storagePreferences.isGoogleDriveEnabled()
+        val isPhotosEnabled = storagePreferences.isGooglePhotosEnabled()
+        val isDriveReady = app.driveRepository.isDriveReady()
+        val isPhotosReady = app.photosRepository.isPhotosReady()
+        
+        // Check if at least one storage option is enabled and ready
+        val isStorageAvailable = (isDriveEnabled && isDriveReady) || (isPhotosEnabled && isPhotosReady)
+        
+        if (isStorageAvailable) {
+            val readyServices = mutableListOf<String>()
+            if (isDriveEnabled && isDriveReady) readyServices.add("Google Drive")
+            if (isPhotosEnabled && isPhotosReady) readyServices.add("Google Photos")
+            
+            Log.d("MainActivity", "Storage services ready: ${readyServices.joinToString(", ")}, proceeding with photo")
+            handleSharedPhotoWithMainFragment(photoPath)
+        } else {
+            val enabledButNotReady = mutableListOf<String>()
+            if (isDriveEnabled && !isDriveReady) enabledButNotReady.add("Google Drive")
+            if (isPhotosEnabled && !isPhotosReady) enabledButNotReady.add("Google Photos")
+            
+            val errorMsg = if (enabledButNotReady.isNotEmpty()) {
+                "${enabledButNotReady.joinToString(" and ")} not set up. Please configure in Settings."
+            } else {
+                "No photo storage service selected. Please choose at least one in Settings."
             }
-            storagePreferences.isGooglePhotosSelected() -> {
-                // Check if Photos is ready
-                if (app.photosRepository.isPhotosReady()) {
-                    Log.d("MainActivity", "Google Photos ready, proceeding with photo")
-                    handleSharedPhotoWithMainFragment(photoPath)
-                } else {
-                    Log.w("MainActivity", "Google Photos not ready")
-                    showErrorToast("Google Photos is not set up. Please configure it in Settings.")
-                    finish()
-                }
-            }
-            else -> {
-                Log.w("MainActivity", "No storage service selected")
-                showErrorToast("No photo storage service selected. Please choose one in Settings.")
-                finish()
-            }
+            
+            Log.w("MainActivity", "No storage service available: $errorMsg")
+            showErrorToast(errorMsg)
+            finish()
         }
     }
     

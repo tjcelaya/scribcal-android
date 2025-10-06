@@ -379,23 +379,19 @@ class TrackingFragment : Fragment() {
         val driveRepository = app.driveRepository
         val photosRepository = app.photosRepository
         
-        val selectedStorageType = storagePreferences.getPhotoStorageType()
+        val isDriveEnabled = storagePreferences.isGoogleDriveEnabled()
+        val isPhotosEnabled = storagePreferences.isGooglePhotosEnabled()
+        val isDriveReady = driveRepository.isDriveReady()
+        val isPhotosReady = photosRepository.isPhotosReady()
         
-        return when (selectedStorageType) {
-            StoragePreferences.STORAGE_TYPE_GOOGLE_DRIVE -> {
-                driveRepository.isDriveReady()
-            }
-            StoragePreferences.STORAGE_TYPE_GOOGLE_PHOTOS -> {
-                photosRepository.isPhotosReady()
-            }
-            else -> false // No storage type selected
-        }
+        // At least one storage option must be enabled and ready
+        return (isDriveEnabled && isDriveReady) || (isPhotosEnabled && isPhotosReady)
     }
     
     private fun showStorageConfigurationDialog() {
         AlertDialog.Builder(requireContext())
             .setTitle("Photo Storage Required")
-            .setMessage("Please set up photo storage first before taking or selecting photos.")
+            .setMessage("Please set up at least one photo storage option (Google Drive or Google Photos) before taking or selecting photos.")
             .setPositiveButton("Go to Settings") { _, _ ->
                 findNavController().navigate(R.id.settingsFragment)
             }

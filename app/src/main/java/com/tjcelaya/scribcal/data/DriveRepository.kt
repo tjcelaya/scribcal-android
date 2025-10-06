@@ -39,6 +39,19 @@ class DriveRepository(private val context: Context) {
             // Clear any previous consent exception
             lastConsentException = null
             
+            // First, check if we can get a valid OAuth token
+            val tokenResult = validateDriveToken(account)
+            if (!tokenResult.isValid) {
+                if (tokenResult.consentException != null) {
+                    Log.w(TAG, "Drive initialization requires user consent")
+                    lastConsentException = tokenResult.consentException
+                    return@withContext false
+                } else {
+                    Log.e(TAG, "Failed to validate Drive token")
+                    return@withContext false
+                }
+            }
+            
             val credential = GoogleAccountCredential.usingOAuth2(
                 context,
                 listOf(DriveScopes.DRIVE_FILE)
@@ -53,7 +66,7 @@ class DriveRepository(private val context: Context) {
                 .setApplicationName("ScribCal")
                 .build()
             
-            // Ensure ScribCal folder exists
+            // Now try to ensure ScribCal folder exists
             ensureScribCalFolderExists()
             
             Log.d(TAG, "Drive service initialized successfully")
@@ -172,23 +185,50 @@ class DriveRepository(private val context: Context) {
     }
 
     /**
-     * Check if we have permission to access Drive
+     * Validate that we can get a valid OAuth token for Drive access
      */
-    suspend fun checkDrivePermission(account: Account): Boolean = withContext(Dispatchers.IO) {
+    private suspend fun validateDriveToken(account: Account): DriveTokenResult = withContext(Dispatchers.IO) {
         try {
-            val tokenNotEmpty = GoogleAuthUtil.getToken(
+            val token = GoogleAuthUtil.getToken(
                 context,
                 account,
                 "oauth2:${DriveScopes.DRIVE_FILE}"
-            ) != ""
-
-            // If we can get a token, we have permission
-            Log.i(TAG, "Token fetched successfully")
-            tokenNotEmpty
+            )
+            
+            if (token.isNotEmpty()) {
+                Log.d(TAG, "Drive token validated successfully")
+                DriveTokenResult(isValid = true, token = token, consentException = null)
+            } else {
+                Log.w(TAG, "Drive token is empty")
+                DriveTokenResult(isValid = false, token = null, consentException = null)
+            }
+        } catch (e: UserRecoverableAuthException) {
+            Log.w(TAG, "Drive token validation requires user consent", e)
+            DriveTokenResult(isValid = false, token = null, consentException = e)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to check Drive permission", e)
-            false
+            Log.e(TAG, "Failed to validate Drive token", e)
+            DriveTokenResult(isValid = false, token = null, consentException = null)
         }
+    }
+    
+    /**
+     * Clear cached OAuth tokens for Drive access
+     */
+    suspend fun clearCachedTokens() = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Clearing cached Drive tokens")
+            GoogleAuthUtil.clearToken(context, "oauth2:${DriveScopes.DRIVE_FILE}")
+        } catch (e: Exception) {
+            Log.w(TAG, "Error clearing cached Drive tokens", e)
+        }
+    }
+    
+    /**
+     * Check if we have permission to access Drive
+     */
+    suspend fun checkDrivePermission(account: Account): Boolean = withContext(Dispatchers.IO) {
+        val result = validateDriveToken(account)
+        result.isValid
     }
     
     /**
@@ -334,6 +374,15 @@ class DriveRepository(private val context: Context) {
         }
     }
 }
+
+/**
+ * Data class to hold Drive token validation results
+ */
+data class DriveTokenResult(
+    val isValid: Boolean,
+    val token: String?,
+    val consentException: UserRecoverableAuthException?
+)
 
 /**
  * Data class to hold Drive connection test results

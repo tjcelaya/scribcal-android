@@ -139,6 +139,13 @@ class SettingsFragment : Fragment() {
                     val account = getGoogleAccountForServices()
                     if (account != null) {
                         Log.d("SettingsFragment", "Attempting to initialize Drive with account: ${account.name}")
+                        
+                        // Clear any cached tokens first to ensure fresh permissions
+                        driveRepository.clearCachedTokens()
+                        
+                        // Wait a moment for cleanup
+                        kotlinx.coroutines.delay(300)
+                        
                         val initSuccess = driveRepository.retryDriveInitialization(account)
                         if (initSuccess) {
                             Log.d("SettingsFragment", "Drive initialization successful")
@@ -341,17 +348,25 @@ class SettingsFragment : Fragment() {
     
     private suspend fun findOrCreateAlbumWithConfirmation(token: String, albumName: String): String? {
         return try {
-            // First, try to find an existing album with this name
-            Log.d("SettingsFragment", "Searching for existing album: $albumName")
-            val existingAlbumId = findAlbumByName(token, albumName)
+            // Only check if we already have this album stored in the database
+            Log.d("SettingsFragment", "Checking database for album: $albumName")
+            val storedAlbum = photosRepository.getSelectedAlbum()
             
-            if (existingAlbumId != null) {
-                Log.d("SettingsFragment", "Found existing album: $albumName")
-                return existingAlbumId
+            if (storedAlbum != null) {
+                Log.d("SettingsFragment", "Found stored album in database: ${storedAlbum.googlePhotosAlbumName} (${storedAlbum.googlePhotosAlbumId})")
+                if (storedAlbum.googlePhotosAlbumName.equals(albumName, ignoreCase = true)) {
+                    Log.d("SettingsFragment", "Album names match! Using stored album: $albumName (${storedAlbum.googlePhotosAlbumId})")
+                    return storedAlbum.googlePhotosAlbumId
+                } else {
+                    Log.d("SettingsFragment", "Album names don't match: stored='${storedAlbum.googlePhotosAlbumName}' vs requested='$albumName'")
+                }
+            } else {
+                Log.d("SettingsFragment", "No stored album found in database")
             }
             
-            // Album doesn't exist, ask user if they want to create it
-            Log.d("SettingsFragment", "Album not found, asking user for permission to create: $albumName")
+            // If not in database or different name, ask user to create new album
+            // Note: We don't try to search Google Photos because album listing API is unreliable
+            Log.d("SettingsFragment", "No matching album in database, asking user to create: $albumName")
             return askUserToCreateAlbum(token, albumName)
             
         } catch (e: Exception) {
@@ -360,19 +375,6 @@ class SettingsFragment : Fragment() {
         }
     }
     
-    private suspend fun findAlbumByName(token: String, albumName: String): String? {
-        return withContext(Dispatchers.IO) {
-            try {
-                // Search through user's albums to find one with matching name
-                val albums = photosRepository.listAlbums(token)
-                val matchingAlbum = albums.find { it.title.equals(albumName, ignoreCase = true) }
-                matchingAlbum?.id
-            } catch (e: Exception) {
-                Log.e("SettingsFragment", "Error searching for album", e)
-                null
-            }
-        }
-    }
     
     private suspend fun askUserToCreateAlbum(token: String, albumName: String): String? {
         return kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
@@ -492,28 +494,19 @@ class SettingsFragment : Fragment() {
     }
     
     private fun setupStorageSelection() {
-        // Load current selection
-        when {
-            storagePreferences.isGoogleDriveSelected() -> {
-                binding.radioGoogleDrive.isChecked = true
-            }
-            storagePreferences.isGooglePhotosSelected() -> {
-                binding.radioGooglePhotos.isChecked = true
-            }
+        // Load current selections from preferences
+        binding.checkboxGoogleDrive.isChecked = storagePreferences.isGoogleDriveEnabled()
+        binding.checkboxGooglePhotos.isChecked = storagePreferences.isGooglePhotosEnabled()
+        
+        // Set up checkbox listeners
+        binding.checkboxGoogleDrive.setOnCheckedChangeListener { _, isChecked ->
+            storagePreferences.setGoogleDriveEnabled(isChecked)
+            updateStorageSelectionStatus()
         }
         
-        // Set up radio group listener
-        binding.storageSelectionRadioGroup.setOnCheckedChangeListener { _, checkedId ->
-            when (checkedId) {
-                R.id.radio_google_drive -> {
-                    storagePreferences.setPhotoStorageType(StoragePreferences.STORAGE_TYPE_GOOGLE_DRIVE)
-                    updateStorageSelectionStatus()
-                }
-                R.id.radio_google_photos -> {
-                    storagePreferences.setPhotoStorageType(StoragePreferences.STORAGE_TYPE_GOOGLE_PHOTOS)
-                    updateStorageSelectionStatus()
-                }
-            }
+        binding.checkboxGooglePhotos.setOnCheckedChangeListener { _, isChecked ->
+            storagePreferences.setGooglePhotosEnabled(isChecked)
+            updateStorageSelectionStatus()
         }
         
         // Update initial state
@@ -524,40 +517,41 @@ class SettingsFragment : Fragment() {
         val isDriveReady = driveRepository.isDriveReady()
         val isPhotosReady = photosRepository.isPhotosReady()
         
-        // Enable/disable radio buttons based on connection status
-        binding.radioGoogleDrive.isEnabled = isDriveReady
-        binding.radioGooglePhotos.isEnabled = isPhotosReady
+        // Enable/disable checkboxes based on connection status
+        binding.checkboxGoogleDrive.isEnabled = isDriveReady
+        binding.checkboxGooglePhotos.isEnabled = isPhotosReady
+        
+        // Get current selections
+        val isDriveEnabled = storagePreferences.isGoogleDriveEnabled()
+        val isPhotosEnabled = storagePreferences.isGooglePhotosEnabled()
+        val hasAnySelection = isDriveEnabled || isPhotosEnabled
         
         // Update status text
         val statusText = when {
             !isDriveReady && !isPhotosReady -> "Test connections above to enable storage options"
-            isDriveReady && !isPhotosReady -> "Only Google Drive is available"
-            !isDriveReady && isPhotosReady -> "Only Google Photos is available"
-            else -> {
-                val selectedType = storagePreferences.getPhotoStorageType()
-                when (selectedType) {
-                    StoragePreferences.STORAGE_TYPE_GOOGLE_DRIVE -> "✓ Using Google Drive for photo storage"
-                    StoragePreferences.STORAGE_TYPE_GOOGLE_PHOTOS -> "✓ Using Google Photos for photo storage"
-                    else -> "Both services available - select your preferred storage option"
-                }
+            !hasAnySelection -> when {
+                isDriveReady && isPhotosReady -> "Both services available - select at least one storage option"
+                isDriveReady -> "Google Drive is available - enable it to save photos"
+                isPhotosReady -> "Google Photos is available - enable it to save photos"
+                else -> "No storage services available"
             }
+            isDriveEnabled && isPhotosEnabled -> "✓ Using both Google Drive and Google Photos for photo storage"
+            isDriveEnabled -> "✓ Using Google Drive for photo storage"
+            isPhotosEnabled -> "✓ Using Google Photos for photo storage"
+            else -> "Select at least one storage option"
         }
         
         binding.storageSelectionStatusText.text = statusText
         
-        // Clear selection if the selected service becomes unavailable
-        val currentSelection = storagePreferences.getPhotoStorageType()
-        if (currentSelection != null) {
-            val isCurrentSelectionValid = when (currentSelection) {
-                StoragePreferences.STORAGE_TYPE_GOOGLE_DRIVE -> isDriveReady
-                StoragePreferences.STORAGE_TYPE_GOOGLE_PHOTOS -> isPhotosReady
-                else -> false
-            }
-            
-            if (!isCurrentSelectionValid) {
-                storagePreferences.clearPhotoStorageType()
-                binding.storageSelectionRadioGroup.clearCheck()
-            }
+        // Auto-disable selections if services become unavailable
+        if (isDriveEnabled && !isDriveReady) {
+            storagePreferences.setGoogleDriveEnabled(false)
+            binding.checkboxGoogleDrive.isChecked = false
+        }
+        
+        if (isPhotosEnabled && !isPhotosReady) {
+            storagePreferences.setGooglePhotosEnabled(false)
+            binding.checkboxGooglePhotos.isChecked = false
         }
     }
     

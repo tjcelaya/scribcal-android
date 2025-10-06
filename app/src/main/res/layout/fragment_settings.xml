@@ -349,18 +349,17 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"
-                android:text="Choose where to store event photos:"
+                android:text="Choose where to store event photos (select one or both):"
                 android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
                 android:textColor="?android:attr/textColorSecondary" />
 
-            <RadioGroup
-                android:id="@+id/storage_selection_radio_group"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
 
-                <RadioButton
-                    android:id="@+id/radio_google_drive"
+                <CheckBox
+                    android:id="@+id/checkbox_google_drive"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="8dp"
@@ -368,8 +367,8 @@
                     android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
                     android:enabled="false" />
 
-                <RadioButton
-                    android:id="@+id/radio_google_photos"
+                <CheckBox
+                    android:id="@+id/checkbox_google_photos"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="8dp"
@@ -377,13 +376,13 @@
                     android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
                     android:enabled="false" />
 
-            </RadioGroup>
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/storage_selection_status_text"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Test connections above to enable options"
+                android:text="Test connections above to enable options. You must select at least one."
                 android:textAppearance="@style/TextAppearance.Material3.BodySmall"
                 android:textColor="?android:attr/textColorSecondary"
                 android:layout_marginTop="8dp" />

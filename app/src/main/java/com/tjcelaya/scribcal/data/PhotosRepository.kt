@@ -10,6 +10,8 @@ import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccoun
 import com.google.api.client.json.gson.GsonFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -30,6 +32,10 @@ class PhotosRepository(
         // Request full scope for both read and write permissions
         private const val PHOTOS_SCOPE = "https://www.googleapis.com/auth/photoslibrary"
         private const val PHOTOS_READONLY_SCOPE = "https://www.googleapis.com/auth/photoslibrary.readonly"
+        
+        // Album verification constants
+        private const val ALBUM_VERIFICATION_INTERVAL_MS = 30 * 60 * 1000L // 30 minutes
+        private const val ALBUM_VERIFICATION_GRACE_PERIOD_MS = 5 * 60 * 1000L // 5 minutes grace period
         
         // SharedPreferences keys
         private const val PREFS_NAME = "photos_repository_prefs"
@@ -181,9 +187,141 @@ class PhotosRepository(
     
     /**
      * Check if Photos service is ready for photo operations (initialized and tested successfully)
+     * This method will trigger background album verification if needed
      */
-    fun isPhotosReady(): Boolean = isPhotosInitialized() && scribcalAlbumReady && lastConnectionSuccessful
+    fun isPhotosReady(): Boolean {
+        val basicReadiness = isPhotosInitialized() && scribcalAlbumReady && lastConnectionSuccessful
+        
+        if (!basicReadiness) {
+            return false
+        }
+        
+        // Check if we need to verify the album still exists remotely
+        if (shouldVerifyAlbumRemotely()) {
+            Log.d(TAG, "Album verification needed, triggering background check")
+            // Trigger async verification without blocking
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    verifyAlbumStillExists()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Background album verification failed", e)
+                }
+            }
+            
+            // For now, return true if we're within the grace period
+            return isWithinGracePeriod()
+        }
+        
+        return true
+    }
 
+    /**
+     * Check if we should verify the album exists remotely based on time elapsed
+     */
+    private fun shouldVerifyAlbumRemotely(): Boolean {
+        val lastVerified = getLastAlbumVerificationTime()
+        if (lastVerified == 0L) {
+            Log.d(TAG, "No previous album verification recorded")
+            return true
+        }
+        
+        val timeSinceVerification = System.currentTimeMillis() - lastVerified
+        val needsVerification = timeSinceVerification > ALBUM_VERIFICATION_INTERVAL_MS
+        
+        Log.d(TAG, "Album last verified ${timeSinceVerification / 1000}s ago, needs verification: $needsVerification")
+        return needsVerification
+    }
+    
+    /**
+     * Check if we're still within the grace period for album verification
+     */
+    private fun isWithinGracePeriod(): Boolean {
+        val lastVerified = getLastAlbumVerificationTime()
+        if (lastVerified == 0L) {
+            return false
+        }
+        
+        val timeSinceVerification = System.currentTimeMillis() - lastVerified
+        val withinGracePeriod = timeSinceVerification <= (ALBUM_VERIFICATION_INTERVAL_MS + ALBUM_VERIFICATION_GRACE_PERIOD_MS)
+        
+        Log.d(TAG, "Grace period check: ${timeSinceVerification / 1000}s since verification, within grace period: $withinGracePeriod")
+        return withinGracePeriod
+    }
+    
+    /**
+     * Get the last album verification time from database (synchronous)
+     */
+    private fun getLastAlbumVerificationTime(): Long {
+        return try {
+            // Use runBlocking for synchronous access - this is acceptable for cached/fast database reads
+            kotlinx.coroutines.runBlocking {
+                database.albumConfigDao().getAlbumConfig()?.lastVerified ?: 0L
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to get last album verification time", e)
+            0L
+        }
+    }
+    
+    /**
+     * Verify that the currently selected album still exists remotely
+     * This is called asynchronously and updates the album state
+     */
+    private suspend fun verifyAlbumStillExists() = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Starting background album verification")
+            
+            val account = currentAccount ?: run {
+                Log.w(TAG, "No current account for album verification")
+                return@withContext
+            }
+            
+            val albumConfig = database.albumConfigDao().getAlbumConfig()
+            val albumId = albumConfig?.googlePhotosAlbumId
+            
+            if (albumId == null) {
+                Log.w(TAG, "No album ID to verify")
+                scribcalAlbumReady = false
+                return@withContext
+            }
+            
+            // Get OAuth token
+            val token = try {
+                GoogleAuthUtil.getToken(context, account, "oauth2:$PHOTOS_SCOPE")
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to get token for album verification", e)
+                // Don't mark album as not ready due to token issues - might be temporary
+                return@withContext
+            }
+            
+            if (token.isEmpty()) {
+                Log.w(TAG, "Empty token for album verification")
+                return@withContext
+            }
+            
+            // Verify album exists
+            val albumExists = verifyAlbumExists(token, albumId)
+            
+            if (albumExists) {
+                Log.d(TAG, "Background verification: album still exists")
+                // Update last verified time
+                database.albumConfigDao().updateLastVerified(System.currentTimeMillis())
+                scribcalAlbumReady = true
+            } else {
+                Log.w(TAG, "Background verification: album no longer exists, marking as not ready")
+                scribcalAlbumReady = false
+                lastConnectionSuccessful = false
+                
+                // Clear the invalid album configuration
+                clearAlbumConfiguration()
+            }
+            
+        } catch (e: Exception) {
+            Log.w(TAG, "Background album verification failed with exception", e)
+            // Don't change album state on exception - might be network issue
+        }
+    }
+    
     /**
      * Upload a photo to Google Photos and return a shareable link
      */
@@ -195,6 +333,15 @@ class PhotosRepository(
         try {
             if (!isPhotosReady()) {
                 Log.e(TAG, "Photos service not ready for uploads")
+                return@withContext null
+            }
+            
+            // Force verification of album existence before upload attempt
+            // This is a user-initiated action that should always check remote state
+            Log.d(TAG, "Verifying album exists before upload attempt...")
+            val albumVerified = forceVerifyAlbumExists()
+            if (!albumVerified) {
+                Log.e(TAG, "Album verification failed - cannot proceed with upload")
                 return@withContext null
             }
             
@@ -490,6 +637,8 @@ class PhotosRepository(
         return try {
             val albumConfigDao = database.albumConfigDao()
             
+            Log.d(TAG, "Setting selected album: $albumTitle ($albumId)")
+            
             val config = AlbumConfig(
                 id = 1, // Always use ID 1 since we only have one album config
                 googlePhotosAlbumId = albumId,
@@ -499,13 +648,22 @@ class PhotosRepository(
             )
             
             // Save to database
+            Log.d(TAG, "Inserting album config to database...")
             albumConfigDao.insertAlbumConfig(config)
+            
+            // Verify the save worked by reading it back
+            val savedConfig = albumConfigDao.getAlbumConfig()
+            if (savedConfig?.googlePhotosAlbumId == albumId) {
+                Log.d(TAG, "Database save verified: ${savedConfig.googlePhotosAlbumName} (${savedConfig.googlePhotosAlbumId})")
+            } else {
+                Log.w(TAG, "Database save verification failed! Expected $albumId but got ${savedConfig?.googlePhotosAlbumId}")
+            }
             
             // Update in-memory cache
             scribcalAlbumId = albumId
             scribcalAlbumReady = true
             
-            Log.d(TAG, "Selected album set: $albumTitle ($albumId)")
+            Log.d(TAG, "Selected album set successfully: $albumTitle ($albumId)")
             true
         } catch (e: Exception) {
             Log.e(TAG, "Failed to set selected album", e)
@@ -615,12 +773,24 @@ class PhotosRepository(
             connection.setRequestProperty("Content-Type", "application/json")
             
             val responseCode = connection.responseCode
-            if (responseCode == 200) {
-                Log.d(TAG, "Album verified to exist: $albumId")
-                true
-            } else {
-                Log.w(TAG, "Album not found or inaccessible (code $responseCode): $albumId")
-                false
+            when (responseCode) {
+                200 -> {
+                    Log.d(TAG, "Album verified to exist: $albumId")
+                    true
+                }
+                404 -> {
+                    Log.w(TAG, "Album not found (deleted): $albumId")
+                    false
+                }
+                403 -> {
+                    Log.w(TAG, "Album access forbidden (permissions issue): $albumId")
+                    false
+                }
+                else -> {
+                    val errorStream = connection.errorStream?.bufferedReader()?.use { it.readText() }
+                    Log.w(TAG, "Album verification failed with code $responseCode: $errorStream - Album: $albumId")
+                    false
+                }
             }
         } catch (e: Exception) {
             Log.w(TAG, "Failed to verify album exists: $albumId", e)
@@ -637,65 +807,6 @@ class PhotosRepository(
         val totalMediaItems: Int = 0
     )
     
-    /**
-     * List all albums available to the user
-     */
-    suspend fun listAlbums(accessToken: String): List<AlbumInfo> = withContext(Dispatchers.IO) {
-        try {
-            val albums = mutableListOf<AlbumInfo>()
-            var nextPageToken: String? = null
-            
-            do {
-                val url = if (nextPageToken != null) {
-                    URL("https://photoslibrary.googleapis.com/v1/albums?pageSize=50&pageToken=$nextPageToken")
-                } else {
-                    URL("https://photoslibrary.googleapis.com/v1/albums?pageSize=50")
-                }
-                
-                val connection = url.openConnection() as HttpURLConnection
-                connection.requestMethod = "GET"
-                connection.setRequestProperty("Authorization", "Bearer $accessToken")
-                connection.setRequestProperty("Content-Type", "application/json")
-                
-                val responseCode = connection.responseCode
-                if (responseCode == 200) {
-                    val response = connection.inputStream.bufferedReader().use { it.readText() }
-                    val responseJson = JSONObject(response)
-                    
-                    if (responseJson.has("albums")) {
-                        val albumsArray = responseJson.getJSONArray("albums")
-                        
-                        for (i in 0 until albumsArray.length()) {
-                            val album = albumsArray.getJSONObject(i)
-                            val albumId = album.getString("id")
-                            val title = album.getString("title")
-                            val mediaItemsCount = album.optInt("totalMediaItems", 0)
-                            
-                            albums.add(AlbumInfo(albumId, title, mediaItemsCount))
-                        }
-                    }
-                    
-                    // Check if there are more pages
-                    nextPageToken = if (responseJson.has("nextPageToken")) {
-                        responseJson.getString("nextPageToken")
-                    } else {
-                        null
-                    }
-                } else {
-                    val errorStream = connection.errorStream?.bufferedReader()?.use { it.readText() }
-                    Log.e(TAG, "Failed to list albums with code $responseCode: $errorStream")
-                    break
-                }
-            } while (nextPageToken != null)
-            
-            Log.d(TAG, "Listed ${albums.size} albums")
-            albums.sortedBy { it.title.lowercase() }
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to list albums", e)
-            emptyList()
-        }
-    }
     
     /**
      * Create the ScribCal album
@@ -739,7 +850,11 @@ class PhotosRepository(
     }
 
     /**
-     * Test Photos connection by validating OAuth permissions and creating album
+     * Test Photos connection by validating OAuth permissions and album availability
+     * 
+     * IMPORTANT: This method ALWAYS performs full remote verification regardless of timing
+     * when the user explicitly initiates a connection test. This ensures we detect
+     * deleted albums, revoked permissions, or other issues immediately.
      */
     suspend fun testPhotosConnection(): PhotosConnectionResult = withContext(Dispatchers.IO) {
         return@withContext try {
@@ -812,6 +927,9 @@ class PhotosRepository(
                             scribcalAlbumReady = false
                             scribcalAlbumId = null
                             Log.w(TAG, "Selected album no longer exists: ${selectedAlbum.googlePhotosAlbumName}")
+                            
+                            // Clear the invalid album configuration from database
+                            clearAlbumConfiguration()
 
                             // Save connection state
                             saveConnectionState()
@@ -945,28 +1063,20 @@ class PhotosRepository(
                 Log.w(TAG, "No cached token to clear or error clearing: ${e.message}")
             }
             
-            // Clear stored album configuration from database
-            try {
-                database.albumConfigDao().clearAlbumConfig()
-                Log.d(TAG, "Cleared album configuration from database")
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to clear album configuration: ${e.message}")
-            }
+            // NOTE: We don't clear album configuration here anymore since we want to preserve
+            // the user's album selection across token refreshes
             
-            // Reset album state to force re-creation
-            scribcalAlbumReady = false
-            scribcalAlbumId = null
+            // Reset only connection test state, but keep album configuration
             lastConnectionSuccessful = false
             lastConnectionTest = null
             
-            // Clear persistent connection state
+            // Clear persistent connection state but keep account info
             prefs.edit()
                 .remove(KEY_LAST_CONNECTION_TEST)
                 .remove(KEY_LAST_CONNECTION_SUCCESSFUL)
-                .remove(KEY_CURRENT_ACCOUNT_NAME)
                 .apply()
             
-            Log.d(TAG, "Reset Photos connection state and cleared persistent data")
+            Log.d(TAG, "Cleared OAuth tokens and connection test state, preserved album configuration")
             true
         } catch (e: Exception) {
             Log.e(TAG, "Failed to clear cached tokens", e)
@@ -974,7 +1084,89 @@ class PhotosRepository(
         }
     }
     
+    /**
+     * Clear album configuration when we detect the selected album is invalid or deleted
+     */
+    suspend fun clearAlbumConfiguration(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            // Clear stored album configuration from database
+            database.albumConfigDao().clearAlbumConfig()
+            Log.d(TAG, "Cleared album configuration from database")
+            
+            // Reset album state
+            scribcalAlbumReady = false
+            scribcalAlbumId = null
+            
+            Log.d(TAG, "Album configuration cleared due to album-specific error")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to clear album configuration", e)
+            false
+        }
+    }
+    
 
+    /**
+     * Force immediate verification of the album's remote existence
+     * This is useful for user-initiated actions that need to ensure the album is valid
+     * before proceeding (e.g., before photo upload attempts)
+     */
+    suspend fun forceVerifyAlbumExists(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Force verifying album exists (user-initiated)")
+            
+            val account = currentAccount ?: run {
+                Log.w(TAG, "No current account for forced album verification")
+                return@withContext false
+            }
+            
+            val albumConfig = database.albumConfigDao().getAlbumConfig()
+            val albumId = albumConfig?.googlePhotosAlbumId
+            
+            if (albumId == null) {
+                Log.w(TAG, "No album ID to verify")
+                scribcalAlbumReady = false
+                return@withContext false
+            }
+            
+            // Get OAuth token
+            val token = try {
+                GoogleAuthUtil.getToken(context, account, "oauth2:$PHOTOS_SCOPE")
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to get token for forced album verification", e)
+                return@withContext false
+            }
+            
+            if (token.isEmpty()) {
+                Log.w(TAG, "Empty token for forced album verification")
+                return@withContext false
+            }
+            
+            // Verify album exists remotely
+            val albumExists = verifyAlbumExists(token, albumId)
+            
+            if (albumExists) {
+                Log.d(TAG, "Forced verification: album still exists")
+                // Update last verified time
+                database.albumConfigDao().updateLastVerified(System.currentTimeMillis())
+                scribcalAlbumReady = true
+                return@withContext true
+            } else {
+                Log.w(TAG, "Forced verification: album no longer exists")
+                scribcalAlbumReady = false
+                lastConnectionSuccessful = false
+                
+                // Clear the invalid album configuration
+                clearAlbumConfiguration()
+                return@withContext false
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Forced album verification failed with exception", e)
+            return@withContext false
+        }
+    }
+    
     /**
      * Get Photos connection status without testing
      */

@@ -336,11 +336,21 @@ class EventRepository(
     // Google Drive integration methods
     
     /**
-     * Upload a photo to the selected storage (Google Drive or Google Photos) and return the shareable link
+     * Upload a photo to the enabled storage options (Google Drive and/or Google Photos) and return a combined link
      */
     private suspend fun uploadPhotoToSelectedStorage(localPhotoPath: String, eventId: Long? = null): String? = withContext(Dispatchers.IO) {
         return@withContext try {
-            val selectedStorage = storagePreferences?.getPhotoStorageType()
+            val isDriveEnabled = storagePreferences?.isGoogleDriveEnabled() ?: false
+            val isPhotosEnabled = storagePreferences?.isGooglePhotosEnabled() ?: false
+            
+            if (!isDriveEnabled && !isPhotosEnabled) {
+                val errorMsg = "No photo storage option selected. Please select at least one storage option in settings."
+                if (eventId != null) {
+                    markPhotoUploadFailed(eventId, errorMsg)
+                }
+                Log.e("EventRepository", errorMsg)
+                throw IllegalStateException(errorMsg)
+            }
             
             // Extract filename for progress tracking
             val fileName = File(localPhotoPath).name
@@ -348,43 +358,53 @@ class EventRepository(
             // Start progress tracking if eventId is provided
             if (eventId != null) {
                 startPhotoUpload(eventId, fileName)
+                markPhotoUploadStarted(eventId)
             }
             
-            val result = when (selectedStorage) {
-                StoragePreferences.STORAGE_TYPE_GOOGLE_DRIVE -> {
-                    if (eventId != null) markPhotoUploadStarted(eventId)
-                    uploadPhotoToDrive(localPhotoPath, eventId)
+            val results = mutableListOf<PhotoUploadResult>()
+            
+            // Upload to Google Drive if enabled
+            if (isDriveEnabled) {
+                Log.d("EventRepository", "Uploading photo to Google Drive: $localPhotoPath")
+                val driveLink = uploadPhotoToDrive(localPhotoPath, eventId)
+                if (driveLink != null) {
+                    results.add(PhotoUploadResult(service = "Google Drive", link = driveLink))
+                    Log.d("EventRepository", "Successfully uploaded to Google Drive: $driveLink")
+                } else {
+                    Log.w("EventRepository", "Failed to upload photo to Google Drive")
                 }
-                StoragePreferences.STORAGE_TYPE_GOOGLE_PHOTOS -> {
-                    if (eventId != null) markPhotoUploadStarted(eventId)
-                    uploadPhotoToPhotos(localPhotoPath, eventId)
+            }
+            
+            // Upload to Google Photos if enabled
+            if (isPhotosEnabled) {
+                Log.d("EventRepository", "Uploading photo to Google Photos: $localPhotoPath")
+                val photosLink = uploadPhotoToPhotos(localPhotoPath, eventId)
+                if (photosLink != null) {
+                    results.add(PhotoUploadResult(service = "Google Photos", link = photosLink))
+                    Log.d("EventRepository", "Successfully uploaded to Google Photos: $photosLink")
+                } else {
+                    Log.w("EventRepository", "Failed to upload photo to Google Photos")
                 }
-                null -> {
-                    if (eventId != null) {
-                        markPhotoUploadFailed(eventId, "No photo storage option selected")
-                    }
-                    Log.e("EventRepository", "No photo storage option selected")
-                    throw IllegalStateException("No photo storage option selected. Please select Google Drive or Google Photos in settings.")
-                }
-                else -> {
-                    if (eventId != null) {
-                        markPhotoUploadFailed(eventId, "Unknown storage type: $selectedStorage")
-                    }
-                    Log.e("EventRepository", "Unknown storage type: $selectedStorage")
-                    null
-                }
+            }
+            
+            // Generate combined result
+            val combinedResult = if (results.isNotEmpty()) {
+                formatMultiplePhotoLinks(results)
+            } else {
+                null
             }
             
             // Mark as completed or failed based on result
             if (eventId != null) {
-                if (result != null) {
-                    markPhotoUploadCompleted(eventId, result)
+                if (combinedResult != null) {
+                    markPhotoUploadCompleted(eventId, combinedResult)
+                    Log.d("EventRepository", "Photo upload completed with ${results.size} successful uploads")
                 } else {
-                    markPhotoUploadFailed(eventId, "Photo upload returned null")
+                    markPhotoUploadFailed(eventId, "All photo uploads failed")
                 }
             }
             
-            result
+            combinedResult
         } catch (e: Exception) {
             if (eventId != null) {
                 markPhotoUploadFailed(eventId, "Exception: ${e.message}")
@@ -529,20 +549,15 @@ class EventRepository(
     }
     
     /**
-     * Check if the selected storage is available and ready for photo uploads
+     * Check if any photo storage is available and ready for photo uploads
      */
     fun isPhotoStorageAvailable(): Boolean {
-        val selectedStorage = storagePreferences?.getPhotoStorageType()
+        val isDriveEnabled = storagePreferences?.isGoogleDriveEnabled() ?: false
+        val isPhotosEnabled = storagePreferences?.isGooglePhotosEnabled() ?: false
+        val isDriveReady = driveRepository?.isDriveReady() == true
+        val isPhotosReady = photosRepository?.isPhotosReady() == true
         
-        return when (selectedStorage) {
-            StoragePreferences.STORAGE_TYPE_GOOGLE_DRIVE -> {
-                driveRepository?.isDriveReady() == true
-            }
-            StoragePreferences.STORAGE_TYPE_GOOGLE_PHOTOS -> {
-                photosRepository?.isPhotosReady() == true
-            }
-            else -> false
-        }
+        return (isDriveEnabled && isDriveReady) || (isPhotosEnabled && isPhotosReady)
     }
     
     /**
@@ -696,4 +711,29 @@ class EventRepository(
             "unknown"
         }
     }
+    
+    /**
+     * Format multiple photo upload results into a combined string for calendar events
+     */
+    private fun formatMultiplePhotoLinks(results: List<PhotoUploadResult>): String {
+        return when (results.size) {
+            0 -> ""
+            1 -> results[0].link
+            else -> {
+                // Create a formatted string with links to both services
+                val linkText = results.joinToString(separator = "\n") { result ->
+                    "${result.service}: ${result.link}"
+                }
+                "Photos:\n$linkText"
+            }
+        }
+    }
 }
+
+/**
+ * Data class to hold photo upload results from different services
+ */
+data class PhotoUploadResult(
+    val service: String,
+    val link: String
+)
