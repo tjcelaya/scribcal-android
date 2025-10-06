@@ -89,12 +89,32 @@
             android:layout_marginBottom="24dp"
             android:background="?android:attr/listDivider" />
 
+        <!-- Photo Storage Section -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="Photo Storage"
+            android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
+            android:textColor="?android:attr/textColorPrimary" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="24dp"
+            android:text="You can save images with your events by connecting either Drive, Photos, or both! Select which to use for storing photos. You can change between the two at any time but photos will not be synced automatically. Links to uploaded photos will still be persisted in the events they were created with though so you don't need to worry about anything being lost unless you delete it yourself."
+            android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
+            android:textColor="?android:attr/textColorSecondary"
+            android:lineSpacingMultiplier="1.2" />
+
         <!-- Google Drive Section -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="8dp"
-            android:text="Google Drive Integration"
+            android:text="Google Drive"
             android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
             android:textColor="?android:attr/textColorPrimary" />
 
@@ -186,7 +206,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="end"
-                android:text="Test Connection"
+                android:text="Connect"
                 android:textSize="14sp" />
 
         </LinearLayout>
@@ -205,7 +225,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="8dp"
-            android:text="Google Photos Integration"
+            android:text="Google Photos"
             android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
             android:textColor="?android:attr/textColorPrimary" />
 
@@ -297,7 +317,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="end"
-                android:text="Test Connection"
+                android:text="Connect"
                 android:textSize="14sp" />
 
         </LinearLayout>
@@ -316,7 +336,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="8dp"
-            android:text="Photo Storage Location"
+            android:text="Save Photos to"
             android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
             android:textColor="?android:attr/textColorPrimary" />
 

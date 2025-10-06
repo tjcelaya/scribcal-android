@@ -1,7 +1,9 @@
 package com.tjcelaya.scribcal.ui.settings
 
+import android.accounts.Account
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -36,6 +38,14 @@ class SettingsFragment : Fragment() {
     ) { result ->
         // After consent screen, re-test the connection
         testPhotosConnection()
+    }
+    
+    // Activity result launcher for Google Drive consent screen
+    private val driveConsentLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        // After consent screen, re-test the connection
+        testDriveConnection()
     }
 
     override fun onCreateView(
@@ -105,12 +115,46 @@ class SettingsFragment : Fragment() {
     private fun testDriveConnection() {
         lifecycleScope.launch {
             try {
-                // Disable button and show testing state
+                // Disable button and show connecting state
                 binding.testDriveButton.isEnabled = false
-                binding.testDriveButton.text = "Testing..."
-                binding.driveStatusText.text = "Testing..."
+                binding.testDriveButton.text = "Connecting..."
+                binding.driveStatusText.text = "Connecting..."
                 
-                // Test the connection
+                // Check if Drive needs setup first
+                if (driveRepository.getDriveStatus() == "Setup required" || !driveRepository.isDriveInitialized()) {
+                    // Try to initialize Drive first
+                    binding.driveStatusText.text = "Setting up..."
+                    
+                    val account = getGoogleAccountForServices()
+                    if (account != null) {
+                        Log.d("SettingsFragment", "Attempting to initialize Drive with account: ${account.name}")
+                        val initSuccess = driveRepository.retryDriveInitialization(account)
+                        if (initSuccess) {
+                            Log.d("SettingsFragment", "Drive initialization successful")
+                        } else {
+                            // Check if user consent is required
+                            val consentException = driveRepository.getDriveConsentException()
+                            if (consentException != null) {
+                                Log.d("SettingsFragment", "Drive requires user consent, launching consent flow")
+                                driveConsentLauncher.launch(consentException.intent)
+                                return@launch // Exit early, don't update UI yet
+                            } else {
+                                Log.w("SettingsFragment", "Drive initialization failed")
+                                binding.driveStatusText.text = "Setup failed"
+                                binding.driveStatusText.setTextColor(requireContext().getColor(android.R.color.holo_red_dark))
+                                return@launch
+                            }
+                        }
+                    } else {
+                        Log.w("SettingsFragment", "No Google account found for Drive setup")
+                        binding.driveStatusText.text = "No Google account"
+                        binding.driveStatusText.setTextColor(requireContext().getColor(android.R.color.holo_red_dark))
+                        return@launch
+                    }
+                }
+                
+                // Now test the connection
+                binding.driveStatusText.text = "Connecting..."
                 val result = driveRepository.testDriveConnection()
                 
                 // Update UI with results - use the short status from DriveRepository
@@ -131,12 +175,13 @@ class SettingsFragment : Fragment() {
                 }
                 
             } catch (e: Exception) {
+                Log.e("SettingsFragment", "Error testing Drive connection", e)
                 binding.driveStatusText.text = "Error"
                 binding.driveStatusText.setTextColor(requireContext().getColor(android.R.color.holo_red_dark))
             } finally {
                 // Re-enable button
                 binding.testDriveButton.isEnabled = true
-                binding.testDriveButton.text = "Test Connection"
+                binding.testDriveButton.text = "Connect"
                 
                 // Update storage selection status
                 updateStorageSelectionStatus()
@@ -173,10 +218,10 @@ class SettingsFragment : Fragment() {
     private fun testPhotosConnection() {
         lifecycleScope.launch {
             try {
-                // Disable button and show testing state
+                // Disable button and show connecting state
                 binding.testPhotosButton.isEnabled = false
-                binding.testPhotosButton.text = "Testing..."
-                binding.photosStatusText.text = "Testing..."
+                binding.testPhotosButton.text = "Connecting..."
+                binding.photosStatusText.text = "Connecting..."
                 
                 // Test the connection
                 val result = photosRepository.testPhotosConnection()
@@ -217,7 +262,7 @@ class SettingsFragment : Fragment() {
             } finally {
                 // Re-enable button
                 binding.testPhotosButton.isEnabled = true
-                binding.testPhotosButton.text = "Test Connection"
+                binding.testPhotosButton.text = "Connect"
                 
                 // Update storage selection status
                 updateStorageSelectionStatus()
@@ -300,6 +345,42 @@ class SettingsFragment : Fragment() {
                 storagePreferences.clearPhotoStorageType()
                 binding.storageSelectionRadioGroup.clearCheck()
             }
+        }
+    }
+    
+    /**
+     * Get a Google account for initializing Drive and Photos services
+     */
+    private suspend fun getGoogleAccountForServices(): Account? {
+        return try {
+            val calendars = calendarRepository.getAvailableCalendars()
+            val selectedCalendarId = calendarRepository.getSelectedCalendarId()
+            
+            Log.d("SettingsFragment", "Found ${calendars.size} calendars, selected ID: $selectedCalendarId")
+            
+            // Try to use the selected calendar's account first
+            val selectedCalendar = calendars.find { it.id == selectedCalendarId }
+            
+            if (selectedCalendar != null && selectedCalendar.accountName.isNotEmpty()) {
+                Log.d("SettingsFragment", "Using selected calendar account: ${selectedCalendar.accountName}")
+                Account(selectedCalendar.accountName, selectedCalendar.accountType)
+            } else {
+                // Fallback to any Google account
+                val googleCalendars = calendars.filter { 
+                    it.accountType == "com.google" && it.accountName.isNotEmpty() 
+                }
+                
+                if (googleCalendars.isNotEmpty()) {
+                    Log.d("SettingsFragment", "Using first Google calendar account: ${googleCalendars[0].accountName}")
+                    Account(googleCalendars[0].accountName, googleCalendars[0].accountType)
+                } else {
+                    Log.w("SettingsFragment", "No Google accounts found in calendars")
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("SettingsFragment", "Error getting Google account for services", e)
+            null
         }
     }
     

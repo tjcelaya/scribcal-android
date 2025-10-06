@@ -12,6 +12,7 @@ import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
 import com.google.api.services.drive.model.File
 import com.google.api.services.drive.model.Permission
+import com.google.android.gms.auth.UserRecoverableAuthException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -26,6 +27,7 @@ class DriveRepository(private val context: Context) {
     private var scribcalFolderId: String? = null
     private var lastConnectionTest: Long? = null
     private var lastConnectionSuccessful = false
+    private var lastConsentException: UserRecoverableAuthException? = null
     
     /**
      * Initialize Google Drive service with the given account
@@ -33,6 +35,9 @@ class DriveRepository(private val context: Context) {
     suspend fun initializeDrive(account: Account): Boolean = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "Initializing Drive service with account: ${account.name}")
+            
+            // Clear any previous consent exception
+            lastConsentException = null
             
             val credential = GoogleAccountCredential.usingOAuth2(
                 context,
@@ -53,8 +58,13 @@ class DriveRepository(private val context: Context) {
             
             Log.d(TAG, "Drive service initialized successfully")
             true
+        } catch (e: UserRecoverableAuthException) {
+            Log.w(TAG, "Drive initialization requires user consent", e)
+            lastConsentException = e
+            false
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize Drive service", e)
+            lastConsentException = null
             false
         }
     }
@@ -262,8 +272,9 @@ class DriveRepository(private val context: Context) {
      */
     fun getDriveStatus(): String {
         return when {
+            lastConsentException != null -> "Setup required"
             driveService == null -> "Not initialized"
-            scribcalFolderId == null -> "No folder"
+            scribcalFolderId == null -> "Setup required"
             lastConnectionTest != null -> {
                 val timeAgo = getTimeAgo(lastConnectionTest!!)
                 if (lastConnectionSuccessful) {
@@ -272,7 +283,7 @@ class DriveRepository(private val context: Context) {
                     "Failed ($timeAgo ago)"
                 }
             }
-            else -> "Initialized"
+            else -> "Ready"
         }
     }
     
@@ -280,6 +291,33 @@ class DriveRepository(private val context: Context) {
      * Get time since last connection test
      */
     fun getLastTestTime(): Long? = lastConnectionTest
+    
+    /**
+     * Get the stored consent exception for Drive access
+     */
+    fun getDriveConsentException(): UserRecoverableAuthException? = lastConsentException
+    
+    /**
+     * Manually retry Drive initialization with a specific account
+     */
+    suspend fun retryDriveInitialization(account: Account): Boolean = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Manually retrying Drive initialization with account: ${account.name}")
+            
+            // Clear any previous state
+            driveService = null
+            scribcalFolderId = null
+            lastConnectionTest = null
+            lastConnectionSuccessful = false
+            lastConsentException = null
+            
+            // Re-initialize
+            return@withContext initializeDrive(account)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to retry Drive initialization", e)
+            false
+        }
+    }
     
     /**
      * Format time difference as a short string
