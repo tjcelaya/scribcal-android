@@ -457,6 +457,20 @@ class EventRepository(
                 null
             }
             
+            // Delete local file after all uploads are complete (if any succeeded)
+            if (combinedResult != null) {
+                try {
+                    val localFile = File(localPhotoPath)
+                    if (localFile.exists() && localFile.delete()) {
+                        Log.d("EventRepository", "Deleted local photo file after successful uploads: $localPhotoPath")
+                    } else {
+                        Log.w("EventRepository", "Could not delete local photo file: $localPhotoPath")
+                    }
+                } catch (e: Exception) {
+                    Log.w("EventRepository", "Error deleting local photo file: $localPhotoPath", e)
+                }
+            }
+            
             // Mark as completed or failed based on result
             if (eventId != null) {
                 if (combinedResult != null) {
@@ -547,17 +561,6 @@ class EventRepository(
             
             if (driveLink != null) {
                 Log.d("EventRepository", "Photo uploaded successfully to Drive: $driveLink")
-                
-                // Optionally delete local file after successful upload
-                try {
-                    if (localFile.delete()) {
-                        Log.d("EventRepository", "Deleted local photo file: $localPhotoPath")
-                    } else {
-                        Log.w("EventRepository", "Could not delete local photo file: $localPhotoPath")
-                    }
-                } catch (e: Exception) {
-                    Log.w("EventRepository", "Error deleting local photo file: $localPhotoPath", e)
-                }
             } else {
                 Log.e("EventRepository", "Failed to upload photo to Drive: $localPhotoPath")
             }
@@ -607,17 +610,6 @@ class EventRepository(
             
             if (photosLink != null) {
                 Log.d("EventRepository", "Photo uploaded successfully to Photos: $photosLink")
-                
-                // Optionally delete local file after successful upload
-                try {
-                    if (localFile.delete()) {
-                        Log.d("EventRepository", "Deleted local photo file: $localPhotoPath")
-                    } else {
-                        Log.w("EventRepository", "Could not delete local photo file: $localPhotoPath")
-                    }
-                } catch (e: Exception) {
-                    Log.w("EventRepository", "Error deleting local photo file: $localPhotoPath", e)
-                }
             } else {
                 Log.e("EventRepository", "Failed to upload photo to Photos: $localPhotoPath")
             }
