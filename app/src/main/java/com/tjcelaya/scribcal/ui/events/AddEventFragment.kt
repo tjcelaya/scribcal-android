@@ -68,22 +68,22 @@ class AddEventFragment : Fragment() {
             requireContext(),
             emptyList()
         )
-        
+
         binding.eventTypeAutoComplete.setAdapter(autocompleteAdapter)
         binding.eventTypeAutoComplete.threshold = 0 // Show all suggestions immediately
-        
+
         // Show dropdown when user taps the field
         binding.eventTypeAutoComplete.setOnFocusChangeListener { _, hasFocus ->
             if (hasFocus) {
                 binding.eventTypeAutoComplete.showDropDown()
             }
         }
-        
+
         // Also show dropdown when user taps the field
         binding.eventTypeAutoComplete.setOnClickListener {
             binding.eventTypeAutoComplete.showDropDown()
         }
-        
+
         // Handle selection from dropdown
         binding.eventTypeAutoComplete.setOnItemClickListener { _, _, position, _ ->
             val selectedEventType = autocompleteAdapter.getItem(position)
@@ -94,7 +94,7 @@ class AddEventFragment : Fragment() {
     private fun setupDateTimeDisplay() {
         // Initialize with current date/time
         updateDateTimeDisplay()
-        
+
         // Handle click to show date/time picker
         binding.dateTimeDisplay.setOnClickListener {
             showDateTimePicker()
@@ -107,7 +107,7 @@ class AddEventFragment : Fragment() {
 
     private fun showDateTimePicker() {
         val currentDate = selectedDateTime
-        
+
         // Show date picker first
         val datePickerDialog = DatePickerDialog(
             requireContext(),
@@ -116,7 +116,7 @@ class AddEventFragment : Fragment() {
                 selectedDateTime.set(Calendar.YEAR, year)
                 selectedDateTime.set(Calendar.MONTH, month)
                 selectedDateTime.set(Calendar.DAY_OF_MONTH, dayOfMonth)
-                
+
                 // Now show time picker
                 showTimePicker()
             },
@@ -124,13 +124,13 @@ class AddEventFragment : Fragment() {
             currentDate.get(Calendar.MONTH),
             currentDate.get(Calendar.DAY_OF_MONTH)
         )
-        
+
         datePickerDialog.show()
     }
-    
+
     private fun showTimePicker() {
         val currentTime = selectedDateTime
-        
+
         val timePickerDialog = TimePickerDialog(
             requireContext(),
             { _, hourOfDay, minute ->
@@ -139,7 +139,7 @@ class AddEventFragment : Fragment() {
                 selectedDateTime.set(Calendar.MINUTE, minute)
                 selectedDateTime.set(Calendar.SECOND, 0)
                 selectedDateTime.set(Calendar.MILLISECOND, 0)
-                
+
                 // Update display
                 updateDateTimeDisplay()
             },
@@ -147,7 +147,7 @@ class AddEventFragment : Fragment() {
             currentTime.get(Calendar.MINUTE),
             false // Use 12-hour format
         )
-        
+
         timePickerDialog.show()
     }
 
@@ -206,7 +206,7 @@ class AddEventFragment : Fragment() {
 
     private fun recordEvent(isInstant: Boolean) {
         val eventTypeName = binding.eventTypeAutoComplete.text.toString().trim()
-        
+
         if (eventTypeName.isEmpty()) {
             Toast.makeText(requireContext(), getString(R.string.please_enter_event_type), Toast.LENGTH_SHORT).show()
             return
@@ -214,7 +214,7 @@ class AddEventFragment : Fragment() {
 
         // Show loading state
         setLoadingState(true)
-        
+
         lifecycleScope.launch {
             try {
                 if (isInstant) {
@@ -233,7 +233,7 @@ class AddEventFragment : Fragment() {
         binding.recordInstantEventButton.isEnabled = !loading
         binding.startTimedEventButton.isEnabled = !loading
         binding.eventTypeAutoComplete.isEnabled = !loading
-        
+
         if (loading) {
             binding.recordInstantEventButton.text = getString(R.string.recording)
             binding.startTimedEventButton.text = getString(R.string.starting)

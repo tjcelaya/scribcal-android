@@ -20,24 +20,24 @@ class TrackingViewModel(
 
     val eventTypes: LiveData<List<EventType>> = eventRepository.getAllEventTypes()
     val ongoingEvents: LiveData<List<OngoingEvent>> = eventRepository.getAllOngoingEvents()
-    
+
     private val _calendarStatus = MutableLiveData<String>()
     val calendarStatus: LiveData<String> = _calendarStatus
-    
+
     private val _needsCalendarSetup = MutableLiveData<Boolean>()
     val needsCalendarSetup: LiveData<Boolean> = _needsCalendarSetup
-    
+
     private val _showStopConfirmation = MutableLiveData<OngoingEvent?>()
     val showStopConfirmation: LiveData<OngoingEvent?> = _showStopConfirmation
-    
+
     private val _message = MutableLiveData<String?>()
     val message: LiveData<String?> = _message
-    
+
     // Combined LiveData for event types with ongoing counts
     val eventTypesWithCounts: LiveData<List<EventTypeWithCount>> = MediatorLiveData<List<EventTypeWithCount>>().apply {
         var eventTypesList: List<EventType> = emptyList()
         var ongoingEventsList: List<OngoingEvent> = emptyList()
-        
+
         fun update() {
             val counts = ongoingEventsList.groupBy { it.eventTypeId }.mapValues { it.value.size }
             value = eventTypesList.map { eventType ->
@@ -47,23 +47,23 @@ class TrackingViewModel(
                 )
             }
         }
-        
+
         addSource(eventTypes) { types ->
             eventTypesList = types
             update()
         }
-        
+
         addSource(ongoingEvents) { events ->
             ongoingEventsList = events
             update()
         }
     }
-    
+
     // Combined LiveData for ongoing events with their event types
     val ongoingEventsWithTypes: LiveData<List<OngoingEventWithType>> = MediatorLiveData<List<OngoingEventWithType>>().apply {
         var eventTypesList: List<EventType> = emptyList()
         var ongoingEventsList: List<OngoingEvent> = emptyList()
-        
+
         fun update() {
             val eventTypesMap = eventTypesList.associateBy { it.id }
             value = ongoingEventsList.mapNotNull { ongoingEvent ->
@@ -72,28 +72,28 @@ class TrackingViewModel(
                 }
             }
         }
-        
+
         addSource(eventTypes) { types ->
             eventTypesList = types
             update()
         }
-        
+
         addSource(ongoingEvents) { events ->
             ongoingEventsList = events
             update()
         }
     }
-    
+
     // Combined LiveData for both ongoing events and photo uploads
     val displayableOngoingItems: LiveData<List<DisplayableOngoingItem>> = MediatorLiveData<List<DisplayableOngoingItem>>().apply {
         var eventTypesList: List<EventType> = emptyList()
         var ongoingEventsList: List<OngoingEvent> = emptyList()
         var photoUploadsList: List<PhotoUpload> = emptyList()
-        
+
         fun update() {
             val eventTypesMap = eventTypesList.associateBy { it.id }
             val items = mutableListOf<DisplayableOngoingItem>()
-            
+
             // Add regular ongoing events
             ongoingEventsList.forEach { ongoingEvent ->
                 eventTypesMap[ongoingEvent.eventTypeId]?.let { eventType ->
@@ -109,7 +109,7 @@ class TrackingViewModel(
                     )
                 }
             }
-            
+
             // Add photo uploads in progress
             photoUploadsList.forEach { photoUpload ->
                 eventTypesMap[photoUpload.eventTypeId]?.let { eventType ->
@@ -125,21 +125,21 @@ class TrackingViewModel(
                     )
                 }
             }
-            
+
             // Sort by start time (newest first)
             value = items.sortedByDescending { it.startTime }
         }
-        
+
         addSource(eventTypes) { types ->
             eventTypesList = types
             update()
         }
-        
+
         addSource(ongoingEvents) { events ->
             ongoingEventsList = events
             update()
         }
-        
+
         addSource(eventRepository.photoUploads) { uploads ->
             photoUploadsList = uploads
             update()
@@ -175,11 +175,11 @@ class TrackingViewModel(
     fun showStopEventConfirmation(ongoingEvent: OngoingEvent) {
         _showStopConfirmation.value = ongoingEvent
     }
-    
+
     fun hideStopEventConfirmation() {
         _showStopConfirmation.value = null
     }
-    
+
     fun stopEvent(ongoingEvent: OngoingEvent) {
         viewModelScope.launch {
             try {
@@ -195,11 +195,11 @@ class TrackingViewModel(
             }
         }
     }
-    
+
     fun clearMessage() {
         _message.value = null
     }
-    
+
     fun recordInstantaneousEventWithPhoto(eventTypeId: Long, photoPath: String, notes: String = "") {
         viewModelScope.launch {
             try {
@@ -213,7 +213,7 @@ class TrackingViewModel(
             }
         }
     }
-    
+
     fun startTimedEventWithPhoto(eventTypeId: Long, photoPath: String, notes: String = "") {
         viewModelScope.launch {
             try {

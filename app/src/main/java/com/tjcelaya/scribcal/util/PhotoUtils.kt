@@ -15,7 +15,7 @@ object PhotoUtils {
     private const val TAG = "PhotoUtils"
     private const val PHOTOS_DIR = "photos"
     private const val THUMBNAIL_SIZE = 300
-    
+
     /**
      * Saves a shared photo from URI to app's internal storage
      * @param context Application context
@@ -28,11 +28,11 @@ object PhotoUtils {
             if (!photosDir.exists()) {
                 photosDir.mkdirs()
             }
-            
+
             // Generate unique filename
             val filename = "${UUID.randomUUID()}.jpg"
             val photoFile = File(photosDir, filename)
-            
+
             // Copy photo from URI to internal storage
             val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
             inputStream?.use { input ->
@@ -40,16 +40,16 @@ object PhotoUtils {
                     input.copyTo(output)
                 }
             }
-            
+
             Log.d(TAG, "Photo saved to: ${photoFile.absolutePath}")
             return photoFile.absolutePath
-            
+
         } catch (e: IOException) {
             Log.e(TAG, "Failed to save shared photo", e)
             return null
         }
     }
-    
+
     /**
      * Creates a thumbnail bitmap from a photo file
      * @param photoPath Path to the photo file
@@ -62,21 +62,21 @@ object PhotoUtils {
                 inJustDecodeBounds = true
             }
             BitmapFactory.decodeFile(photoPath, options)
-            
+
             // Calculate sample size for thumbnail
             val sampleSize = calculateInSampleSize(options, size, size)
-            
+
             val thumbnailOptions = BitmapFactory.Options().apply {
                 inSampleSize = sampleSize
             }
-            
+
             BitmapFactory.decodeFile(photoPath, thumbnailOptions)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to create thumbnail for $photoPath", e)
             null
         }
     }
-    
+
     /**
      * Loads a full-size bitmap from a photo file
      * @param photoPath Path to the photo file
@@ -90,7 +90,7 @@ object PhotoUtils {
             null
         }
     }
-    
+
     /**
      * Deletes a photo file from internal storage
      * @param photoPath Path to the photo file
@@ -107,7 +107,7 @@ object PhotoUtils {
             false
         }
     }
-    
+
     /**
      * Checks if a photo file exists
      * @param photoPath Path to the photo file
@@ -118,7 +118,7 @@ object PhotoUtils {
         val file = File(photoPath)
         return file.exists() && file.canRead()
     }
-    
+
     /**
      * Gets the size of a photo file in bytes
      * @param photoPath Path to the photo file
@@ -131,7 +131,7 @@ object PhotoUtils {
             0L
         }
     }
-    
+
     private fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
         val height = options.outHeight
         val width = options.outWidth

@@ -76,7 +76,7 @@ class AddEditEventTypeFragment : Fragment() {
         val factory = AddEditEventTypeViewModelFactory(eventRepository)
         viewModel = ViewModelProvider(this, factory)[AddEditEventTypeViewModel::class.java]
     }
-    
+
     private fun loadEventTypeFromArguments() {
         val eventTypeId = args.eventTypeId
         if (eventTypeId > 0L) {
@@ -107,7 +107,7 @@ class AddEditEventTypeFragment : Fragment() {
                 }
                 tag = color
             }
-            
+
             gridLayout.addView(colorButton)
         }
 
@@ -127,7 +127,7 @@ class AddEditEventTypeFragment : Fragment() {
         for (i in 0 until gridLayout.childCount) {
             val button = gridLayout.getChildAt(i) as MaterialButton
             val buttonColor = button.tag as Int
-            
+
             if (buttonColor == selectedColor) {
                 // Add selection indicator (white stroke)
                 button.strokeWidth = 4
@@ -167,7 +167,7 @@ class AddEditEventTypeFragment : Fragment() {
                 viewModel.clearErrorMessage()
             }
         }
-        
+
         viewModel.loadedEventType.observe(viewLifecycleOwner) { eventType ->
             editingEventType = eventType
             updateUI()
@@ -179,7 +179,7 @@ class AddEditEventTypeFragment : Fragment() {
             binding.nameEditText.setText(eventType.name)
             binding.descriptionEditText.setText(eventType.description)
             binding.saveButton.text = "Update"
-            
+
             eventType.color?.let { color ->
                 selectedColor = color
                 updateColorSelection()

@@ -44,11 +44,11 @@ class TrackingFragment : Fragment() {
     private lateinit var viewModel: TrackingViewModel
     private lateinit var eventTypesAdapter: EventTypesTrackingAdapter
     private lateinit var ongoingEventsAdapter: OngoingEventsAdapter
-    
+
     // Timer for real-time updates
     private val timerHandler = Handler(Looper.getMainLooper())
     private var timerRunnable: Runnable? = null
-    
+
     // Photo capture variables
     private var currentPhotoUri: Uri? = null
 
@@ -57,12 +57,12 @@ class TrackingFragment : Fragment() {
     ) { permissions ->
         val calendarReadGranted = permissions[Manifest.permission.READ_CALENDAR] ?: false
         val calendarWriteGranted = permissions[Manifest.permission.WRITE_CALENDAR] ?: false
-        
+
         if (calendarReadGranted && calendarWriteGranted) {
             viewModel.onCalendarPermissionsGranted()
         }
     }
-    
+
     // Camera permission launcher
     private val requestCameraPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -73,7 +73,7 @@ class TrackingFragment : Fragment() {
             Toast.makeText(requireContext(), "Camera permission is required to take photos", Toast.LENGTH_LONG).show()
         }
     }
-    
+
     // Camera launcher
     private val cameraLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -87,7 +87,7 @@ class TrackingFragment : Fragment() {
             }
         }
     }
-    
+
     // Image picker launcher
     private val imagePickerLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -119,7 +119,7 @@ class TrackingFragment : Fragment() {
         setupClickListeners()
         observeViewModel()
         checkPermissionsAndSetup()
-        
+
         // Check if we have a shared photo to handle
         checkForSharedPhoto()
     }
@@ -128,7 +128,7 @@ class TrackingFragment : Fragment() {
         val app = requireActivity().application as ScribCalApplication
         val eventRepository = app.eventRepository
         val calendarRepository = app.calendarRepository
-        
+
         val factory = TrackingViewModelFactory(eventRepository, calendarRepository)
         viewModel = ViewModelProvider(this, factory)[TrackingViewModel::class.java]
     }
@@ -143,7 +143,7 @@ class TrackingFragment : Fragment() {
                 viewModel.recordInstantaneousEvent(eventType.id)
             }
         )
-        
+
         binding.eventTypesRecyclerView.apply {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = eventTypesAdapter
@@ -155,7 +155,7 @@ class TrackingFragment : Fragment() {
                 viewModel.showStopEventConfirmation(ongoingEvent)
             }
         )
-        
+
         binding.ongoingEventsRecyclerView.apply {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = ongoingEventsAdapter
@@ -170,7 +170,7 @@ class TrackingFragment : Fragment() {
         binding.cameraFab.setOnClickListener {
             checkStorageConfigurationThenOpenCamera()
         }
-        
+
         binding.imageFab.setOnClickListener {
             checkStorageConfigurationThenOpenImagePicker()
         }
@@ -188,16 +188,16 @@ class TrackingFragment : Fragment() {
         // Observe event types with counts for main adapter
         viewModel.eventTypesWithCounts.observe(viewLifecycleOwner) { eventTypesWithCounts ->
             eventTypesAdapter.submitList(eventTypesWithCounts)
-            binding.emptyEventTypesText.visibility = 
+            binding.emptyEventTypesText.visibility =
                 if (eventTypesWithCounts.isEmpty()) View.VISIBLE else View.GONE
         }
 
         // Observe displayable ongoing items (both events and photo uploads)
         viewModel.displayableOngoingItems.observe(viewLifecycleOwner) { displayableItems ->
             ongoingEventsAdapter.submitList(displayableItems)
-            binding.ongoingEventsCard.visibility = 
+            binding.ongoingEventsCard.visibility =
                 if (displayableItems.isNotEmpty()) View.VISIBLE else View.GONE
-            
+
             // Start or stop timer based on whether there are ongoing items
             if (displayableItems.isNotEmpty()) {
                 startTimerUpdates()
@@ -219,14 +219,14 @@ class TrackingFragment : Fragment() {
                 binding.calendarSetupButton.isEnabled = true
             }
         }
-        
+
         // Observe stop confirmation dialog
         viewModel.showStopConfirmation.observe(viewLifecycleOwner) { ongoingEvent ->
             if (ongoingEvent != null) {
                 showStopConfirmationDialog(ongoingEvent)
             }
         }
-        
+
         // Observe messages
         viewModel.message.observe(viewLifecycleOwner) { message ->
             if (message != null) {
@@ -235,7 +235,7 @@ class TrackingFragment : Fragment() {
             }
         }
     }
-    
+
     private fun showStopConfirmationDialog(ongoingEvent: OngoingEvent) {
         // Calculate elapsed time for display
         val elapsedMillis = System.currentTimeMillis() - ongoingEvent.startTime
@@ -244,10 +244,10 @@ class TrackingFragment : Fragment() {
         val minutes = (elapsedSeconds % 3600) / 60
         val seconds = elapsedSeconds % 60
         val elapsedTimeString = String.format("%02d:%02d:%02d", hours, minutes, seconds)
-        
+
         val startTime = Date(ongoingEvent.startTime)
         val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
-        
+
         AlertDialog.Builder(requireContext())
             .setTitle("Stop Event")
             .setMessage("Stop this event?\n\nElapsed time: $elapsedTimeString\nStarted at: ${timeFormat.format(startTime)}\n\nThe event will be saved to your calendar.")
@@ -283,11 +283,11 @@ class TrackingFragment : Fragment() {
             viewModel.onCalendarPermissionsGranted()
         }
     }
-    
+
     private fun startTimerUpdates() {
         // Don't start multiple timers
         if (timerRunnable != null) return
-        
+
         timerRunnable = object : Runnable {
             override fun run() {
                 // Refresh the ongoing events adapter to update elapsed time displays
@@ -297,7 +297,7 @@ class TrackingFragment : Fragment() {
         }
         timerHandler.post(timerRunnable!!)
     }
-    
+
     private fun stopTimerUpdates() {
         timerRunnable?.let {
             timerHandler.removeCallbacks(it)
@@ -308,14 +308,14 @@ class TrackingFragment : Fragment() {
     private fun checkForSharedPhoto() {
         val activity = requireActivity()
         val sharedPhotoPath = activity.intent?.getStringExtra(MainActivity.EXTRA_SHARED_PHOTO_PATH)
-        
+
         Log.d("TrackingFragment", "Checking for shared photo: $sharedPhotoPath")
-        
+
         if (!sharedPhotoPath.isNullOrEmpty()) {
             Log.d("TrackingFragment", "Found shared photo, showing dialog")
             // Clear the intent extra so we don't show the dialog again
             activity.intent?.removeExtra(MainActivity.EXTRA_SHARED_PHOTO_PATH)
-            
+
             // Wait for event types to be loaded, then show the photo dialog
             viewModel.eventTypes.observe(viewLifecycleOwner) { eventTypes ->
                 if (eventTypes.isNotEmpty()) {
@@ -324,17 +324,17 @@ class TrackingFragment : Fragment() {
             }
         }
     }
-    
+
     private fun handleSharedPhoto(photoPath: String, eventTypes: List<EventType>) {
         Log.d("TrackingFragment", "Handling shared photo with ${eventTypes.size} event types")
-        
+
         PhotoEventDialog.show(
             requireContext(),
             photoPath,
             eventTypes
         ) { eventType, notes, isInstant ->
             Log.d("TrackingFragment", "Creating event: ${eventType.name}, instant: $isInstant")
-            
+
             if (isInstant) {
                 // Create instant event with photo
                 createInstantEventWithPhoto(eventType.id, photoPath, notes)
@@ -344,19 +344,19 @@ class TrackingFragment : Fragment() {
             }
         }
     }
-    
+
     private fun createInstantEventWithPhoto(eventTypeId: Long, photoPath: String, notes: String) {
         Log.d("TrackingFragment", "Creating instant event with photo: $photoPath, notes: $notes")
         viewModel.recordInstantaneousEventWithPhoto(eventTypeId, photoPath, notes)
     }
-    
+
     private fun startTimedEventWithPhoto(eventTypeId: Long, photoPath: String, notes: String) {
         Log.d("TrackingFragment", "Starting timed event with photo: $photoPath, notes: $notes")
         viewModel.startTimedEventWithPhoto(eventTypeId, photoPath, notes)
     }
 
     // Camera and image picker methods
-    
+
     private fun checkStorageConfigurationThenOpenCamera() {
         if (isPhotoStorageConfigured()) {
             openCamera()
@@ -364,7 +364,7 @@ class TrackingFragment : Fragment() {
             showStorageConfigurationDialog()
         }
     }
-    
+
     private fun checkStorageConfigurationThenOpenImagePicker() {
         if (isPhotoStorageConfigured()) {
             openImagePicker()
@@ -372,24 +372,24 @@ class TrackingFragment : Fragment() {
             showStorageConfigurationDialog()
         }
     }
-    
+
     private fun isPhotoStorageConfigured(): Boolean {
         val app = requireActivity().application as ScribCalApplication
         val storagePreferences = app.storagePreferences
         val driveRepository = app.driveRepository
         val photosRepository = app.photosRepository
-        
+
         val isDriveEnabled = storagePreferences.isGoogleDriveEnabled()
         val isPhotosEnabled = storagePreferences.isGooglePhotosEnabled()
-        
+
         // Use unified health check methods
         val isDriveHealthy = driveRepository.isHealthy()
         val isPhotosHealthy = photosRepository.isHealthy()
-        
+
         // At least one storage option must be enabled and healthy
         return (isDriveEnabled && isDriveHealthy) || (isPhotosEnabled && isPhotosHealthy)
     }
-    
+
     private fun showStorageConfigurationDialog() {
         AlertDialog.Builder(requireContext())
             .setTitle("Photo Storage Required")
@@ -400,19 +400,19 @@ class TrackingFragment : Fragment() {
             .setNegativeButton("Cancel", null)
             .show()
     }
-    
+
     private fun openCamera() {
         val hasCameraPermission = ContextCompat.checkSelfPermission(
             requireContext(), Manifest.permission.CAMERA
         ) == PackageManager.PERMISSION_GRANTED
-        
+
         if (hasCameraPermission) {
             launchCamera()
         } else {
             requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
         }
     }
-    
+
     private fun launchCamera() {
         val photoFile = createImageFile()
         if (photoFile != null) {
@@ -421,41 +421,41 @@ class TrackingFragment : Fragment() {
                 "${requireContext().packageName}.fileprovider",
                 photoFile
             )
-            
+
             val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
                 putExtra(MediaStore.EXTRA_OUTPUT, currentPhotoUri)
             }
-            
+
             cameraLauncher.launch(intent)
         } else {
             Toast.makeText(requireContext(), "Unable to create photo file", Toast.LENGTH_SHORT).show()
         }
     }
-    
+
     private fun openImagePicker() {
         val intent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI).apply {
             type = "image/*"
         }
         imagePickerLauncher.launch(intent)
     }
-    
+
     private fun createImageFile(): File? {
         return try {
             val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
             val imageFileName = "SCRIBCAL_${timeStamp}_"
             val storageDir = File(requireContext().getExternalFilesDir(android.os.Environment.DIRECTORY_PICTURES), "ScribCal")
-            
+
             if (!storageDir.exists()) {
                 storageDir.mkdirs()
             }
-            
+
             File.createTempFile(imageFileName, ".jpg", storageDir)
         } catch (ex: IOException) {
             Log.e("TrackingFragment", "Error creating image file", ex)
             null
         }
     }
-    
+
     private fun getFilePathFromUri(uri: Uri): String? {
         return try {
             val inputStream = requireContext().contentResolver.openInputStream(uri)
@@ -474,7 +474,7 @@ class TrackingFragment : Fragment() {
             null
         }
     }
-    
+
     private fun handleCapturedPhoto(photoPath: String) {
         // Get available event types and show photo dialog
         viewModel.eventTypes.observe(viewLifecycleOwner) { eventTypes ->
@@ -485,7 +485,7 @@ class TrackingFragment : Fragment() {
             }
         }
     }
-    
+
     private fun handleSelectedImage(imagePath: String) {
         // Get available event types and show photo dialog
         viewModel.eventTypes.observe(viewLifecycleOwner) { eventTypes ->
@@ -496,7 +496,7 @@ class TrackingFragment : Fragment() {
             }
         }
     }
-    
+
     private fun showPhotoEventDialog(photoPath: String, eventTypes: List<EventType>) {
         PhotoEventDialog.show(
             requireContext(),

@@ -14,7 +14,7 @@ class EventsViewModel(
 ) : ViewModel() {
 
     val eventTypes: LiveData<List<EventType>> = eventRepository.getAllEventTypes()
-    
+
     private val _deleteConfirmation = MutableLiveData<EventType?>()
     val deleteConfirmation: LiveData<EventType?> = _deleteConfirmation
 
@@ -38,7 +38,7 @@ class EventsViewModel(
                     _errorMessage.value = "Cannot delete event type '${eventType.name}' because it has ongoing events. Stop all ongoing events first."
                     return@launch
                 }
-                
+
                 eventRepository.deleteEventType(eventType)
                 _deleteConfirmation.value = null
             } catch (e: Exception) {

@@ -11,19 +11,19 @@ import androidx.room.Update
  */
 @Dao
 interface AlbumConfigDao {
-    
+
     @Query("SELECT * FROM album_config WHERE id = 1")
     suspend fun getAlbumConfig(): AlbumConfig?
-    
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAlbumConfig(config: AlbumConfig)
-    
+
     @Update
     suspend fun updateAlbumConfig(config: AlbumConfig)
-    
+
     @Query("UPDATE album_config SET lastVerified = :timestamp WHERE id = 1")
     suspend fun updateLastVerified(timestamp: Long)
-    
+
     @Query("DELETE FROM album_config")
     suspend fun clearAlbumConfig()
 }

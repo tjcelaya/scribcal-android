@@ -2,7 +2,7 @@
     <!-- App Information -->
     <string name="app_name">ScribCal</string>
     <string name="action_settings">Configuración</string>
-    
+
     <!-- Navigation Labels -->
     <string name="fragment_tracking_label">ScribCal</string>
     <string name="fragment_events_label">Tipos de Eventos</string>
@@ -10,7 +10,7 @@
     <string name="fragment_settings_label">Configuración</string>
     <string name="fragment_calendar_setup_label">Configuración del Calendario</string>
     <string name="fragment_add_edit_event_type_label">Agregar Tipo de Evento</string>
-    
+
     <!-- Add Event Screen -->
     <string name="record_new_event">Registrar Nuevo Evento</string>
     <string name="event_type">Tipo de Evento</string>
@@ -21,14 +21,14 @@
     <string name="save_right_now">Guardar Ahora</string>
     <string name="start_timed_event">Iniciar Evento Cronometrado</string>
     <string name="cancel">Cancelar</string>
-    
+
     <!-- Help Text -->
     <string name="add_event_help_text">• Evento Instantáneo: Registra un evento de duración cero en la fecha/hora seleccionada\n• Evento Cronometrado: Inicia un cronómetro en la fecha/hora seleccionada\n• Los nuevos tipos de eventos se crean automáticamente cuando los introduces</string>
-    
+
     <!-- Loading States -->
     <string name="recording">Registrando...</string>
     <string name="starting">Iniciando...</string>
-    
+
     <!-- Messages and Toasts -->
     <string name="please_enter_event_type">Por favor ingresa un tipo de evento</string>
     <string name="error_format">Error: %s</string>
@@ -37,24 +37,24 @@
     <string name="error_recording_event">Error al registrar evento: %s</string>
     <string name="error_starting_event">Error al iniciar evento: %s</string>
     <string name="ongoing_event_exists">Ya hay un evento en curso de este tipo. Por favor, detén el existente primero.</string>
-    
+
     <!-- Tracking Screen -->
     <string name="no_event_types_message">Sin tipos de eventos aún. ¡Toca + para crear tu primer evento!</string>
     <string name="manage_event_types">Gestionar Tipos de Eventos</string>
     <string name="setup_required">Configuración Requerida</string>
     <string name="change">Cambiar</string>
     <string name="ongoing_events">Eventos en Curso</string>
-    
+
     <!-- Stop Event Dialog -->
     <string name="stop_event">Detener Evento</string>
     <string name="stop_event_message">¿Detener este evento?\n\nTiempo transcurrido: %1$s\nIniciado a las: %2$s\n\nEl evento se guardará en tu calendario.</string>
     <string name="stop">Detener</string>
-    
+
     <!-- Event Types Screen -->
     <string name="event_types_title">Tipos de Eventos</string>
     <string name="no_event_types_created">Sin tipos de eventos creados aún</string>
     <string name="add_event_types_message">Crea tipos de eventos para organizar tus actividades</string>
-    
+
     <!-- Add/Edit Event Type Screen -->
     <string name="add_event_type">Agregar Tipo de Evento</string>
     <string name="edit_event_type">Editar Tipo de Evento</string>
@@ -66,7 +66,7 @@
     <string name="save">Guardar</string>
     <string name="edit">Editar</string>
     <string name="delete">Eliminar</string>
-    
+
     <!-- Settings Screen -->
     <string name="photo_storage">Almacenamiento de Fotos</string>
     <string name="google_drive">Google Drive</string>
@@ -77,7 +77,7 @@
     <string name="selected_calendar">Calendario Seleccionado</string>
     <string name="no_calendar_selected">Sin calendario seleccionado</string>
     <string name="select_calendar">Seleccionar Calendario</string>
-    
+
     <!-- Calendar Setup Screen -->
     <string name="calendar_setup">Configuración del Calendario</string>
     <string name="select_calendar_message">Selecciona un calendario para guardar tus eventos</string>
@@ -85,29 +85,29 @@
     <string name="no_calendars_found">No se encontraron calendarios</string>
     <string name="calendar_permissions_required">Se requieren permisos de calendario para guardar eventos</string>
     <string name="grant_permissions">Conceder Permisos</string>
-    
+
     <!-- Status Messages -->
     <string name="connected">Conectado</string>
     <string name="disconnected">Desconectado</string>
     <string name="testing">Probando...</string>
     <string name="connection_successful">Conexión exitosa</string>
     <string name="connection_failed">Conexión fallida</string>
-    
+
     <!-- Generic -->
     <string name="ok">OK</string>
     <string name="retry">Reintentar</string>
     <string name="loading">Cargando...</string>
-    
+
     <!-- Accessibility Content Descriptions -->
     <string name="record_instant_event">Registrar Evento Instantáneo</string>
     <string name="start_event">Iniciar Evento</string>
     <string name="calendar_icon">Calendario</string>
-    
+
     <!-- Time Format -->
     <string name="elapsed_time_format" formatted="false">%02d:%02d:%02d</string>
     <string name="ongoing_event_single">1 evento en curso</string>
     <string name="ongoing_events_multiple">%d eventos en curso</string>
-    
+
     <!-- Legacy strings (can be removed when fragments are updated) -->
     <string name="next">Siguiente</string>
     <string name="previous">Anterior</string>

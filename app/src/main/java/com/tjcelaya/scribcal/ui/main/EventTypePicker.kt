@@ -8,7 +8,7 @@ import com.tjcelaya.scribcal.data.database.EventType
  * Simple event type picker dialog
  */
 object EventTypePicker {
-    
+
     fun show(
         context: Context,
         eventTypes: List<EventType>,
@@ -23,9 +23,9 @@ object EventTypePicker {
                 .show()
             return
         }
-        
+
         val eventTypeNames = eventTypes.map { it.name }.toTypedArray()
-        
+
         AlertDialog.Builder(context)
             .setTitle("Select Event Type")
             .setItems(eventTypeNames) { dialog, which ->

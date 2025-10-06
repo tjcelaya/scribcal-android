@@ -28,7 +28,7 @@ data class EventWithType(
     val isInstant: Boolean get() = event.isInstant()
     val isCompleted: Boolean get() = event.isCompleted()
     val durationMs: Long get() = event.getDurationMs()
-    
+
     /**
      * Helper to check if this event has a photo attachment
      */

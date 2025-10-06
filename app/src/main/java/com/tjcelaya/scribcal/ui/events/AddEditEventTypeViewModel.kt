@@ -18,7 +18,7 @@ class AddEditEventTypeViewModel(
 
     private val _errorMessage = MutableLiveData<String?>()
     val errorMessage: LiveData<String?> = _errorMessage
-    
+
     private val _loadedEventType = MutableLiveData<EventType?>()
     val loadedEventType: LiveData<EventType?> = _loadedEventType
 
@@ -31,7 +31,7 @@ class AddEditEventTypeViewModel(
                     _saveResult.value = false
                     return@launch
                 }
-                
+
                 if (eventType.id == 0L) {
                     // Creating new event type
                     eventRepository.insertEventType(eventType)
@@ -57,7 +57,7 @@ class AddEditEventTypeViewModel(
             }
         }
     }
-    
+
     private suspend fun isDuplicateName(name: String, excludeId: Long): Boolean {
         return try {
             val eventTypes = eventRepository.getAllEventTypesSync()
@@ -66,7 +66,7 @@ class AddEditEventTypeViewModel(
             false // If we can't check, allow the save and let database handle it
         }
     }
-    
+
     fun clearErrorMessage() {
         _errorMessage.value = null
     }

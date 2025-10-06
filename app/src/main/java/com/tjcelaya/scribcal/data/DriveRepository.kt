@@ -17,28 +17,28 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 class DriveRepository(private val context: Context) {
-    
+
     companion object {
         private const val TAG = "DriveRepository"
         private const val SCRIBCAL_FOLDER_NAME = "ScribCal"
     }
-    
+
     private var driveService: Drive? = null
     private var scribcalFolderId: String? = null
     private var lastConnectionTest: Long? = null
     private var lastConnectionSuccessful = false
     private var lastConsentException: UserRecoverableAuthException? = null
-    
+
     /**
      * Initialize Google Drive service with the given account
      */
     suspend fun initializeDrive(account: Account): Boolean = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "Initializing Drive service with account: ${account.name}")
-            
+
             // Clear any previous consent exception
             lastConsentException = null
-            
+
             // First, check if we can get a valid OAuth token
             val tokenResult = validateDriveToken(account)
             if (!tokenResult.isValid) {
@@ -51,13 +51,13 @@ class DriveRepository(private val context: Context) {
                     return@withContext false
                 }
             }
-            
+
             val credential = GoogleAccountCredential.usingOAuth2(
                 context,
                 listOf(DriveScopes.DRIVE_FILE)
             )
             credential.selectedAccount = account
-            
+
             driveService = Drive.Builder(
                 AndroidHttp.newCompatibleTransport(),
                 GsonFactory(),
@@ -65,10 +65,10 @@ class DriveRepository(private val context: Context) {
             )
                 .setApplicationName("ScribCal")
                 .build()
-            
+
             // Now try to ensure ScribCal folder exists
             ensureScribCalFolderExists()
-            
+
             Log.d(TAG, "Drive service initialized successfully")
             true
         } catch (e: UserRecoverableAuthException) {
@@ -81,17 +81,17 @@ class DriveRepository(private val context: Context) {
             false
         }
     }
-    
+
     /**
      * Check if Drive service is initialized
      */
     fun isDriveInitialized(): Boolean = driveService != null && scribcalFolderId != null
-    
+
     /**
      * Check if Drive service is ready for photo operations (initialized and tested successfully)
      */
     fun isDriveReady(): Boolean = isDriveInitialized() && lastConnectionSuccessful
-    
+
     /**
      * Unified health check for Drive integration
      * Returns true if Drive is currently healthy and can be used for photo storage
@@ -102,31 +102,31 @@ class DriveRepository(private val context: Context) {
         if (!isDriveInitialized()) {
             return false
         }
-        
+
         // Must have had at least one successful connection test
         if (!lastConnectionSuccessful) {
             return false
         }
-        
+
         // If we haven't tested recently, assume healthy but trigger background verification
         if (lastConnectionTest == null) {
             return false
         }
-        
+
         return true
     }
-    
+
     /**
      * Create or find the ScribCal folder in Google Drive
      */
     private suspend fun ensureScribCalFolderExists() = withContext(Dispatchers.IO) {
         try {
             val drive = driveService ?: throw IllegalStateException("Drive service not initialized")
-            
+
             // First, check if ScribCal folder already exists
             val query = "name='$SCRIBCAL_FOLDER_NAME' and mimeType='application/vnd.google-apps.folder' and trashed=false"
             val result = drive.files().list().setQ(query).execute()
-            
+
             if (result.files.isNotEmpty()) {
                 scribcalFolderId = result.files[0].id
                 Log.d(TAG, "Found existing ScribCal folder: $scribcalFolderId")
@@ -135,7 +135,7 @@ class DriveRepository(private val context: Context) {
                 val folderMetadata = File()
                 folderMetadata.name = SCRIBCAL_FOLDER_NAME
                 folderMetadata.mimeType = "application/vnd.google-apps.folder"
-                
+
                 val folder = drive.files().create(folderMetadata).execute()
                 scribcalFolderId = folder.id
                 Log.d(TAG, "Created ScribCal folder: $scribcalFolderId")
@@ -145,7 +145,7 @@ class DriveRepository(private val context: Context) {
             throw e
         }
     }
-    
+
     /**
      * Upload a photo to the ScribCal folder and return a shareable link
      */
@@ -153,35 +153,35 @@ class DriveRepository(private val context: Context) {
         try {
             val drive = driveService ?: throw IllegalStateException("Drive service not initialized")
             val folderId = scribcalFolderId ?: throw IllegalStateException("ScribCal folder not initialized")
-            
+
             Log.d(TAG, "Uploading photo: $fileName to folder: $folderId")
-            
+
             // Create file metadata
             val fileMetadata = File()
             fileMetadata.name = fileName
             fileMetadata.parents = listOf(folderId)
-            
+
             // Create media content
             val localFile = java.io.File(localFilePath)
             val mediaContent = FileContent("image/jpeg", localFile)
-            
+
             // Upload file
             val file = drive.files().create(fileMetadata, mediaContent).execute()
             val fileId = file.id
             Log.d(TAG, "File uploaded with ID: $fileId")
-            
+
             // Make file publicly readable
             val permission = Permission()
             permission.type = "anyone"
             permission.role = "reader"
-            
+
             drive.permissions().create(fileId, permission).execute()
             Log.d(TAG, "File made publicly readable: $fileId")
-            
+
             // Generate shareable link
             val shareableLink = "https://drive.google.com/file/d/$fileId/view"
             Log.d(TAG, "Generated shareable link: $shareableLink")
-            
+
             shareableLink
         } catch (e: Exception) {
             Log.e(TAG, "Failed to upload photo and get link", e)
@@ -218,7 +218,7 @@ class DriveRepository(private val context: Context) {
                 account,
                 "oauth2:${DriveScopes.DRIVE_FILE}"
             )
-            
+
             if (token.isNotEmpty()) {
                 Log.d(TAG, "Drive token validated successfully")
                 DriveTokenResult(isValid = true, token = token, consentException = null)
@@ -234,7 +234,7 @@ class DriveRepository(private val context: Context) {
             DriveTokenResult(isValid = false, token = null, consentException = null)
         }
     }
-    
+
     /**
      * Clear cached OAuth tokens for Drive access
      */
@@ -246,7 +246,7 @@ class DriveRepository(private val context: Context) {
             Log.w(TAG, "Error clearing cached Drive tokens", e)
         }
     }
-    
+
     /**
      * Check if we have permission to access Drive
      */
@@ -254,7 +254,7 @@ class DriveRepository(private val context: Context) {
         val result = validateDriveToken(account)
         result.isValid
     }
-    
+
     /**
      * Test Drive connection by creating a test file
      */
@@ -265,43 +265,43 @@ class DriveRepository(private val context: Context) {
                 status = "Drive service not initialized",
                 lastTestTime = null
             )
-            
+
             val folderId = scribcalFolderId ?: return@withContext DriveConnectionResult(
                 isConnected = false,
                 status = "ScribCal folder not found",
                 lastTestTime = null
             )
-            
+
             Log.d(TAG, "Testing Drive connection...")
-            
+
             // Create a simple test file with timestamp
             val timestamp = System.currentTimeMillis()
             val testFileName = "connection_test_$timestamp.txt"
             val testContent = "ScribCal Drive connection test\nTimestamp: ${java.util.Date(timestamp)}"
-            
+
             // Create file metadata
             val fileMetadata = File()
             fileMetadata.name = testFileName
             fileMetadata.parents = listOf(folderId)
-            
+
             // Create temporary file
             val tempFile = kotlin.io.path.createTempFile("scribcal_test", ".txt").toFile()
             tempFile.writeText(testContent)
-            
+
             try {
                 // Upload test file
                 val mediaContent = FileContent("text/plain", tempFile)
                 val uploadedFile = drive.files().create(fileMetadata, mediaContent).execute()
                 Log.d(TAG, "Test file uploaded: ${uploadedFile.id}")
-                
+
                 // Delete test file immediately
                 drive.files().delete(uploadedFile.id).execute()
                 Log.d(TAG, "Test file deleted successfully")
-                
+
                 // Store successful test time
                 lastConnectionTest = timestamp
                 lastConnectionSuccessful = true
-                
+
                 DriveConnectionResult(
                     isConnected = true,
                     status = "OK",
@@ -311,13 +311,13 @@ class DriveRepository(private val context: Context) {
                 // Clean up temp file
                 tempFile.delete()
             }
-            
+
         } catch (e: Exception) {
             Log.e(TAG, "Drive connection test failed", e)
             val timestamp = System.currentTimeMillis()
             lastConnectionTest = timestamp
             lastConnectionSuccessful = false
-            
+
             DriveConnectionResult(
                 isConnected = false,
                 status = "Failed",
@@ -325,12 +325,12 @@ class DriveRepository(private val context: Context) {
             )
         }
     }
-    
+
     /**
      * Get the current Drive folder name
      */
     fun getCurrentFolderName(): String = SCRIBCAL_FOLDER_NAME
-    
+
     /**
      * Get Drive connection status without testing
      */
@@ -350,31 +350,31 @@ class DriveRepository(private val context: Context) {
             else -> "Ready"
         }
     }
-    
+
     /**
      * Get time since last connection test
      */
     fun getLastTestTime(): Long? = lastConnectionTest
-    
+
     /**
      * Get the stored consent exception for Drive access
      */
     fun getDriveConsentException(): UserRecoverableAuthException? = lastConsentException
-    
+
     /**
      * Manually retry Drive initialization with a specific account
      */
     suspend fun retryDriveInitialization(account: Account): Boolean = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "Manually retrying Drive initialization with account: ${account.name}")
-            
+
             // Clear any previous state
             driveService = null
             scribcalFolderId = null
             lastConnectionTest = null
             lastConnectionSuccessful = false
             lastConsentException = null
-            
+
             // Re-initialize
             return@withContext initializeDrive(account)
         } catch (e: Exception) {
@@ -382,17 +382,17 @@ class DriveRepository(private val context: Context) {
             false
         }
     }
-    
+
     /**
      * Format time difference as a short string
      */
     private fun getTimeAgo(timestamp: Long): String {
         val now = System.currentTimeMillis()
         val diff = now - timestamp
-        
+
         return when {
             diff < 60_000 -> "${diff / 1000}s" // seconds
-            diff < 3600_000 -> "${diff / 60_000}m" // minutes  
+            diff < 3600_000 -> "${diff / 60_000}m" // minutes
             diff < 86400_000 -> "${diff / 3600_000}h" // hours
             else -> "${diff / 86400_000}d" // days
         }

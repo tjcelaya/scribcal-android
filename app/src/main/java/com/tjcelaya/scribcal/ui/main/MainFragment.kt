@@ -27,10 +27,10 @@ class MainFragment : Fragment() {
 
     private var _binding: FragmentMainBinding? = null
     private val binding get() = _binding!!
-    
+
     private lateinit var viewModel: MainViewModel
     private var currentEventTypes: List<EventType> = emptyList()
-    
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -39,25 +39,25 @@ class MainFragment : Fragment() {
         _binding = FragmentMainBinding.inflate(inflater, container, false)
         return binding.root
     }
-    
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        
+
         Log.d("MainFragment", "onViewCreated: Starting fragment setup")
         setupViewModel()
         setupClickListeners()
         observeData()
-        
+
         // Check if launched with shared photo
         // TODO: Implement photo sharing functionality
         // val sharedPhotoPath = arguments?.getString(MainActivity.EXTRA_SHARED_PHOTO_PATH)
         // if (sharedPhotoPath != null) {
         //     handleSharedPhoto(sharedPhotoPath)
         // }
-        
+
         Log.d("MainFragment", "onViewCreated: Fragment setup complete")
     }
-    
+
     private fun setupViewModel() {
         Log.d("MainFragment", "setupViewModel: Creating database and repository")
         // Create repository with database
@@ -67,7 +67,7 @@ class MainFragment : Fragment() {
         viewModel = ViewModelProvider(this, factory)[MainViewModel::class.java]
         Log.d("MainFragment", "setupViewModel: ViewModel created successfully")
     }
-    
+
     private fun setupClickListeners() {
         binding.btnInstantEvent.setOnClickListener {
             if (currentEventTypes.isNotEmpty()) {
@@ -79,7 +79,7 @@ class MainFragment : Fragment() {
                 showMessage("Loading event types...")
             }
         }
-        
+
         binding.btnStartTimed.setOnClickListener {
             if (currentEventTypes.isNotEmpty()) {
                 EventTypePicker.show(requireContext(), currentEventTypes) { eventType ->
@@ -91,14 +91,14 @@ class MainFragment : Fragment() {
             }
         }
     }
-    
+
     private fun observeData() {
         // Observe event types
         viewModel.allEventTypes.observe(viewLifecycleOwner) { eventTypes ->
             Log.d("MainFragment", "Received ${eventTypes.size} event types: ${eventTypes.map { it.name }}")
             currentEventTypes = eventTypes
         }
-        
+
         // Observe today's events
         viewModel.todaysEvents.observe(viewLifecycleOwner) { events ->
             Log.d("MainFragment", "Received ${events.size} today's events")
@@ -109,17 +109,17 @@ class MainFragment : Fragment() {
             }
         }
     }
-    
+
     private fun showEmptyState() {
         binding.ongoingEventsHeader.visibility = View.GONE
         binding.completedEventsHeader.visibility = View.GONE
         binding.emptyStateText.visibility = View.VISIBLE
     }
-    
+
     private fun showEvents(events: List<EventWithType>) {
         val ongoingEvents = events.filter { it.isOngoing }
         val completedEvents = events.filter { !it.isOngoing }
-        
+
         // Show/hide sections based on content
         if (ongoingEvents.isNotEmpty()) {
             binding.ongoingEventsHeader.visibility = View.VISIBLE
@@ -127,7 +127,7 @@ class MainFragment : Fragment() {
         } else {
             binding.ongoingEventsHeader.visibility = View.GONE
         }
-        
+
         if (completedEvents.isNotEmpty()) {
             binding.completedEventsHeader.visibility = View.VISIBLE
             showCompletedEvents(completedEvents)
@@ -139,28 +139,28 @@ class MainFragment : Fragment() {
             }
         }
     }
-    
+
     private fun showOngoingEvents(events: List<EventWithType>) {
         binding.ongoingEventsContainer.removeAllViews()
-        
+
         events.forEach { event ->
             val eventView = createEventView(event, isOngoing = true)
             binding.ongoingEventsContainer.addView(eventView)
         }
     }
-    
+
     private fun showCompletedEvents(events: List<EventWithType>) {
         binding.completedEventsContainer.removeAllViews()
-        
+
         events.forEach { event ->
             val eventView = createEventView(event, isOngoing = false)
             binding.completedEventsContainer.addView(eventView)
         }
     }
-    
+
     private fun createEventView(event: EventWithType, isOngoing: Boolean): View {
         val view = layoutInflater.inflate(R.layout.item_event, null)
-        
+
         // Find views
         val photoThumbnail = view.findViewById<android.widget.ImageView>(R.id.photoThumbnail)
         val eventIcon = view.findViewById<TextView>(R.id.eventIcon)
@@ -168,7 +168,7 @@ class MainFragment : Fragment() {
         val eventTime = view.findViewById<TextView>(R.id.eventTime)
         val eventStatus = view.findViewById<TextView>(R.id.eventStatus)
         val eventNotes = view.findViewById<TextView>(R.id.eventNotes)
-        
+
         // Setup photo thumbnail if available
         val eventPhotoPath = event.photoPath
         if (event.hasPhoto && eventPhotoPath != null) {
@@ -183,11 +183,11 @@ class MainFragment : Fragment() {
         } else {
             photoThumbnail.visibility = View.GONE
         }
-        
+
         // Setup event details
         val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
         val startTime = timeFormat.format(Date(event.startTime))
-        
+
         val (icon, statusText, textColor) = if (isOngoing) {
             val elapsed = (System.currentTimeMillis() - event.startTime) / 1000
             val minutes = elapsed / 60
@@ -201,13 +201,13 @@ class MainFragment : Fragment() {
             val seconds = (durationMs % (1000 * 60)) / 1000
             Triple("✅", "${minutes}m ${seconds}s", android.graphics.Color.parseColor("#45B7D1"))
         }
-        
+
         eventIcon.text = icon
         eventTitle.text = event.eventTypeName
         eventTime.text = startTime
         eventStatus.text = statusText
         eventStatus.setTextColor(textColor)
-        
+
         // Show notes if available
         if (event.notes.isNotBlank()) {
             eventNotes.text = "Note: ${event.notes}"
@@ -215,7 +215,7 @@ class MainFragment : Fragment() {
         } else {
             eventNotes.visibility = View.GONE
         }
-        
+
         // Setup background and click listeners
         if (isOngoing) {
             view.setBackgroundColor(android.graphics.Color.parseColor("#FFF3E0"))
@@ -227,29 +227,29 @@ class MainFragment : Fragment() {
         } else {
             view.setBackgroundColor(android.graphics.Color.parseColor("#F8F9FA"))
         }
-        
+
         val params = android.widget.LinearLayout.LayoutParams(
             android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
             android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
         )
         params.setMargins(0, 0, 0, 8)
         view.layoutParams = params
-        
+
         return view
     }
-    
+
     private fun showMessage(message: String) {
         // Simple toast-like message - in a real app you'd use proper Toast or Snackbar
         binding.emptyStateText.text = message
         binding.emptyStateText.visibility = View.VISIBLE
     }
-    
+
     /**
      * Handles a shared photo by showing the photo event dialog
      */
     fun handleSharedPhoto(photoPath: String) {
         Log.d("MainFragment", "handleSharedPhoto: $photoPath")
-        
+
         if (currentEventTypes.isNotEmpty()) {
             PhotoEventDialog.show(requireContext(), photoPath, currentEventTypes) { eventType, notes, isInstant ->
                 if (isInstant) {
@@ -277,7 +277,7 @@ class MainFragment : Fragment() {
             }
         }
     }
-    
+
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null

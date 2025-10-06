@@ -24,7 +24,7 @@
             android:id="@+id/action_tracking_to_add_event"
             app:destination="@id/addEventFragment" />
     </fragment>
-    
+
     <fragment
         android:id="@+id/eventsFragment"
         android:name="com.tjcelaya.scribcal.ui.events.EventsFragment"
@@ -38,7 +38,7 @@
             android:id="@+id/action_events_to_add_edit_event_type"
             app:destination="@id/addEditEventTypeFragment" />
     </fragment>
-    
+
     <fragment
         android:id="@+id/addEditEventTypeFragment"
         android:name="com.tjcelaya.scribcal.ui.events.AddEditEventTypeFragment"
@@ -54,7 +54,7 @@
             android:id="@+id/action_add_edit_event_type_to_events"
             app:destination="@id/eventsFragment" />
     </fragment>
-    
+
     <fragment
         android:id="@+id/settingsFragment"
         android:name="com.tjcelaya.scribcal.ui.settings.SettingsFragment"
@@ -68,7 +68,7 @@
             android:id="@+id/action_settings_to_calendar_setup"
             app:destination="@id/calendarSetupFragment" />
     </fragment>
-    
+
     <fragment
         android:id="@+id/calendarSetupFragment"
         android:name="com.tjcelaya.scribcal.ui.settings.CalendarSetupFragment"
@@ -79,7 +79,7 @@
             android:id="@+id/action_calendar_setup_to_tracking"
             app:destination="@id/trackingFragment" />
     </fragment>
-    
+
     <fragment
         android:id="@+id/addEventFragment"
         android:name="com.tjcelaya.scribcal.ui.events.AddEventFragment"

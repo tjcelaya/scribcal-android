@@ -21,23 +21,23 @@ data class CalendarInfo(
 )
 
 object CalendarUtils {
-    
+
     const val CALENDAR_READ_PERMISSION = Manifest.permission.READ_CALENDAR
     const val CALENDAR_WRITE_PERMISSION = Manifest.permission.WRITE_CALENDAR
-    
+
     fun hasCalendarPermissions(context: Context): Boolean {
         return ActivityCompat.checkSelfPermission(context, CALENDAR_READ_PERMISSION) == PackageManager.PERMISSION_GRANTED &&
                 ActivityCompat.checkSelfPermission(context, CALENDAR_WRITE_PERMISSION) == PackageManager.PERMISSION_GRANTED
     }
-    
+
     suspend fun getAvailableCalendars(context: Context): List<CalendarInfo> = withContext(Dispatchers.IO) {
         if (!hasCalendarPermissions(context)) {
             return@withContext emptyList()
         }
-        
+
         val calendars = mutableListOf<CalendarInfo>()
         val contentResolver: ContentResolver = context.contentResolver
-        
+
         val projection = arrayOf(
             CalendarContract.Calendars._ID,
             CalendarContract.Calendars.CALENDAR_DISPLAY_NAME,
@@ -45,13 +45,13 @@ object CalendarUtils {
             CalendarContract.Calendars.ACCOUNT_TYPE,
             CalendarContract.Calendars.IS_PRIMARY
         )
-        
+
         val selection = "${CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL} >= ? AND ${CalendarContract.Calendars.SYNC_EVENTS} = ?"
         val selectionArgs = arrayOf(
             CalendarContract.Calendars.CAL_ACCESS_CONTRIBUTOR.toString(),
             "1"
         )
-        
+
         try {
             val cursor: Cursor? = contentResolver.query(
                 CalendarContract.Calendars.CONTENT_URI,
@@ -60,7 +60,7 @@ object CalendarUtils {
                 selectionArgs,
                 null
             )
-            
+
             cursor?.use {
                 while (it.moveToNext()) {
                     val id = it.getLong(it.getColumnIndexOrThrow(CalendarContract.Calendars._ID))
@@ -68,7 +68,7 @@ object CalendarUtils {
                     val accountName = it.getString(it.getColumnIndexOrThrow(CalendarContract.Calendars.ACCOUNT_NAME)) ?: ""
                     val accountType = it.getString(it.getColumnIndexOrThrow(CalendarContract.Calendars.ACCOUNT_TYPE)) ?: ""
                     val isPrimary = it.getInt(it.getColumnIndexOrThrow(CalendarContract.Calendars.IS_PRIMARY)) == 1
-                    
+
                     calendars.add(CalendarInfo(id, displayName, accountName, accountType, isPrimary))
                 }
             }
@@ -76,10 +76,10 @@ object CalendarUtils {
             // Handle permission error
             return@withContext emptyList()
         }
-        
+
         calendars
     }
-    
+
     suspend fun insertEventToCalendar(
         context: Context,
         calendarId: Long,
@@ -92,18 +92,18 @@ object CalendarUtils {
         if (!hasCalendarPermissions(context)) {
             return@withContext null
         }
-        
+
         // Debug logging to diagnose timezone issues
         val startDate = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss z", java.util.Locale.getDefault()).format(java.util.Date(startTime))
         val endDate = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss z", java.util.Locale.getDefault()).format(java.util.Date(endTime))
         android.util.Log.d("CalendarUtils", "Creating event '$title' from $startDate to $endDate")
         android.util.Log.d("CalendarUtils", "Timezone: ${java.util.TimeZone.getDefault().id}, startTime: $startTime, endTime: $endTime")
-        
+
         val contentResolver = context.contentResolver
-        
+
         // Format description with photo link if available
         val finalDescription = formatEventDescription(description, photoPath)
-        
+
         val values = ContentValues().apply {
             put(CalendarContract.Events.DTSTART, startTime)
             put(CalendarContract.Events.DTEND, endTime)
@@ -115,7 +115,7 @@ object CalendarUtils {
             // Only set as all-day if explicitly requested (which we don't do for now)
             put(CalendarContract.Events.ALL_DAY, 0)
         }
-        
+
         try {
             val uri: Uri? = contentResolver.insert(CalendarContract.Events.CONTENT_URI, values)
             val eventId = uri?.lastPathSegment?.toLongOrNull()
@@ -133,7 +133,7 @@ object CalendarUtils {
             return@withContext null
         }
     }
-    
+
     suspend fun updateCalendarEvent(
         context: Context,
         eventId: Long,
@@ -146,12 +146,12 @@ object CalendarUtils {
         if (!hasCalendarPermissions(context)) {
             return@withContext false
         }
-        
+
         val contentResolver = context.contentResolver
-        
+
         // Format description with photo link if available
         val finalDescription = formatEventDescription(description, photoPath)
-        
+
         val values = ContentValues().apply {
             put(CalendarContract.Events.DTSTART, startTime)
             put(CalendarContract.Events.TITLE, title)
@@ -160,7 +160,7 @@ object CalendarUtils {
             put(CalendarContract.Events.ALL_DAY, 0)
             put(CalendarContract.Events.DTEND, endTime)
         }
-        
+
         try {
             val uri = Uri.withAppendedPath(CalendarContract.Events.CONTENT_URI, eventId.toString())
             val rowsUpdated = contentResolver.update(uri, values, null, null)
@@ -171,14 +171,14 @@ object CalendarUtils {
             return@withContext false
         }
     }
-    
+
     suspend fun deleteCalendarEvent(context: Context, eventId: Long): Boolean = withContext(Dispatchers.IO) {
         if (!hasCalendarPermissions(context)) {
             return@withContext false
         }
-        
+
         val contentResolver = context.contentResolver
-        
+
         try {
             val uri = Uri.withAppendedPath(CalendarContract.Events.CONTENT_URI, eventId.toString())
             val rowsDeleted = contentResolver.delete(uri, null, null)
@@ -189,18 +189,31 @@ object CalendarUtils {
             return@withContext false
         }
     }
-    
+
     /**
      * Format event description with photo link if available
      */
     private fun formatEventDescription(description: String?, photoPath: String?): String {
         val baseDescription = description?.trim() ?: ""
-        
+
         return when {
             photoPath.isNullOrEmpty() -> baseDescription
-            isDriveLink(photoPath) || isPhotosLink(photoPath) -> {
-                // Format cloud storage link as clickable URL
-                val linkText = if (isDriveLink(photoPath)) "Google Drive" else "Google Photos"
+            isMultiplePhotoLinks(photoPath) -> {
+                // Handle multiple photo links (formatted by EventRepository)
+                val photoSection = "📷 $photoPath"  // photoPath already contains "Photos:" prefix
+                if (baseDescription.isEmpty()) {
+                    photoSection
+                } else {
+                    "$baseDescription\n\n$photoSection"
+                }
+            }
+            isCloudStorageLink(photoPath) -> {
+                // Format single cloud storage link as clickable URL
+                val linkText = when {
+                    isDriveLink(photoPath) -> "Google Drive"
+                    isPhotosLink(photoPath) || isGoogleUserContentLink(photoPath) -> "Google Photos"
+                    else -> "Cloud Storage"
+                }
                 val photoSection = "📷 Photo: $linkText\n$photoPath"
                 if (baseDescription.isEmpty()) {
                     photoSection
@@ -219,21 +232,42 @@ object CalendarUtils {
             }
         }
     }
-    
+
+    /**
+     * Check if the path contains multiple photo links (formatted by EventRepository)
+     */
+    private fun isMultiplePhotoLinks(path: String): Boolean {
+        return path.startsWith("Photos:") && path.contains("\n")
+    }
+
+    /**
+     * Check if a path is any kind of cloud storage link
+     */
+    private fun isCloudStorageLink(path: String): Boolean {
+        return isDriveLink(path) || isPhotosLink(path) || isGoogleUserContentLink(path)
+    }
+
     /**
      * Check if a path is a Google Drive link
      */
     private fun isDriveLink(path: String): Boolean {
         return path.startsWith("https://drive.google.com/")
     }
-    
+
     /**
      * Check if a path is a Google Photos link
      */
     private fun isPhotosLink(path: String): Boolean {
         return path.startsWith("https://photos.google.com/")
     }
-    
+
+    /**
+     * Check if a path is a Google Photos baseUrl (googleapis user content)
+     */
+    private fun isGoogleUserContentLink(path: String): Boolean {
+        return path.startsWith("https://lh") && path.contains("googleusercontent.com")
+    }
+
     /**
      * Extract filename from a file path
      */

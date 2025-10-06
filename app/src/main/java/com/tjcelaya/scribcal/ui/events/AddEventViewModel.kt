@@ -32,7 +32,7 @@ class AddEventViewModel(
             try {
                 val eventTypeId = getOrCreateEventType(eventTypeName)
                 val eventId = eventRepository.createInstantEvent(eventTypeId, timestamp = customTimestamp)
-                
+
                 // Sync to calendar if available
                 try {
                     if (calendarRepository.isCalendarSetupComplete()) {
@@ -42,7 +42,7 @@ class AddEventViewModel(
                     Log.w("AddEventViewModel", "Failed to sync instant event to calendar", e)
                     // Don't fail the whole operation if calendar sync fails
                 }
-                
+
                 _message.value = "SUCCESS_INSTANT_EVENT"
                 _navigateBack.value = true
             } catch (e: Exception) {
@@ -56,14 +56,14 @@ class AddEventViewModel(
         viewModelScope.launch {
             try {
                 val eventTypeId = getOrCreateEventType(eventTypeName)
-                
+
                 // Check if there's already an ongoing event of this type
                 val existingOngoing = eventRepository.getOngoingEventCountForType(eventTypeId)
                 if (existingOngoing > 0) {
                     _message.value = "ERROR_ONGOING_EVENT_EXISTS"
                     return@launch
                 }
-                
+
                 eventRepository.startTimedEvent(eventTypeId, timestamp = customTimestamp)
                 _message.value = "SUCCESS_TIMED_EVENT"
                 _navigateBack.value = true
@@ -76,10 +76,10 @@ class AddEventViewModel(
 
     private suspend fun getOrCreateEventType(eventTypeName: String): Long {
         // First, check if an event type with this name already exists
-        val existingEventType = eventTypes.value?.find { 
-            it.name.equals(eventTypeName, ignoreCase = true) 
+        val existingEventType = eventTypes.value?.find {
+            it.name.equals(eventTypeName, ignoreCase = true)
         }
-        
+
         return if (existingEventType != null) {
             Log.d("AddEventViewModel", "Using existing event type: ${existingEventType.name}")
             existingEventType.id

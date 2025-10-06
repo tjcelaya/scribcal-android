@@ -16,16 +16,16 @@ import androidx.room.RoomDatabase
     exportSchema = false
 )
 abstract class ScribCalDatabase : RoomDatabase() {
-    
+
     abstract fun eventTypeDao(): EventTypeDao
     abstract fun eventDao(): EventDao
     abstract fun photoUploadProgressDao(): PhotoUploadProgressDao
     abstract fun albumConfigDao(): AlbumConfigDao
-    
+
     companion object {
         @Volatile
         private var INSTANCE: ScribCalDatabase? = null
-        
+
         fun getDatabase(context: Context): ScribCalDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -39,7 +39,7 @@ abstract class ScribCalDatabase : RoomDatabase() {
                 instance
             }
         }
-        
+
         fun getInstance(context: Context): ScribCalDatabase = getDatabase(context)
     }
 }

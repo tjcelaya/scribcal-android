@@ -21,17 +21,17 @@ import com.tjcelaya.scribcal.utils.CalendarInfo
 import kotlinx.coroutines.launch
 
 class CalendarSetupFragment : Fragment() {
-    
+
     private lateinit var calendarRepository: CalendarRepository
     private lateinit var containerLayout: LinearLayout
     private lateinit var statusText: TextView
-    
+
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         val calendarReadGranted = permissions[Manifest.permission.READ_CALENDAR] ?: false
         val calendarWriteGranted = permissions[Manifest.permission.WRITE_CALENDAR] ?: false
-        
+
         if (calendarReadGranted && calendarWriteGranted) {
             loadCalendars()
         } else {
@@ -45,24 +45,24 @@ class CalendarSetupFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View {
         calendarRepository = CalendarRepository(requireContext())
-        
+
         containerLayout = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(32, 32, 32, 32)
         }
-        
+
         statusText = TextView(requireContext()).apply {
             text = "Loading calendars..."
             textSize = 16f
             setPadding(0, 0, 0, 24)
         }
         containerLayout.addView(statusText)
-        
+
         checkPermissionsAndLoadCalendars()
-        
+
         return containerLayout
     }
-    
+
     private fun checkPermissionsAndLoadCalendars() {
         val hasReadPermission = ContextCompat.checkSelfPermission(
             requireContext(), Manifest.permission.READ_CALENDAR
@@ -84,30 +84,30 @@ class CalendarSetupFragment : Fragment() {
             loadCalendars()
         }
     }
-    
+
     private fun loadCalendars() {
         lifecycleScope.launch {
             try {
                 val calendars = calendarRepository.getAvailableCalendars()
-                
+
                 if (calendars.isEmpty()) {
                     statusText.text = "No writable calendars found on this device"
                     return@launch
                 }
-                
+
                 statusText.text = "Select a calendar to store your events:"
-                
+
                 calendars.forEach { calendar ->
                     val card = createCalendarCard(calendar)
                     containerLayout.addView(card)
                 }
-                
+
             } catch (e: Exception) {
                 statusText.text = "Error loading calendars: ${e.message}"
             }
         }
     }
-    
+
     private fun createCalendarCard(calendar: CalendarInfo): MaterialCardView {
         val card = MaterialCardView(requireContext()).apply {
             layoutParams = LinearLayout.LayoutParams(
@@ -119,39 +119,39 @@ class CalendarSetupFragment : Fragment() {
             cardElevation = 4f
             radius = 8f
         }
-        
+
         val cardContent = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(16, 16, 16, 16)
         }
-        
+
         val titleText = TextView(requireContext()).apply {
             text = calendar.displayName
             textSize = 18f
             setTypeface(null, android.graphics.Typeface.BOLD)
         }
-        
+
         val subtitleText = TextView(requireContext()).apply {
             text = "${calendar.accountName} (${calendar.accountType})"
             textSize = 14f
             setTextColor(ContextCompat.getColor(context, android.R.color.darker_gray))
         }
-        
+
         val selectButton = MaterialButton(requireContext()).apply {
             text = "Select This Calendar"
             setOnClickListener {
                 selectCalendar(calendar)
             }
         }
-        
+
         cardContent.addView(titleText)
         cardContent.addView(subtitleText)
         cardContent.addView(selectButton)
         card.addView(cardContent)
-        
+
         return card
     }
-    
+
     private fun selectCalendar(calendar: CalendarInfo) {
         calendarRepository.setSelectedCalendar(calendar)
         Toast.makeText(
@@ -159,7 +159,7 @@ class CalendarSetupFragment : Fragment() {
             "Selected calendar: ${calendar.displayName}",
             Toast.LENGTH_SHORT
         ).show()
-        
+
         // Navigate back
         findNavController().navigateUp()
     }

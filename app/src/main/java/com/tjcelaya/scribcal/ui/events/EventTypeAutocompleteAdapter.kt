@@ -34,14 +34,14 @@ class EventTypeAutocompleteAdapter(
 
     override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View {
         val view = convertView ?: inflater.inflate(R.layout.item_event_type_autocomplete, parent, false)
-        
+
         val eventType = filteredEventTypes[position]
-        
+
         val colorIndicator = view.findViewById<View>(R.id.colorIndicator)
         val eventTypeName = view.findViewById<TextView>(R.id.eventTypeName)
-        
+
         eventTypeName.text = eventType.name
-        
+
         // Set color indicator
         if (eventType.color != null) {
             colorIndicator.background.setTint(eventType.color)
@@ -49,7 +49,7 @@ class EventTypeAutocompleteAdapter(
             val defaultColor = ContextCompat.getColor(context, R.color.purple_500)
             colorIndicator.background.setTint(defaultColor)
         }
-        
+
         return view
     }
 
@@ -57,7 +57,7 @@ class EventTypeAutocompleteAdapter(
         return object : Filter() {
             override fun performFiltering(constraint: CharSequence?): FilterResults {
                 val filterResults = FilterResults()
-                
+
                 if (constraint.isNullOrEmpty()) {
                     filteredEventTypes = eventTypes
                 } else {
@@ -66,7 +66,7 @@ class EventTypeAutocompleteAdapter(
                         eventType.name.lowercase().contains(query)
                     }
                 }
-                
+
                 filterResults.values = filteredEventTypes
                 filterResults.count = filteredEventTypes.size
                 return filterResults

@@ -6,7 +6,7 @@
             <solid android:color="@android:color/transparent" />
         </shape>
     </item>
-    
+
     <!-- Bottom line -->
     <item android:gravity="bottom">
         <shape android:shape="rectangle">

@@ -6,12 +6,12 @@ import androidx.room.PrimaryKey
 
 /**
  * Represents an individual event occurrence.
- * 
+ *
  * Event States:
  * 1. Instant event: startTime == endTime (both set to same timestamp)
- * 2. Ongoing event: startTime set, endTime = null (user hasn't stopped it yet)  
+ * 2. Ongoing event: startTime set, endTime = null (user hasn't stopped it yet)
  * 3. Completed timed event: startTime set, endTime set and > startTime
- * 
+ *
  * All timestamps must be within the current date (timezone aware).
  */
 @Entity(
@@ -41,17 +41,17 @@ data class Event(
      * @return true if this is an instant event (start == end)
      */
     fun isInstant(): Boolean = endTime != null && startTime == endTime
-    
+
     /**
      * @return true if this event is currently ongoing (end time not set)
      */
     fun isOngoing(): Boolean = endTime == null
-    
+
     /**
      * @return true if this is a completed timed event (end > start)
      */
     fun isCompleted(): Boolean = endTime != null && endTime > startTime
-    
+
     /**
      * @return duration in milliseconds, or 0 for instant/ongoing events
      */

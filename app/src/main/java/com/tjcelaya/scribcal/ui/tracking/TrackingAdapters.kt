@@ -47,9 +47,9 @@ class EventTypesTrackingAdapter(
         fun bind(eventTypeWithCount: EventTypeWithCount) {
             val eventType = eventTypeWithCount.eventType
             val ongoingCount = eventTypeWithCount.ongoingCount
-            
+
             eventTypeName.text = eventType.name
-            
+
             // Handle description visibility
             if (eventType.description.isNullOrBlank()) {
                 eventTypeDescription.visibility = View.GONE
@@ -57,7 +57,7 @@ class EventTypesTrackingAdapter(
                 eventTypeDescription.visibility = View.VISIBLE
                 eventTypeDescription.text = eventType.description
             }
-            
+
             // Set color indicator
             if (eventType.color != null) {
                 colorIndicator.background.setTint(eventType.color)
@@ -65,7 +65,7 @@ class EventTypesTrackingAdapter(
                 val defaultColor = ContextCompat.getColor(itemView.context, R.color.purple_500)
                 colorIndicator.background.setTint(defaultColor)
             }
-            
+
             // Handle ongoing events status
             if (ongoingCount > 0) {
                 ongoingStatusText.visibility = View.VISIBLE
@@ -77,13 +77,13 @@ class EventTypesTrackingAdapter(
             } else {
                 ongoingStatusText.visibility = View.GONE
             }
-            
+
             // Set click listeners
-            instantEventButton.setOnClickListener { 
-                onRecordInstantEvent(eventType) 
+            instantEventButton.setOnClickListener {
+                onRecordInstantEvent(eventType)
             }
-            startEventButton.setOnClickListener { 
-                onStartEvent(eventType) 
+            startEventButton.setOnClickListener {
+                onStartEvent(eventType)
             }
         }
     }
@@ -150,7 +150,7 @@ class OngoingEventsAdapter(
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         holder.bind(getItem(position))
     }
-    
+
     fun refreshTimers() {
         // Force refresh all visible items to update elapsed time
         notifyItemRangeChanged(0, itemCount)
@@ -164,7 +164,7 @@ class OngoingEventsAdapter(
 
         fun bind(item: DisplayableOngoingItem) {
             eventTypeName.text = item.eventType.name
-            
+
             when (item.type) {
                 DisplayableOngoingItem.Type.REGULAR_EVENT -> {
                     bindRegularEvent(item)
@@ -174,18 +174,18 @@ class OngoingEventsAdapter(
                 }
             }
         }
-        
+
         private fun bindRegularEvent(item: DisplayableOngoingItem) {
             val ongoingEvent = item.ongoingEvent!!
-            
+
             // Format started time
             val startTime = Date(ongoingEvent.startTime)
             val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
             startedAtText.text = "Started at ${timeFormat.format(startTime)}"
-            
+
             // Calculate and display elapsed time
             updateElapsedTime(ongoingEvent.startTime)
-            
+
             // Enable stop button for regular events
             stopEventButton.isEnabled = true
             stopEventButton.text = "Stop"
@@ -193,33 +193,33 @@ class OngoingEventsAdapter(
                 onStopEvent(ongoingEvent)
             }
         }
-        
+
         private fun bindPhotoUpload(item: DisplayableOngoingItem) {
             val photoUpload = item.photoUpload!!
-            
+
             // Format started time
             val startTime = Date(photoUpload.startTime)
             val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
             startedAtText.text = "Started at ${timeFormat.format(startTime)}"
-            
+
             // Show upload progress instead of elapsed time
             elapsedTimeText.text = "${photoUpload.status} (${photoUpload.progress}%)"
-            
+
             // Disable stop button for photo uploads (they can't be manually stopped)
             stopEventButton.isEnabled = false
             stopEventButton.text = "Uploading..."
             stopEventButton.setOnClickListener(null)
         }
-        
+
         private fun updateElapsedTime(startTime: Long) {
             val now = System.currentTimeMillis()
             val elapsedMillis = now - startTime
             val elapsedSeconds = elapsedMillis / 1000
-            
+
             val hours = elapsedSeconds / 3600
             val minutes = (elapsedSeconds % 3600) / 60
             val seconds = elapsedSeconds % 60
-            
+
             elapsedTimeText.text = String.format("%02d:%02d:%02d", hours, minutes, seconds)
         }
     }

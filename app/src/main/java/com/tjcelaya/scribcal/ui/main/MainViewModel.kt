@@ -21,7 +21,7 @@ class MainViewModel(
     val ongoingEvents: LiveData<List<EventWithType>> = repository.getOngoingEventsWithType().asLiveData()
     val allEventTypes: LiveData<List<EventType>> = repository.getAllEventTypes()
     val favoriteEventTypes: LiveData<List<EventType>> = repository.getFavoriteEventTypes().asLiveData()
-    
+
     /**
      * Creates an instant event for the given event type
      */
@@ -30,7 +30,7 @@ class MainViewModel(
             repository.createInstantEvent(eventTypeId, notes = notes)
         }
     }
-    
+
     /**
      * Creates an instant event with a photo attachment
      */
@@ -39,7 +39,7 @@ class MainViewModel(
             repository.createInstantEventWithPhoto(eventTypeId, photoPath, notes = notes)
         }
     }
-    
+
     /**
      * Starts a timed event for the given event type
      */
@@ -50,7 +50,7 @@ class MainViewModel(
         }
         return eventId
     }
-    
+
     /**
      * Starts a timed event with a photo attachment
      */
@@ -61,7 +61,7 @@ class MainViewModel(
         }
         return eventId
     }
-    
+
     /**
      * Completes an ongoing event
      */
@@ -70,7 +70,7 @@ class MainViewModel(
             repository.completeOngoingEvent(eventId)
         }
     }
-    
+
     /**
      * Deletes an event
      */

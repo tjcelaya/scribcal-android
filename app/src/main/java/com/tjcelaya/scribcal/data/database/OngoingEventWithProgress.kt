@@ -11,16 +11,16 @@ data class OngoingEventWithProgress(
     val uploadProgress: PhotoUploadProgress?
 ) {
     fun hasPhotoUpload(): Boolean = uploadProgress != null
-    
+
     fun isUploadInProgress(): Boolean = uploadProgress?.isInProgress() == true
-    
+
     fun isUploadCompleted(): Boolean = uploadProgress?.isCompleted() == true
-    
+
     fun isUploadFailed(): Boolean = uploadProgress?.isFailed() == true
-    
+
     fun getUploadStatusText(): String {
         val progress = uploadProgress ?: return ""
-        
+
         return when (progress.status) {
             PhotoUploadStatus.PREPARING -> "Preparing upload..."
             PhotoUploadStatus.UPLOADING -> "Uploading ${progress.progressPercent}%"
@@ -28,13 +28,13 @@ data class OngoingEventWithProgress(
             PhotoUploadStatus.FAILED -> "Upload failed ✗"
         }
     }
-    
+
     fun shouldShowInOngoingList(): Boolean {
         // Show regular ongoing events (without endTime)
         // Show events with upload progress that haven't auto-removed yet
         return uploadProgress?.shouldAutoRemove() != true
     }
-    
+
     companion object {
         fun fromEvent(event: Event, uploadProgress: PhotoUploadProgress? = null): OngoingEventWithProgress {
             return OngoingEventWithProgress(
@@ -45,7 +45,7 @@ data class OngoingEventWithProgress(
                 uploadProgress = uploadProgress
             )
         }
-        
+
         fun fromOngoingEvent(ongoingEvent: OngoingEvent, uploadProgress: PhotoUploadProgress? = null): OngoingEventWithProgress {
             return OngoingEventWithProgress(
                 id = ongoingEvent.id,

@@ -26,7 +26,7 @@ data class PhotoUploadProgress(
         val autoRemoveTime = completedTime + AUTO_REMOVE_DELAY_MS
         return System.currentTimeMillis() > autoRemoveTime
     }
-    
+
     companion object {
         const val AUTO_REMOVE_DELAY_MS = 60_000L // 1 minute
     }

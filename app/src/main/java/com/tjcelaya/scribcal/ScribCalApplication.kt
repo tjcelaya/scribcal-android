@@ -47,7 +47,7 @@ class ScribCalApplication : Application() {
 
         // Note: Google services initialization moved to on-demand in settings
         // This prevents UserRecoverableAuthException on app startup
-        
+
         // Load persisted album configuration
         applicationScope.launch {
             try {
@@ -66,7 +66,7 @@ class ScribCalApplication : Application() {
         photosRepository = PhotosRepository(this, database)
         storagePreferences = StoragePreferences(this)
         eventRepository = EventRepository(database, driveRepository, photosRepository, storagePreferences)
-        
+
         Log.d(TAG, "Repositories initialized")
     }
 
@@ -77,21 +77,21 @@ class ScribCalApplication : Application() {
         return try {
             val calendars = calendarRepository.getAvailableCalendars()
             val selectedCalendarId = calendarRepository.getSelectedCalendarId()
-            
+
             Log.d(TAG, "Found ${calendars.size} calendars, selected ID: $selectedCalendarId")
-            
+
             // Try to use the selected calendar's account first
             val selectedCalendar = calendars.find { it.id == selectedCalendarId }
-            
+
             if (selectedCalendar != null && selectedCalendar.accountName.isNotEmpty()) {
                 Log.d(TAG, "Using selected calendar account: ${selectedCalendar.accountName}")
                 Account(selectedCalendar.accountName, selectedCalendar.accountType)
             } else {
                 // Fallback to any Google account
-                val googleCalendars = calendars.filter { 
-                    it.accountType == "com.google" && it.accountName.isNotEmpty() 
+                val googleCalendars = calendars.filter {
+                    it.accountType == "com.google" && it.accountName.isNotEmpty()
                 }
-                
+
                 if (googleCalendars.isNotEmpty()) {
                     Log.d(TAG, "Using first Google calendar account: ${googleCalendars[0].accountName}")
                     Account(googleCalendars[0].accountName, googleCalendars[0].accountType)

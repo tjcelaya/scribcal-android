@@ -2,7 +2,7 @@
     <!-- App Information -->
     <string name="app_name">ScribCal</string>
     <string name="action_settings">Settings</string>
-    
+
     <!-- Navigation Labels -->
     <string name="fragment_tracking_label">ScribCal</string>
     <string name="fragment_events_label">Event Types</string>
@@ -10,7 +10,7 @@
     <string name="fragment_settings_label">Settings</string>
     <string name="fragment_calendar_setup_label">Calendar Setup</string>
     <string name="fragment_add_edit_event_type_label">Add Event Type</string>
-    
+
     <!-- Add Event Screen -->
     <string name="record_new_event">Record New Event</string>
     <string name="event_type">Event Type</string>
@@ -21,14 +21,14 @@
     <string name="save_right_now">Save Right Now</string>
     <string name="start_timed_event">Start Timed Event</string>
     <string name="cancel">Cancel</string>
-    
+
     <!-- Help Text -->
     <string name="add_event_help_text">• Instant Event: Records a zero-duration event at the selected date/time\n• Timed Event: Starts a stopwatch at the selected date/time\n• New event types are automatically created when you enter them</string>
-    
+
     <!-- Loading States -->
     <string name="recording">Recording...</string>
     <string name="starting">Starting...</string>
-    
+
     <!-- Messages and Toasts -->
     <string name="please_enter_event_type">Please enter an event type</string>
     <string name="error_format">Error: %s</string>
@@ -37,24 +37,24 @@
     <string name="error_recording_event">Error recording event: %s</string>
     <string name="error_starting_event">Error starting event: %s</string>
     <string name="ongoing_event_exists">There\'s already an ongoing event of this type. Please stop it first.</string>
-    
+
     <!-- Tracking Screen -->
     <string name="no_event_types_message">No event types yet. Tap + to create your first event!</string>
     <string name="manage_event_types">Manage Event Types</string>
     <string name="setup_required">Setup Required</string>
     <string name="change">Change</string>
     <string name="ongoing_events">Ongoing Events</string>
-    
+
     <!-- Stop Event Dialog -->
     <string name="stop_event">Stop Event</string>
     <string name="stop_event_message">Stop this event?\n\nElapsed time: %1$s\nStarted at: %2$s\n\nThe event will be saved to your calendar.</string>
     <string name="stop">Stop</string>
-    
+
     <!-- Event Types Screen -->
     <string name="event_types_title">Event Types</string>
     <string name="no_event_types_created">No event types created yet</string>
     <string name="add_event_types_message">Create event types to organize your activities</string>
-    
+
     <!-- Add/Edit Event Type Screen -->
     <string name="add_event_type">Add Event Type</string>
     <string name="edit_event_type">Edit Event Type</string>
@@ -66,7 +66,7 @@
     <string name="save">Save</string>
     <string name="edit">Edit</string>
     <string name="delete">Delete</string>
-    
+
     <!-- Settings Screen -->
     <string name="photo_storage">Photo Storage</string>
     <string name="google_drive">Google Drive</string>
@@ -77,7 +77,7 @@
     <string name="selected_calendar">Selected Calendar</string>
     <string name="no_calendar_selected">No calendar selected</string>
     <string name="select_calendar">Select Calendar</string>
-    
+
     <!-- Calendar Setup Screen -->
     <string name="calendar_setup">Calendar Setup</string>
     <string name="select_calendar_message">Select a calendar to save your events</string>
@@ -85,29 +85,29 @@
     <string name="no_calendars_found">No calendars found</string>
     <string name="calendar_permissions_required">Calendar permissions are required to save events</string>
     <string name="grant_permissions">Grant Permissions</string>
-    
+
     <!-- Status Messages -->
     <string name="connected">Connected</string>
     <string name="disconnected">Disconnected</string>
     <string name="testing">Testing...</string>
     <string name="connection_successful">Connection successful</string>
     <string name="connection_failed">Connection failed</string>
-    
+
     <!-- Generic -->
     <string name="ok">OK</string>
     <string name="retry">Retry</string>
     <string name="loading">Loading...</string>
-    
+
     <!-- Accessibility Content Descriptions -->
     <string name="record_instant_event">Record Instant Event</string>
     <string name="start_event">Start Event</string>
     <string name="calendar_icon">Calendar</string>
-    
+
     <!-- Time Format -->
     <string name="elapsed_time_format" formatted="false">%02d:%02d:%02d</string>
     <string name="ongoing_event_single">1 ongoing event</string>
     <string name="ongoing_events_multiple">%d ongoing events</string>
-    
+
     <!-- Legacy strings (can be removed when fragments are updated) -->
     <string name="next">Next</string>
     <string name="previous">Previous</string>

@@ -37,7 +37,7 @@ class EventTypeAdapter(
 
         fun bind(eventType: EventType) {
             eventTypeName.text = eventType.name
-            
+
             // Handle description visibility
             if (eventType.description.isNullOrBlank()) {
                 eventTypeDescription.visibility = View.GONE
@@ -45,7 +45,7 @@ class EventTypeAdapter(
                 eventTypeDescription.visibility = View.VISIBLE
                 eventTypeDescription.text = eventType.description
             }
-            
+
             // Set color indicator
             if (eventType.color != null) {
                 colorIndicator.background.setTint(eventType.color)
@@ -54,7 +54,7 @@ class EventTypeAdapter(
                 val defaultColor = ContextCompat.getColor(itemView.context, R.color.purple_500)
                 colorIndicator.background.setTint(defaultColor)
             }
-            
+
             // Set click listeners
             editButton.setOnClickListener { onEditClick(eventType) }
             deleteButton.setOnClickListener { onDeleteClick(eventType) }
