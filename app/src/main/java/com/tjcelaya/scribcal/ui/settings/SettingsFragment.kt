@@ -22,6 +22,7 @@ import com.tjcelaya.scribcal.data.PhotosRepository
 import com.tjcelaya.scribcal.data.StoragePreferences
 import com.tjcelaya.scribcal.databinding.FragmentSettingsBinding
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -262,7 +263,14 @@ class SettingsFragment : Fragment() {
                     }
                 }
                 
-                // Get OAuth token
+                // Clear any cached tokens first to ensure fresh permissions
+                setPhotosButtonState(enabled = false, text = "Refreshing permissions...")
+                photosRepository.clearCachedTokens()
+                
+                // Wait a moment for cleanup
+                kotlinx.coroutines.delay(500)
+                
+                // Get OAuth token with fresh permissions
                 val account = getGoogleAccountForServices()
                 if (account == null) {
                     Log.e("SettingsFragment", "No Google account available")
@@ -302,10 +310,16 @@ class SettingsFragment : Fragment() {
                     // Save the album configuration
                     val success = photosRepository.setSelectedAlbum(albumId, albumName)
                     if (success) {
-                        // Test the connection
-                        val result = photosRepository.testPhotosConnection()
-                        updatePhotosConnectionResult(result)
-                        Log.d("SettingsFragment", "Photos connection successful with album: $albumName")
+                        // Update UI to show successful configuration
+                        binding.photosStatusText.text = "Album configured successfully"
+                        binding.photosStatusText.setTextColor(requireContext().getColor(android.R.color.holo_green_dark))
+                        
+                        // Update last test time
+                        val currentTime = System.currentTimeMillis()
+                        val formatter = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+                        binding.photosLastTestText.text = formatter.format(Date(currentTime))
+                        
+                        Log.d("SettingsFragment", "Album configured successfully: $albumName")
                     } else {
                         Log.e("SettingsFragment", "Failed to save album configuration")
                         handlePhotosConnectionError()

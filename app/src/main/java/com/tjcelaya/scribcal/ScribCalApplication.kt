@@ -45,8 +45,8 @@ class ScribCalApplication : Application() {
         // Initialize repositories
         initializeRepositories()
 
-        // Initialize Google services on app startup
-        initializeGoogleServicesAsync()
+        // Note: Google services initialization moved to on-demand in settings
+        // This prevents UserRecoverableAuthException on app startup
         
         // Load persisted album configuration
         applicationScope.launch {
@@ -70,44 +70,8 @@ class ScribCalApplication : Application() {
         Log.d(TAG, "Repositories initialized")
     }
 
-    private fun initializeGoogleServicesAsync() {
-        applicationScope.launch {
-            try {
-                Log.d(TAG, "Starting Google services initialization...")
-                
-                // Get Google account from calendar setup
-                val account = getGoogleAccountForServices()
-                
-                if (account != null) {
-                    Log.d(TAG, "Found Google account: ${account.name}, initializing services...")
-                    
-                    // Initialize Drive
-                    val driveSuccess = eventRepository.initializeDriveForPhotos(account)
-                    if (driveSuccess) {
-                        Log.d(TAG, "Google Drive initialized successfully")
-                    } else {
-                        Log.w(TAG, "Google Drive initialization failed")
-                    }
-                    
-                    // Initialize Photos
-                    val photosSuccess = photosRepository.initializePhotos(account)
-                    if (photosSuccess) {
-                        // Load persistent album configuration
-                        photosRepository.initializeAsyncData()
-                        Log.d(TAG, "Google Photos initialized successfully")
-                    } else {
-                        Log.w(TAG, "Google Photos initialization failed")
-                    }
-                    
-                } else {
-                    Log.d(TAG, "No Google account found for services initialization")
-                }
-                
-            } catch (e: Exception) {
-                Log.e(TAG, "Exception during Google services initialization", e)
-            }
-        }
-    }
+    // Removed automatic Google services initialization to prevent startup exceptions
+    // Services are now initialized on-demand when users configure them in settings
 
     private suspend fun getGoogleAccountForServices(): Account? {
         return try {
