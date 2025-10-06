@@ -214,6 +214,54 @@ class PhotosRepository(
         
         return true
     }
+    
+    /**
+     * Unified health check for Google Photos integration
+     * Returns true if Photos is currently healthy and can be used for photo storage
+     * This is the single source of truth for Photos health status
+     */
+    fun isHealthy(): Boolean {
+        // Basic requirements: service must be initialized
+        if (!isPhotosInitialized()) {
+            Log.d(TAG, "Photos not healthy: not initialized")
+            return false
+        }
+        
+        // Must have a selected album configured
+        if (!scribcalAlbumReady || scribcalAlbumId == null) {
+            Log.d(TAG, "Photos not healthy: no album configured (albumReady=$scribcalAlbumReady, albumId=$scribcalAlbumId)")
+            return false
+        }
+        
+        // Must have had at least one successful connection test
+        if (!lastConnectionSuccessful) {
+            Log.d(TAG, "Photos not healthy: no successful connection test (lastConnectionSuccessful=$lastConnectionSuccessful)")
+            return false
+        }
+        
+        // If we haven't tested at all, not healthy
+        if (lastConnectionTest == null) {
+            Log.d(TAG, "Photos not healthy: never tested (lastConnectionTest=null)")
+            return false
+        }
+        
+        // Check if album verification is overdue and we're past grace period
+        if (shouldVerifyAlbumRemotely() && !isWithinGracePeriod()) {
+            Log.d(TAG, "Photos not healthy: album verification overdue and past grace period")
+            // Trigger background verification
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    verifyAlbumStillExists()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Background album verification failed", e)
+                }
+            }
+            return false
+        }
+        
+        Log.d(TAG, "Photos healthy: all checks passed")
+        return true
+    }
 
     /**
      * Check if we should verify the album exists remotely based on time elapsed
@@ -336,14 +384,9 @@ class PhotosRepository(
                 return@withContext null
             }
             
-            // Force verification of album existence before upload attempt
-            // This is a user-initiated action that should always check remote state
-            Log.d(TAG, "Verifying album exists before upload attempt...")
-            val albumVerified = forceVerifyAlbumExists()
-            if (!albumVerified) {
-                Log.e(TAG, "Album verification failed - cannot proceed with upload")
-                return@withContext null
-            }
+            // Note: We skip pre-upload verification here because it can cause unnecessary failures
+            // due to transient token issues. If there are real access problems, they'll be caught
+            // during the actual upload process and can be handled with retry logic.
             
             Log.d(TAG, "Uploading photo to Google Photos: $fileName")
             progressCallback?.invoke(5)
@@ -376,11 +419,34 @@ class PhotosRepository(
     }
     
     /**
-     * Upload photo using Google Photos REST API
+     * Upload photo using Google Photos REST API with token refresh retry
      */
     private suspend fun uploadPhotoViaRestApi(
         file: java.io.File, 
         fileName: String, 
+        progressCallback: ((Int) -> Unit)?
+    ): String? = withContext(Dispatchers.IO) {
+        var result = attemptUpload(file, fileName, progressCallback)
+        
+        // If first attempt failed, try token refresh and retry once
+        if (result == null) {
+            Log.i(TAG, "First upload attempt failed, trying token refresh...")
+            val refreshed = refreshOAuthToken()
+            if (refreshed) {
+                Log.d(TAG, "Token refreshed, retrying upload...")
+                result = attemptUpload(file, fileName, progressCallback)
+            }
+        }
+        
+        result
+    }
+    
+    /**
+     * Attempt to upload photo once without retry logic
+     */
+    private suspend fun attemptUpload(
+        file: java.io.File,
+        fileName: String,
         progressCallback: ((Int) -> Unit)?
     ): String? = withContext(Dispatchers.IO) {
         try {
@@ -435,7 +501,7 @@ class PhotosRepository(
             photoUrl
             
         } catch (e: Exception) {
-            Log.e(TAG, "REST API upload failed", e)
+            Log.e(TAG, "Upload attempt failed", e)
             null
         }
     }
@@ -1105,6 +1171,50 @@ class PhotosRepository(
         }
     }
     
+    /**
+     * Refresh OAuth token by clearing cached token and getting a fresh one
+     * This can help resolve temporary permission issues
+     */
+    private suspend fun refreshOAuthToken(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val account = currentAccount ?: return@withContext false
+            
+            Log.d(TAG, "Refreshing OAuth token for Google Photos")
+            
+            // Clear existing token first
+            try {
+                val existingToken = GoogleAuthUtil.getToken(context, account, "oauth2:$PHOTOS_SCOPE")
+                if (existingToken.isNotEmpty()) {
+                    GoogleAuthUtil.clearToken(context, existingToken)
+                    Log.d(TAG, "Cleared existing OAuth token")
+                }
+            } catch (e: Exception) {
+                Log.d(TAG, "No existing token to clear or error clearing: ${e.message}")
+            }
+            
+            // Try to get a fresh token
+            val freshToken = try {
+                GoogleAuthUtil.getToken(context, account, "oauth2:$PHOTOS_SCOPE")
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to get fresh OAuth token", e)
+                return@withContext false
+            }
+            
+            val refreshSuccessful = freshToken.isNotEmpty()
+            if (refreshSuccessful) {
+                Log.d(TAG, "Successfully refreshed OAuth token")
+            } else {
+                Log.w(TAG, "Fresh token is empty")
+            }
+            
+            refreshSuccessful
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to refresh OAuth token", e)
+            false
+        }
+    }
+    
 
     /**
      * Force immediate verification of the album's remote existence
@@ -1129,41 +1239,82 @@ class PhotosRepository(
                 return@withContext false
             }
             
-            // Get OAuth token
-            val token = try {
-                GoogleAuthUtil.getToken(context, account, "oauth2:$PHOTOS_SCOPE")
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to get token for forced album verification", e)
-                return@withContext false
-            }
-            
-            if (token.isEmpty()) {
-                Log.w(TAG, "Empty token for forced album verification")
-                return@withContext false
-            }
-            
-            // Verify album exists remotely
-            val albumExists = verifyAlbumExists(token, albumId)
-            
-            if (albumExists) {
+            // Try verification, with one retry attempt after token refresh if needed
+            Log.d(TAG, "Starting first verification attempt for album: $albumId")
+            val firstAttempt = tryVerifyAlbum(albumId)
+            Log.d(TAG, "First verification attempt result: $firstAttempt")
+            if (firstAttempt) {
                 Log.d(TAG, "Forced verification: album still exists")
                 // Update last verified time
                 database.albumConfigDao().updateLastVerified(System.currentTimeMillis())
                 scribcalAlbumReady = true
                 return@withContext true
-            } else {
-                Log.w(TAG, "Forced verification: album no longer exists")
-                scribcalAlbumReady = false
-                lastConnectionSuccessful = false
-                
-                // Clear the invalid album configuration
-                clearAlbumConfiguration()
-                return@withContext false
             }
+            
+            // First attempt failed, try token refresh and retry once
+            Log.i(TAG, "Album verification failed, attempting token refresh...")
+            val refreshed = refreshOAuthToken()
+            Log.d(TAG, "Token refresh result: $refreshed")
+            if (refreshed) {
+                Log.d(TAG, "Token refreshed, retrying album verification")
+                val secondAttempt = tryVerifyAlbum(albumId)
+                Log.d(TAG, "Second verification attempt result: $secondAttempt")
+                if (secondAttempt) {
+                    Log.d(TAG, "Forced verification: album exists after token refresh")
+                    // Update last verified time
+                    database.albumConfigDao().updateLastVerified(System.currentTimeMillis())
+                    scribcalAlbumReady = true
+                    return@withContext true
+                }
+            } else {
+                Log.w(TAG, "Token refresh failed, skipping second verification attempt")
+            }
+            
+            // Both attempts failed - real access issue
+            Log.w(TAG, "Forced verification: album no longer accessible even after token refresh")
+            scribcalAlbumReady = false
+            lastConnectionSuccessful = false
+            
+            // Clear the invalid album configuration
+            clearAlbumConfiguration()
+            
+            // This is a critical error that needs user attention
+            Log.e(TAG, "CRITICAL: Album access lost during upload attempt. User needs to reconfigure Google Photos.")
+            
+            return@withContext false
             
         } catch (e: Exception) {
             Log.e(TAG, "Forced album verification failed with exception", e)
             return@withContext false
+        }
+    }
+    
+    /**
+     * Try to verify album exists once without retry logic
+     */
+    private suspend fun tryVerifyAlbum(albumId: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val account = currentAccount ?: return@withContext false
+            
+            // Get OAuth token
+            val token = try {
+                GoogleAuthUtil.getToken(context, account, "oauth2:$PHOTOS_SCOPE")
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to get token for album verification", e)
+                return@withContext false
+            }
+            
+            if (token.isEmpty()) {
+                Log.w(TAG, "Empty token for album verification")
+                return@withContext false
+            }
+            
+            // Verify album exists remotely
+            verifyAlbumExists(token, albumId)
+            
+        } catch (e: Exception) {
+            Log.w(TAG, "Album verification attempt failed", e)
+            false
         }
     }
     
@@ -1191,6 +1342,31 @@ class PhotosRepository(
      * Get time since last connection test
      */
     fun getLastTestTime(): Long? = lastConnectionTest
+    
+    /**
+     * Mark the connection as successful (for when we know it's working without full test)
+     * This is used when album setup completes successfully
+     */
+    fun markConnectionSuccessful() {
+        val currentTime = System.currentTimeMillis()
+        lastConnectionTest = currentTime
+        lastConnectionSuccessful = true
+        
+        // Also update the last verified time in database
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                database.albumConfigDao().updateLastVerified(currentTime)
+                Log.d(TAG, "Marked connection as successful and updated verification time")
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to update last verified time", e)
+            }
+        }
+        
+        // Save connection state
+        saveConnectionState()
+        
+        Log.d(TAG, "Connection marked as successful")
+    }
 
     /**
      * Format time difference as a short string

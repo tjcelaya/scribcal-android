@@ -115,26 +115,28 @@ class MainActivity : AppCompatActivity() {
         
         val isDriveEnabled = storagePreferences.isGoogleDriveEnabled()
         val isPhotosEnabled = storagePreferences.isGooglePhotosEnabled()
-        val isDriveReady = app.driveRepository.isDriveReady()
-        val isPhotosReady = app.photosRepository.isPhotosReady()
         
-        // Check if at least one storage option is enabled and ready
-        val isStorageAvailable = (isDriveEnabled && isDriveReady) || (isPhotosEnabled && isPhotosReady)
+        // Use unified health check methods
+        val isDriveHealthy = app.driveRepository.isHealthy()
+        val isPhotosHealthy = app.photosRepository.isHealthy()
+        
+        // Check if at least one storage option is enabled and healthy
+        val isStorageAvailable = (isDriveEnabled && isDriveHealthy) || (isPhotosEnabled && isPhotosHealthy)
         
         if (isStorageAvailable) {
-            val readyServices = mutableListOf<String>()
-            if (isDriveEnabled && isDriveReady) readyServices.add("Google Drive")
-            if (isPhotosEnabled && isPhotosReady) readyServices.add("Google Photos")
+            val healthyServices = mutableListOf<String>()
+            if (isDriveEnabled && isDriveHealthy) healthyServices.add("Google Drive")
+            if (isPhotosEnabled && isPhotosHealthy) healthyServices.add("Google Photos")
             
-            Log.d("MainActivity", "Storage services ready: ${readyServices.joinToString(", ")}, proceeding with photo")
+            Log.d("MainActivity", "Storage services healthy: ${healthyServices.joinToString(", ")}, proceeding with photo")
             handleSharedPhotoWithMainFragment(photoPath)
         } else {
-            val enabledButNotReady = mutableListOf<String>()
-            if (isDriveEnabled && !isDriveReady) enabledButNotReady.add("Google Drive")
-            if (isPhotosEnabled && !isPhotosReady) enabledButNotReady.add("Google Photos")
+            val enabledButNotHealthy = mutableListOf<String>()
+            if (isDriveEnabled && !isDriveHealthy) enabledButNotHealthy.add("Google Drive")
+            if (isPhotosEnabled && !isPhotosHealthy) enabledButNotHealthy.add("Google Photos")
             
-            val errorMsg = if (enabledButNotReady.isNotEmpty()) {
-                "${enabledButNotReady.joinToString(" and ")} not set up. Please configure in Settings."
+            val errorMsg = if (enabledButNotHealthy.isNotEmpty()) {
+                "${enabledButNotHealthy.joinToString(" and ")} not set up properly. Please test connections in Settings."
             } else {
                 "No photo storage service selected. Please choose at least one in Settings."
             }

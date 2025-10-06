@@ -384,6 +384,16 @@ class EventRepository(
                     Log.d("EventRepository", "Successfully uploaded to Google Photos: $photosLink")
                 } else {
                     Log.w("EventRepository", "Failed to upload photo to Google Photos")
+                    
+                    // Check if this was due to album access issues
+                    val photosHealthy = photosRepository?.isHealthy() ?: false
+                    if (!photosHealthy) {
+                        Log.e("EventRepository", "Google Photos upload failed - service is no longer healthy (likely album access lost)")
+                        // Don't throw here, let the combined result handling decide what to do
+                        if (eventId != null) {
+                            markPhotoUploadFailed(eventId, "Google Photos access lost. Please reconnect in Settings.")
+                        }
+                    }
                 }
             }
             
@@ -400,7 +410,43 @@ class EventRepository(
                     markPhotoUploadCompleted(eventId, combinedResult)
                     Log.d("EventRepository", "Photo upload completed with ${results.size} successful uploads")
                 } else {
-                    markPhotoUploadFailed(eventId, "All photo uploads failed")
+                    // Provide more specific error message based on what services were enabled vs healthy
+                    val errorMsg = when {
+                        isDriveEnabled && isPhotosEnabled -> {
+                            val driveHealthy = driveRepository?.isHealthy() ?: false
+                            val photosHealthy = photosRepository?.isHealthy() ?: false
+                            when {
+                                !driveHealthy && !photosHealthy -> "Both Google Drive and Photos access lost. Please reconnect both in Settings."
+                                !driveHealthy -> "Google Drive access lost. Google Photos may also have issues. Please check Settings."
+                                !photosHealthy -> "Google Photos access lost. Google Drive may also have issues. Please check Settings."
+                                else -> "All photo uploads failed due to unknown error"
+                            }
+                        }
+                        isDriveEnabled -> "Google Drive upload failed. Please check connection in Settings."
+                        isPhotosEnabled -> "Google Photos upload failed. Please check connection in Settings."
+                        else -> "No photo storage configured"
+                    }
+                    markPhotoUploadFailed(eventId, errorMsg)
+                }
+            }
+            
+            // If no uploads succeeded and it's due to access issues, throw informative exception
+            if (combinedResult == null && (isDriveEnabled || isPhotosEnabled)) {
+                val driveHealthy = if (isDriveEnabled) driveRepository?.isHealthy() ?: false else true
+                val photosHealthy = if (isPhotosEnabled) photosRepository?.isHealthy() ?: false else true
+                
+                if (!driveHealthy || !photosHealthy) {
+                    val accessErrorMsg = when {
+                        isDriveEnabled && isPhotosEnabled && !driveHealthy && !photosHealthy -> 
+                            "Both Google Drive and Google Photos access lost. Please go to Settings and reconnect both services."
+                        isDriveEnabled && !driveHealthy -> 
+                            "Google Drive access lost. Please go to Settings and reconnect Google Drive."
+                        isPhotosEnabled && !photosHealthy -> 
+                            "Google Photos access lost. Please go to Settings and reconnect Google Photos."
+                        else -> 
+                            "Photo storage access lost. Please check Settings."
+                    }
+                    throw IllegalStateException(accessErrorMsg)
                 }
             }
             
@@ -410,7 +456,7 @@ class EventRepository(
                 markPhotoUploadFailed(eventId, "Exception: ${e.message}")
             }
             Log.e("EventRepository", "Exception uploading photo to selected storage: $localPhotoPath", e)
-            null
+            throw e // Re-throw to preserve the exception for the caller
         }
     }
     
@@ -549,15 +595,17 @@ class EventRepository(
     }
     
     /**
-     * Check if any photo storage is available and ready for photo uploads
+     * Check if any photo storage is available and healthy for photo uploads
      */
     fun isPhotoStorageAvailable(): Boolean {
         val isDriveEnabled = storagePreferences?.isGoogleDriveEnabled() ?: false
         val isPhotosEnabled = storagePreferences?.isGooglePhotosEnabled() ?: false
-        val isDriveReady = driveRepository?.isDriveReady() == true
-        val isPhotosReady = photosRepository?.isPhotosReady() == true
         
-        return (isDriveEnabled && isDriveReady) || (isPhotosEnabled && isPhotosReady)
+        // Use unified health check methods
+        val isDriveHealthy = driveRepository?.isHealthy() == true
+        val isPhotosHealthy = photosRepository?.isHealthy() == true
+        
+        return (isDriveEnabled && isDriveHealthy) || (isPhotosEnabled && isPhotosHealthy)
     }
     
     /**

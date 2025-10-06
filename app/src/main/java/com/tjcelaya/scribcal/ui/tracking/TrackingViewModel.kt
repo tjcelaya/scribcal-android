@@ -143,6 +143,9 @@ class TrackingViewModel(
             try {
                 eventRepository.createInstantEventWithPhotoAndSync(eventTypeId, photoPath, notes, calendarRepository)
                 _message.value = "Instant event with photo created and synced to calendar"
+            } catch (e: IllegalStateException) {
+                // Handle access exceptions with specific message
+                _message.value = e.message
             } catch (e: Exception) {
                 _message.value = "Error creating event with photo: ${e.message}"
             }
@@ -154,6 +157,9 @@ class TrackingViewModel(
             try {
                 eventRepository.startTimedEventWithPhotoAndSync(eventTypeId, photoPath, notes)
                 _message.value = "Timed event with photo started"
+            } catch (e: IllegalStateException) {
+                // Handle access exceptions with specific message
+                _message.value = e.message
             } catch (e: Exception) {
                 _message.value = "Error starting timed event with photo: ${e.message}"
             }

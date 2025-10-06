@@ -327,6 +327,11 @@ class SettingsFragment : Fragment() {
                         binding.photosLastTestText.text = formatter.format(Date(currentTime))
                         
                         Log.d("SettingsFragment", "Album configured successfully: $albumName")
+                        
+                        // Set the connection as successful since we just configured the album successfully
+                        // This mimics what testPhotosConnection would do but without the complexity
+                        photosRepository.markConnectionSuccessful()
+                        
                     } else {
                         Log.e("SettingsFragment", "Failed to save album configuration")
                         handlePhotosConnectionError()
@@ -377,29 +382,42 @@ class SettingsFragment : Fragment() {
     
     
     private suspend fun askUserToCreateAlbum(token: String, albumName: String): String? {
+        Log.d("SettingsFragment", "Asking user to create album: $albumName")
         return kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
-            AlertDialog.Builder(requireContext())
-                .setTitle("Create Album?")
-                .setMessage("Album '$albumName' doesn't exist in your Google Photos. Would you like to create it?")
-                .setPositiveButton("Create") { _, _ ->
-                    lifecycleScope.launch {
-                        try {
-                            setPhotosButtonState(enabled = false, text = "Creating album...")
-                            val albumId = createAlbum(token, albumName)
-                            continuation.resume(albumId, null)
-                        } catch (e: Exception) {
-                            Log.e("SettingsFragment", "Error creating album", e)
-                            continuation.resume(null, null)
+            try {
+                val dialog = AlertDialog.Builder(requireContext())
+                    .setTitle("Create Album?")
+                    .setMessage("Album '$albumName' doesn't exist in your Google Photos. Would you like to create it?")
+                    .setPositiveButton("Create") { _, _ ->
+                        Log.d("SettingsFragment", "User chose to create album: $albumName")
+                        lifecycleScope.launch {
+                            try {
+                                setPhotosButtonState(enabled = false, text = "Creating album...")
+                                val albumId = createAlbum(token, albumName)
+                                Log.d("SettingsFragment", "Album creation result: $albumId")
+                                continuation.resume(albumId, null)
+                            } catch (e: Exception) {
+                                Log.e("SettingsFragment", "Error creating album", e)
+                                continuation.resume(null, null)
+                            }
                         }
                     }
-                }
-                .setNegativeButton("Cancel") { _, _ ->
-                    continuation.resume(null, null)
-                }
-                .setOnCancelListener {
-                    continuation.resume(null, null)
-                }
-                .show()
+                    .setNegativeButton("Cancel") { _, _ ->
+                        Log.d("SettingsFragment", "User canceled album creation")
+                        continuation.resume(null, null)
+                    }
+                    .setOnCancelListener {
+                        Log.d("SettingsFragment", "Album creation dialog was canceled")
+                        continuation.resume(null, null)
+                    }
+                    .create()
+                
+                Log.d("SettingsFragment", "Showing album creation dialog")
+                dialog.show()
+            } catch (e: Exception) {
+                Log.e("SettingsFragment", "Failed to show album creation dialog", e)
+                continuation.resume(null, null)
+            }
         }
     }
     
@@ -514,12 +532,18 @@ class SettingsFragment : Fragment() {
     }
     
     private fun updateStorageSelectionStatus() {
-        val isDriveReady = driveRepository.isDriveReady()
-        val isPhotosReady = photosRepository.isPhotosReady()
+        // Use unified health check methods - single source of truth
+        val isDriveHealthy = driveRepository.isHealthy()
+        val isPhotosHealthy = photosRepository.isHealthy()
         
-        // Enable/disable checkboxes based on connection status
-        binding.checkboxGoogleDrive.isEnabled = isDriveReady
-        binding.checkboxGooglePhotos.isEnabled = isPhotosReady
+        // Debug logging to understand health status
+        Log.d("SettingsFragment", "Storage health check: Drive healthy=$isDriveHealthy, Photos healthy=$isPhotosHealthy")
+        Log.d("SettingsFragment", "Photos detailed status: ${photosRepository.getPhotosStatus()}")
+        Log.d("SettingsFragment", "Drive detailed status: ${driveRepository.getDriveStatus()}")
+        
+        // Enable/disable checkboxes based on health status
+        binding.checkboxGoogleDrive.isEnabled = isDriveHealthy
+        binding.checkboxGooglePhotos.isEnabled = isPhotosHealthy
         
         // Get current selections
         val isDriveEnabled = storagePreferences.isGoogleDriveEnabled()
@@ -528,11 +552,11 @@ class SettingsFragment : Fragment() {
         
         // Update status text
         val statusText = when {
-            !isDriveReady && !isPhotosReady -> "Test connections above to enable storage options"
+            !isDriveHealthy && !isPhotosHealthy -> "Test connections above to enable storage options"
             !hasAnySelection -> when {
-                isDriveReady && isPhotosReady -> "Both services available - select at least one storage option"
-                isDriveReady -> "Google Drive is available - enable it to save photos"
-                isPhotosReady -> "Google Photos is available - enable it to save photos"
+                isDriveHealthy && isPhotosHealthy -> "Both services available - select at least one storage option"
+                isDriveHealthy -> "Google Drive is available - enable it to save photos"
+                isPhotosHealthy -> "Google Photos is available - enable it to save photos"
                 else -> "No storage services available"
             }
             isDriveEnabled && isPhotosEnabled -> "✓ Using both Google Drive and Google Photos for photo storage"
@@ -543,13 +567,15 @@ class SettingsFragment : Fragment() {
         
         binding.storageSelectionStatusText.text = statusText
         
-        // Auto-disable selections if services become unavailable
-        if (isDriveEnabled && !isDriveReady) {
+        // Auto-disable selections if services become unhealthy
+        if (isDriveEnabled && !isDriveHealthy) {
+            Log.d("SettingsFragment", "Auto-disabling Drive storage - service became unhealthy")
             storagePreferences.setGoogleDriveEnabled(false)
             binding.checkboxGoogleDrive.isChecked = false
         }
         
-        if (isPhotosEnabled && !isPhotosReady) {
+        if (isPhotosEnabled && !isPhotosHealthy) {
+            Log.d("SettingsFragment", "Auto-disabling Photos storage - service became unhealthy")
             storagePreferences.setGooglePhotosEnabled(false)
             binding.checkboxGooglePhotos.isChecked = false
         }

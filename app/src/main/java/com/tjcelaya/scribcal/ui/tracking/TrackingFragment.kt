@@ -381,11 +381,13 @@ class TrackingFragment : Fragment() {
         
         val isDriveEnabled = storagePreferences.isGoogleDriveEnabled()
         val isPhotosEnabled = storagePreferences.isGooglePhotosEnabled()
-        val isDriveReady = driveRepository.isDriveReady()
-        val isPhotosReady = photosRepository.isPhotosReady()
         
-        // At least one storage option must be enabled and ready
-        return (isDriveEnabled && isDriveReady) || (isPhotosEnabled && isPhotosReady)
+        // Use unified health check methods
+        val isDriveHealthy = driveRepository.isHealthy()
+        val isPhotosHealthy = photosRepository.isHealthy()
+        
+        // At least one storage option must be enabled and healthy
+        return (isDriveEnabled && isDriveHealthy) || (isPhotosEnabled && isPhotosHealthy)
     }
     
     private fun showStorageConfigurationDialog() {

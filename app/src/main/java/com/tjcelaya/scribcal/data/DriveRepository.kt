@@ -93,6 +93,30 @@ class DriveRepository(private val context: Context) {
     fun isDriveReady(): Boolean = isDriveInitialized() && lastConnectionSuccessful
     
     /**
+     * Unified health check for Drive integration
+     * Returns true if Drive is currently healthy and can be used for photo storage
+     * This is the single source of truth for Drive health status
+     */
+    fun isHealthy(): Boolean {
+        // Basic requirements: service must be initialized with valid folder
+        if (!isDriveInitialized()) {
+            return false
+        }
+        
+        // Must have had at least one successful connection test
+        if (!lastConnectionSuccessful) {
+            return false
+        }
+        
+        // If we haven't tested recently, assume healthy but trigger background verification
+        if (lastConnectionTest == null) {
+            return false
+        }
+        
+        return true
+    }
+    
+    /**
      * Create or find the ScribCal folder in Google Drive
      */
     private suspend fun ensureScribCalFolderExists() = withContext(Dispatchers.IO) {
