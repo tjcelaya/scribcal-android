@@ -1,8 +1,11 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
     <style name="Base.Theme.ScribCal" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+        <!-- Use ScribCal blue colors as fallback -->
+        <item name="colorPrimary">@color/scribcal_blue</item>
+        <item name="colorPrimaryVariant">@color/scribcal_blue_dark</item>
+        <item name="colorSecondary">@color/scribcal_blue_light</item>
+        <item name="colorAccent">@color/scribcal_blue</item>
     </style>
 
     <style name="Theme.ScribCal" parent="Base.Theme.ScribCal" />

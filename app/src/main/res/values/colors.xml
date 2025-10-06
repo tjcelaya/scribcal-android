@@ -2,5 +2,12 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    
+    <!-- ScribCal brand colors -->
+    <color name="scribcal_blue">#4285f4</color>
+    <color name="scribcal_blue_dark">#3367d6</color>
+    <color name="scribcal_blue_light">#669df6</color>
+    
+    <!-- Legacy purple (kept for backwards compatibility) -->
     <color name="purple_500">#9C27B0</color>
 </resources>

@@ -51,7 +51,7 @@ class EventTypeAdapter(
                 colorIndicator.background.setTint(eventType.color)
             } else {
                 // Use default primary color if no color is set
-                val defaultColor = ContextCompat.getColor(itemView.context, R.color.purple_500)
+                val defaultColor = ContextCompat.getColor(itemView.context, R.color.scribcal_blue)
                 colorIndicator.background.setTint(defaultColor)
             }
 

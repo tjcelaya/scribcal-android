@@ -80,9 +80,11 @@
         android:layout_width="40dp"
         android:layout_height="40dp"
         android:contentDescription="Stop Event"
+        android:insetLeft="0dp"
+        android:insetRight="0dp"
         app:backgroundTint="?attr/colorError"
         app:icon="@drawable/ic_stop"
-        app:iconSize="16dp"
+        app:iconSize="18dp"
         app:iconTint="?attr/colorOnError" />
 
 </LinearLayout>

@@ -5,10 +5,12 @@ import android.accounts.AccountManager
 import android.app.AlertDialog
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.color.DynamicColors
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.findNavController
@@ -40,6 +42,11 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Apply dynamic colors on Android 12+ if available
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            DynamicColors.applyToActivityIfAvailable(this)
+        }
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)

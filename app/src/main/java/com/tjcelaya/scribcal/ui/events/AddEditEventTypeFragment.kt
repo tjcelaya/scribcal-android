@@ -33,7 +33,7 @@ class AddEditEventTypeFragment : Fragment() {
     private val colorPalette = listOf(
         Color.parseColor("#F44336"), // Red
         Color.parseColor("#E91E63"), // Pink
-        Color.parseColor("#9C27B0"), // Purple
+        Color.parseColor("#4285f4"), // ScribCal Blue
         Color.parseColor("#673AB7"), // Deep Purple
         Color.parseColor("#3F51B5"), // Indigo
         Color.parseColor("#2196F3"), // Blue

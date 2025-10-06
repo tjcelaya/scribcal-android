@@ -79,8 +79,10 @@
             android:layout_height="40dp"
             android:layout_marginEnd="8dp"
             android:contentDescription="Record Instant Event"
+            android:insetLeft="0dp"
+            android:insetRight="0dp"
             app:icon="@drawable/ic_flash"
-            app:iconSize="16dp" />
+            app:iconSize="18dp" />
 
         <!-- Start Event Button -->
         <com.google.android.material.button.MaterialButton
@@ -89,8 +91,10 @@
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:contentDescription="Start Event"
+            android:insetLeft="0dp"
+            android:insetRight="0dp"
             app:icon="@drawable/ic_play"
-            app:iconSize="16dp" />
+            app:iconSize="18dp" />
 
     </LinearLayout>
 

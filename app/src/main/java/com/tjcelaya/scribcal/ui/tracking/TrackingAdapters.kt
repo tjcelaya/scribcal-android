@@ -62,7 +62,7 @@ class EventTypesTrackingAdapter(
             if (eventType.color != null) {
                 colorIndicator.background.setTint(eventType.color)
             } else {
-                val defaultColor = ContextCompat.getColor(itemView.context, R.color.purple_500)
+                val defaultColor = ContextCompat.getColor(itemView.context, R.color.scribcal_blue)
                 colorIndicator.background.setTint(defaultColor)
             }
 
