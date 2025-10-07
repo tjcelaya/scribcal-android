@@ -28,6 +28,91 @@ class DriveRepository(private val context: Context) {
     private var lastConnectionTest: Long? = null
     private var lastConnectionSuccessful = false
     private var lastConsentException: UserRecoverableAuthException? = null
+    
+    // Storage preferences for persistence
+    private val storagePreferences = StoragePreferences(context)
+    
+    init {
+        // Restore state from persistence on initialization
+        restorePersistedState()
+    }
+    
+    /**
+     * Restore persisted state from SharedPreferences
+     */
+    private fun restorePersistedState() {
+        try {
+            // Restore basic state
+            scribcalFolderId = storagePreferences.getDriveFolderId()
+            lastConnectionTest = storagePreferences.getDriveLastTestTime()
+            lastConnectionSuccessful = storagePreferences.wasDriveLastTestSuccessful()
+            
+            // If we have a persisted folder ID and account, try to restore the Drive service
+            val accountName = storagePreferences.getDriveAccountName()
+            if (storagePreferences.isDriveInitialized() && accountName != null && scribcalFolderId != null) {
+                try {
+                    val account = Account(accountName, "com.google")
+                    
+                    val credential = GoogleAccountCredential.usingOAuth2(
+                        context,
+                        listOf(DriveScopes.DRIVE_FILE)
+                    )
+                    credential.selectedAccount = account
+
+                    driveService = Drive.Builder(
+                        AndroidHttp.newCompatibleTransport(),
+                        GsonFactory(),
+                        credential
+                    )
+                        .setApplicationName("ScribCal")
+                        .build()
+                    
+                    Log.d(TAG, "Restored Drive service from persistence for account: $accountName")
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to restore Drive service from persistence", e)
+                    // Clear invalid state
+                    clearPersistedState()
+                }
+            }
+            
+            Log.d(TAG, "Drive state restored: initialized=${isDriveInitialized()}, folder=$scribcalFolderId, lastTest=$lastConnectionTest, success=$lastConnectionSuccessful")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error restoring Drive state from persistence", e)
+        }
+    }
+    
+    /**
+     * Persist current state to SharedPreferences
+     */
+    private fun persistCurrentState(accountName: String?) {
+        try {
+            storagePreferences.saveDriveState(
+                initialized = isDriveInitialized(),
+                folderId = scribcalFolderId,
+                accountName = accountName
+            )
+            
+            lastConnectionTest?.let { testTime ->
+                storagePreferences.saveDriveTestResult(testTime, lastConnectionSuccessful)
+            }
+            
+            Log.d(TAG, "Drive state persisted: initialized=${isDriveInitialized()}, account=$accountName")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error persisting Drive state", e)
+        }
+    }
+    
+    /**
+     * Clear persisted state
+     */
+    private fun clearPersistedState() {
+        try {
+            storagePreferences.clearDriveState()
+            Log.d(TAG, "Cleared persisted Drive state")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error clearing persisted Drive state", e)
+        }
+    }
 
     /**
      * Initialize Google Drive service with the given account
@@ -69,15 +154,22 @@ class DriveRepository(private val context: Context) {
             // Now try to ensure ScribCal folder exists
             ensureScribCalFolderExists()
 
+            // Persist successful initialization
+            persistCurrentState(account.name)
+
             Log.d(TAG, "Drive service initialized successfully")
             true
         } catch (e: UserRecoverableAuthException) {
             Log.w(TAG, "Drive initialization requires user consent", e)
             lastConsentException = e
+            // Clear state on failure
+            clearPersistedState()
             false
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize Drive service", e)
             lastConsentException = null
+            // Clear state on failure
+            clearPersistedState()
             false
         }
     }
@@ -301,6 +393,9 @@ class DriveRepository(private val context: Context) {
                 // Store successful test time
                 lastConnectionTest = timestamp
                 lastConnectionSuccessful = true
+                
+                // Persist test results
+                storagePreferences.saveDriveTestResult(timestamp, true)
 
                 DriveConnectionResult(
                     isConnected = true,
@@ -317,6 +412,9 @@ class DriveRepository(private val context: Context) {
             val timestamp = System.currentTimeMillis()
             lastConnectionTest = timestamp
             lastConnectionSuccessful = false
+            
+            // Persist test results
+            storagePreferences.saveDriveTestResult(timestamp, false)
 
             DriveConnectionResult(
                 isConnected = false,
@@ -368,14 +466,15 @@ class DriveRepository(private val context: Context) {
         try {
             Log.d(TAG, "Manually retrying Drive initialization with account: ${account.name}")
 
-            // Clear any previous state
+            // Clear any previous state (both memory and persistence)
             driveService = null
             scribcalFolderId = null
             lastConnectionTest = null
             lastConnectionSuccessful = false
             lastConsentException = null
+            clearPersistedState()
 
-            // Re-initialize
+            // Re-initialize (which will persist state on success)
             return@withContext initializeDrive(account)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to retry Drive initialization", e)

@@ -25,6 +25,9 @@ class PhotosRepository(
     private val context: Context,
     private val database: ScribCalDatabase
 ) {
+    
+    // Storage preferences for centralized persistence
+    private val storagePreferences = StoragePreferences(context)
 
     companion object {
         private const val TAG = "PhotosRepository"
@@ -44,6 +47,10 @@ class PhotosRepository(
         private const val KEY_LAST_CONNECTION_TEST = "last_connection_test"
         private const val KEY_LAST_CONNECTION_SUCCESSFUL = "last_connection_successful"
         private const val KEY_CURRENT_ACCOUNT_NAME = "current_account_name"
+        
+        // HTTP response codes that indicate auth issues warranting token refresh
+        private const val HTTP_UNAUTHORIZED = 401
+        private const val HTTP_FORBIDDEN = 403
     }
 
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -68,24 +75,23 @@ class PhotosRepository(
     }
 
     /**
-     * Load persisted connection state from SharedPreferences
+     * Load persisted connection state from centralized StoragePreferences
      */
     private fun loadPersistedState() {
         try {
-            // Load connection test state
-            val lastTestTime = prefs.getLong(KEY_LAST_CONNECTION_TEST, 0L)
-            lastConnectionTest = if (lastTestTime > 0) lastTestTime else null
+            // Load connection test state from centralized storage
+            lastConnectionTest = storagePreferences.getPhotosLastTestTime()
+            lastConnectionSuccessful = storagePreferences.wasPhotosLastTestSuccessful()
 
-            lastConnectionSuccessful = prefs.getBoolean(KEY_LAST_CONNECTION_SUCCESSFUL, false)
-
-            // Load account info
-            val accountName = prefs.getString(KEY_CURRENT_ACCOUNT_NAME, null)
-            if (accountName != null) {
+            // Load account info and initialization state
+            val accountName = storagePreferences.getPhotosAccountName()
+            isInitialized = storagePreferences.isPhotosInitialized()
+            
+            if (accountName != null && isInitialized) {
                 currentAccount = Account(accountName, "com.google")
-                isInitialized = true
             }
 
-            Log.d(TAG, "Loaded persisted state - lastTest: $lastConnectionTest, successful: $lastConnectionSuccessful, account: $accountName")
+            Log.d(TAG, "Loaded persisted state - initialized: $isInitialized, lastTest: $lastConnectionTest, successful: $lastConnectionSuccessful, account: $accountName")
 
         } catch (e: Exception) {
             Log.w(TAG, "Failed to load persisted state: ${e.message}")
@@ -111,31 +117,22 @@ class PhotosRepository(
     }
 
     /**
-     * Save connection state to SharedPreferences
+     * Save connection state to centralized StoragePreferences
      */
     private fun saveConnectionState() {
         try {
-            val editor = prefs.edit()
-
-            // Save connection test state
+            // Save initialization and account state
+            storagePreferences.savePhotosState(
+                initialized = isInitialized,
+                accountName = currentAccount?.name
+            )
+            
+            // Save connection test results
             if (lastConnectionTest != null) {
-                editor.putLong(KEY_LAST_CONNECTION_TEST, lastConnectionTest!!)
-            } else {
-                editor.remove(KEY_LAST_CONNECTION_TEST)
+                storagePreferences.savePhotosTestResult(lastConnectionTest!!, lastConnectionSuccessful)
             }
 
-            editor.putBoolean(KEY_LAST_CONNECTION_SUCCESSFUL, lastConnectionSuccessful)
-
-            // Save current account
-            if (currentAccount != null) {
-                editor.putString(KEY_CURRENT_ACCOUNT_NAME, currentAccount!!.name)
-            } else {
-                editor.remove(KEY_CURRENT_ACCOUNT_NAME)
-            }
-
-            editor.apply()
-
-            Log.d(TAG, "Saved connection state - lastTest: $lastConnectionTest, successful: $lastConnectionSuccessful")
+            Log.d(TAG, "Saved connection state - initialized: $isInitialized, lastTest: $lastConnectionTest, successful: $lastConnectionSuccessful")
 
         } catch (e: Exception) {
             Log.w(TAG, "Failed to save connection state: ${e.message}")
@@ -156,6 +153,9 @@ class PhotosRepository(
                 currentAccount = account
                 isInitialized = true
                 scribcalAlbumReady = true // Assume album will be created when needed
+                
+                // Persist successful initialization
+                saveConnectionState()
 
                 Log.d(TAG, "Photos service initialized successfully with permission validation")
                 true
@@ -164,11 +164,16 @@ class PhotosRepository(
                 currentAccount = account
                 isInitialized = true
                 scribcalAlbumReady = false // Not ready until consent is granted
+                
+                // Persist partial initialization
+                saveConnectionState()
 
                 Log.d(TAG, "Photos service initialized but user consent required")
                 true // Return true so UI can show consent screen
             } else {
                 Log.w(TAG, "Photos permission not available for account: ${account.name}")
+                // Clear state on failure
+                storagePreferences.clearPhotosState()
                 false
             }
         } catch (e: Exception) {
@@ -176,6 +181,8 @@ class PhotosRepository(
             currentAccount = null
             isInitialized = false
             scribcalAlbumReady = false
+            // Clear state on exception
+            storagePreferences.clearPhotosState()
             false
         }
     }
@@ -213,6 +220,77 @@ class PhotosRepository(
         }
 
         return true
+    }
+    
+    /**
+     * Generic retry wrapper for Google Photos API calls that automatically handles
+     * 403/401 errors with token refresh and retry logic
+     * 
+     * @param operationName Human-readable name for logging (e.g., "album creation", "photo upload")
+     * @param apiCall Suspend function that takes an access token and returns T?, where null indicates failure
+     * @return Result of the API call, or null if all attempts failed
+     */
+    private suspend fun <T> executeWithTokenRetry(
+        operationName: String,
+        apiCall: suspend (accessToken: String) -> T?
+    ): T? = withContext(Dispatchers.IO) {
+        val account = currentAccount ?: run {
+            Log.e(TAG, "Cannot execute $operationName: no current account set")
+            return@withContext null
+        }
+        
+        // Get initial token
+        val initialToken = try {
+            GoogleAuthUtil.getToken(context, account, "oauth2:$PHOTOS_SCOPE")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to get initial OAuth token for $operationName", e)
+            return@withContext null
+        }
+        
+        if (initialToken.isEmpty()) {
+            Log.e(TAG, "Initial OAuth token is empty for $operationName")
+            return@withContext null
+        }
+        
+        // First attempt
+        Log.d(TAG, "Executing $operationName with initial token...")
+        val firstResult = apiCall(initialToken)
+        if (firstResult != null) {
+            Log.d(TAG, "$operationName succeeded on first attempt")
+            return@withContext firstResult
+        }
+        
+        // First attempt failed, try token refresh and retry once
+        Log.i(TAG, "$operationName failed on first attempt, trying token refresh...")
+        val refreshed = refreshOAuthToken()
+        if (!refreshed) {
+            Log.e(TAG, "Token refresh failed for $operationName, aborting retry")
+            return@withContext null
+        }
+        
+        // Get fresh token for retry
+        val freshToken = try {
+            GoogleAuthUtil.getToken(context, account, "oauth2:$PHOTOS_SCOPE")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to get fresh OAuth token for $operationName retry", e)
+            return@withContext null
+        }
+        
+        if (freshToken.isEmpty()) {
+            Log.e(TAG, "Fresh OAuth token is empty for $operationName retry")
+            return@withContext null
+        }
+        
+        // Second attempt with fresh token
+        Log.d(TAG, "Retrying $operationName with refreshed token...")
+        val secondResult = apiCall(freshToken)
+        if (secondResult != null) {
+            Log.i(TAG, "$operationName succeeded after token refresh")
+        } else {
+            Log.e(TAG, "$operationName failed even after token refresh")
+        }
+        
+        secondResult
     }
 
     /**
@@ -1016,11 +1094,46 @@ class PhotosRepository(
     }
 
     /**
-     * Verify that an album still exists in Google Photos
+     * Verify that an album still exists in Google Photos with automatic retry on auth errors
      */
     private suspend fun verifyAlbumExists(accessToken: String, albumId: String): Boolean = withContext(Dispatchers.IO) {
+        // First attempt with provided token
+        val firstAttempt = attemptVerifyAlbumExists(accessToken, albumId)
+        if (firstAttempt != null) {
+            return@withContext firstAttempt
+        }
+        
+        // If first attempt failed with auth error, try token refresh and retry once
+        Log.i(TAG, "Album verification failed with auth error, attempting token refresh and retry...")
+        val refreshed = refreshOAuthToken()
+        if (refreshed) {
+            Log.d(TAG, "Token refreshed, retrying album verification...")
+            // Get fresh token and retry
+            val account = currentAccount ?: return@withContext false
+            val freshToken = try {
+                GoogleAuthUtil.getToken(context, account, "oauth2:$PHOTOS_SCOPE")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to get fresh token after refresh for album verification", e)
+                return@withContext false
+            }
+            
+            if (freshToken.isNotEmpty()) {
+                val secondAttempt = attemptVerifyAlbumExists(freshToken, albumId)
+                return@withContext secondAttempt ?: false
+            }
+        }
+        
+        Log.e(TAG, "Album verification failed even after token refresh attempt")
+        false
+    }
+    
+    /**
+     * Single attempt to verify album exists without retry logic
+     * Returns: true if album exists, false if album doesn't exist, null if auth error occurred
+     */
+    private suspend fun attemptVerifyAlbumExists(accessToken: String, albumId: String): Boolean? = withContext(Dispatchers.IO) {
         try {
-            Log.d(TAG, "Verifying album exists: $albumId")
+            Log.d(TAG, "Attempting to verify album exists: $albumId")
             val url = URL("https://photoslibrary.googleapis.com/v1/albums/$albumId")
             val connection = url.openConnection() as HttpURLConnection
 
@@ -1039,8 +1152,12 @@ class PhotosRepository(
                     false
                 }
                 403 -> {
-                    Log.w(TAG, "Album access forbidden (permissions issue): $albumId")
-                    false
+                    Log.w(TAG, "Album access forbidden (permissions issue): $albumId - will attempt token refresh")
+                    null // Indicates auth error that should trigger retry
+                }
+                401 -> {
+                    Log.w(TAG, "Album access unauthorized (token expired): $albumId - will attempt token refresh")
+                    null // Indicates auth error that should trigger retry
                 }
                 else -> {
                     val errorStream = connection.errorStream?.bufferedReader()?.use { it.readText() }
@@ -1065,11 +1182,53 @@ class PhotosRepository(
 
 
     /**
-     * Create the ScribCal album
+     * Create the ScribCal album with automatic retry on 403/401 errors
      */
     private suspend fun createScribCalAlbum(accessToken: String): String? = withContext(Dispatchers.IO) {
+        // First attempt with provided token
+        val firstAttempt = attemptCreateScribCalAlbum(accessToken)
+        if (firstAttempt != null) {
+            return@withContext firstAttempt
+        }
+        
+        // If first attempt failed with 403/401, try token refresh and retry once
+        Log.i(TAG, "Album creation failed, attempting token refresh and retry...")
+        val refreshed = refreshOAuthToken()
+        if (refreshed) {
+            Log.d(TAG, "Token refreshed, retrying album creation...")
+            // Get fresh token and retry
+            val account = currentAccount ?: return@withContext null
+            val freshToken = try {
+                GoogleAuthUtil.getToken(context, account, "oauth2:$PHOTOS_SCOPE")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to get fresh token after refresh", e)
+                return@withContext null
+            }
+            
+            if (freshToken.isNotEmpty()) {
+                return@withContext attemptCreateScribCalAlbum(freshToken)
+            }
+        }
+        
+        Log.e(TAG, "Album creation failed even after token refresh attempt")
+        null
+    }
+    
+    /**
+     * Single attempt to create ScribCal album without retry logic
+     */
+    private suspend fun attemptCreateScribCalAlbum(accessToken: String): String? = withContext(Dispatchers.IO) {
         try {
-            val url = URL("https://photoslibrary.googleapis.com/v1/albums")
+            Log.d(TAG, "Attempting ScribCal album creation: $SCRIBCAL_ALBUM_NAME")
+            
+            // Log comprehensive request details
+            val endpoint = "https://photoslibrary.googleapis.com/v1/albums"
+            Log.d(TAG, "🔗 API Endpoint: $endpoint")
+            Log.d(TAG, "🔑 Token (first 20 chars): ${accessToken.take(20)}...")
+            Log.d(TAG, "🔑 Token (last 20 chars): ...${accessToken.takeLast(20)}")
+            Log.d(TAG, "📏 Token length: ${accessToken.length}")
+            
+            val url = URL(endpoint)
             val connection = url.openConnection() as HttpURLConnection
 
             connection.requestMethod = "POST"
@@ -1082,25 +1241,59 @@ class PhotosRepository(
                     put("title", SCRIBCAL_ALBUM_NAME)
                 })
             }
+            
+            Log.d(TAG, "🌐 HTTP Method: POST")
+            Log.d(TAG, "📋 Request Headers:")
+            Log.d(TAG, "   Authorization: Bearer ${accessToken.take(20)}...")
+            Log.d(TAG, "   Content-Type: application/json")
+            Log.d(TAG, "📄 Request payload: ${requestJson.toString()}")
 
             connection.outputStream.use { outputStream ->
                 outputStream.write(requestJson.toString().toByteArray())
             }
 
             val responseCode = connection.responseCode
+            Log.d(TAG, "Album creation response code: $responseCode")
+            
             if (responseCode == 200) {
                 val response = connection.inputStream.bufferedReader().use { it.readText() }
+                Log.d(TAG, "Album creation success response: $response")
                 val responseJson = JSONObject(response)
                 val albumId = responseJson.getString("id")
                 Log.d(TAG, "Created ScribCal album: $albumId")
                 albumId
             } else {
                 val errorStream = connection.errorStream?.bufferedReader()?.use { it.readText() }
-                Log.e(TAG, "Failed to create album with code $responseCode: $errorStream")
+                Log.e(TAG, "Album creation failed with HTTP $responseCode")
+                Log.e(TAG, "Error response: $errorStream")
+                
+                // Provide specific error guidance based on common response codes
+                when (responseCode) {
+                    403 -> {
+                        Log.e(TAG, "ERROR 403: Google Photos API not enabled or insufficient permissions.")
+                        Log.e(TAG, "This could indicate: 1) OAuth token has insufficient scope, 2) API not enabled in Google Cloud Console, 3) API quota exceeded")
+                    }
+                    401 -> {
+                        Log.e(TAG, "ERROR 401: OAuth token invalid or expired. Will attempt token refresh.")
+                    }
+                    400 -> Log.e(TAG, "ERROR 400: Malformed request. Album title might be invalid: '$SCRIBCAL_ALBUM_NAME'")
+                    429 -> Log.e(TAG, "ERROR 429: Rate limit exceeded. Too many API requests. Wait and retry.")
+                    404 -> Log.e(TAG, "ERROR 404: Google Photos Library API endpoint not found. API might not be enabled in Google Cloud Console.")
+                    else -> Log.e(TAG, "ERROR $responseCode: Unexpected error creating album. Check network connection and Google Cloud Console API setup.")
+                }
+                
+                // Return null to indicate failure - caller will handle retry logic
                 null
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to create ScribCal album", e)
+            Log.e(TAG, "Exception creating ScribCal album", e)
+            when (e) {
+                is java.net.UnknownHostException -> Log.e(TAG, "Network error: No internet connection or DNS resolution failed")
+                is java.net.ConnectException -> Log.e(TAG, "Network error: Could not connect to Google Photos API")
+                is javax.net.ssl.SSLException -> Log.e(TAG, "SSL error: Certificate or secure connection issue")
+                is java.io.IOException -> Log.e(TAG, "IO error: Network or stream issue during album creation")
+                else -> Log.e(TAG, "Unexpected error type during album creation: ${e.javaClass.simpleName}")
+            }
             null
         }
     }
@@ -1363,44 +1556,74 @@ class PhotosRepository(
 
     /**
      * Refresh OAuth token by clearing cached token and getting a fresh one
-     * This can help resolve temporary permission issues
+     * This can help resolve temporary permission issues including 403/401 errors
      */
     private suspend fun refreshOAuthToken(): Boolean = withContext(Dispatchers.IO) {
         try {
-            val account = currentAccount ?: return@withContext false
-
-            Log.d(TAG, "Refreshing OAuth token for Google Photos")
-
-            // Clear existing token first
-            try {
-                val existingToken = GoogleAuthUtil.getToken(context, account, "oauth2:$PHOTOS_SCOPE")
-                if (existingToken.isNotEmpty()) {
-                    GoogleAuthUtil.clearToken(context, existingToken)
-                    Log.d(TAG, "Cleared existing OAuth token")
-                }
-            } catch (e: Exception) {
-                Log.d(TAG, "No existing token to clear or error clearing: ${e.message}")
-            }
-
-            // Try to get a fresh token
-            val freshToken = try {
-                GoogleAuthUtil.getToken(context, account, "oauth2:$PHOTOS_SCOPE")
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to get fresh OAuth token", e)
+            val account = currentAccount ?: run {
+                Log.e(TAG, "Cannot refresh OAuth token: no current account set")
                 return@withContext false
             }
 
+            Log.i(TAG, "Refreshing OAuth token for Google Photos account: ${account.name}")
+            val startTime = System.currentTimeMillis()
+
+            // Clear existing token first
+            var clearedToken: String? = null
+            try {
+                clearedToken = GoogleAuthUtil.getToken(context, account, "oauth2:$PHOTOS_SCOPE")
+                if (clearedToken.isNotEmpty()) {
+                    GoogleAuthUtil.clearToken(context, clearedToken)
+                    Log.d(TAG, "Cleared existing OAuth token (${clearedToken.take(20)}...)")
+                } else {
+                    Log.d(TAG, "Existing token was already empty")
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Error getting/clearing existing token (this may be normal): ${e.message}")
+            }
+
+            // Wait a moment for token invalidation to propagate
+            kotlinx.coroutines.delay(100)
+
+            // Try to get a fresh token
+            val freshToken = try {
+                Log.d(TAG, "Requesting fresh OAuth token with full Photos scope...")
+                GoogleAuthUtil.getToken(context, account, "oauth2:$PHOTOS_SCOPE")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to get fresh OAuth token: ${e.javaClass.simpleName}: ${e.message}")
+                when (e) {
+                    is com.google.android.gms.auth.UserRecoverableAuthException -> {
+                        Log.e(TAG, "User consent required for token refresh - app needs to handle this")
+                    }
+                    is com.google.android.gms.auth.GoogleAuthException -> {
+                        Log.e(TAG, "Google Auth error during token refresh - may indicate API/OAuth configuration issue")
+                    }
+                    else -> {
+                        Log.e(TAG, "Unexpected error type during token refresh")
+                    }
+                }
+                return@withContext false
+            }
+
+            val refreshTime = System.currentTimeMillis() - startTime
             val refreshSuccessful = freshToken.isNotEmpty()
+            
             if (refreshSuccessful) {
-                Log.d(TAG, "Successfully refreshed OAuth token")
+                Log.i(TAG, "Successfully refreshed OAuth token in ${refreshTime}ms (${freshToken.take(20)}...)")
+                // Verify the token has the required scope
+                if (clearedToken != freshToken) {
+                    Log.d(TAG, "✅ Fresh token is different from cleared token - refresh successful")
+                } else {
+                    Log.w(TAG, "⚠️ Fresh token is identical to cleared token - may indicate caching issue")
+                }
             } else {
-                Log.w(TAG, "Fresh token is empty")
+                Log.e(TAG, "❌ Fresh token is empty after refresh attempt in ${refreshTime}ms")
             }
 
             refreshSuccessful
 
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to refresh OAuth token", e)
+            Log.e(TAG, "Exception during OAuth token refresh: ${e.javaClass.simpleName}: ${e.message}", e)
             false
         }
     }
@@ -1574,18 +1797,183 @@ class PhotosRepository(
     }
 
     /**
+     * Debug what scopes are actually included in the OAuth token
+     * This calls Google's tokeninfo endpoint to see what permissions we actually have
+     */
+    suspend fun debugTokenScopes(token: String): String = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "🔍 Debugging token scopes...")
+            val endpoint = "https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=$token"
+            
+            val url = URL(endpoint)
+            val connection = url.openConnection() as HttpURLConnection
+            connection.requestMethod = "GET"
+            
+            val responseCode = connection.responseCode
+            Log.d(TAG, "🔍 Token info response code: $responseCode")
+            
+            if (responseCode == 200) {
+                val response = connection.inputStream.bufferedReader().use { it.readText() }
+                Log.d(TAG, "🔍 Token info response: $response")
+                
+                val tokenInfo = JSONObject(response)
+                if (tokenInfo.has("scope")) {
+                    val scopeString = tokenInfo.getString("scope")
+                    Log.d(TAG, "🔍 Token scopes: $scopeString")
+                    
+                    val requiredScope = "https://www.googleapis.com/auth/photoslibrary"
+                    val hasRequiredScope = scopeString.contains(requiredScope)
+                    Log.d(TAG, "🔍 Has required Photos scope ($requiredScope): $hasRequiredScope")
+                    
+                    if (!hasRequiredScope) {
+                        Log.e(TAG, "❌ TOKEN SCOPE MISMATCH: Required scope '$requiredScope' not found in token")
+                        Log.e(TAG, "❌ Available scopes: $scopeString")
+                        Log.e(TAG, "❌ This confirms the OAuth consent screen or client setup is missing the Photos Library API scope")
+                    } else {
+                        Log.d(TAG, "✅ Token includes required Photos scope")
+                    }
+                    
+                    return@withContext "Scopes: $scopeString (has Photos: $hasRequiredScope)"
+                } else {
+                    Log.w(TAG, "🔍 No scope information in token response")
+                    return@withContext "No scope info in response: $response"
+                }
+            } else {
+                val errorResponse = connection.errorStream?.bufferedReader()?.use { it.readText() }
+                Log.e(TAG, "🔍 Token info request failed: $responseCode - $errorResponse")
+                return@withContext "Token info failed: $responseCode"
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "🔍 Exception debugging token scopes", e)
+            return@withContext "Exception: ${e.message}"
+        }
+    }
+    
+    /**
+     * Test basic Google Photos API availability by making a simple API call
+     * This helps diagnose if the API is enabled and accessible
+     */
+    suspend fun testPhotosAPIAvailability(token: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Testing Google Photos API availability...")
+            
+            // First, debug what scopes this token actually has
+            val scopeDebugResult = debugTokenScopes(token)
+            Log.i(TAG, "🔍 Token scope analysis: $scopeDebugResult")
+            
+            // Log comprehensive request details
+            val endpoint = "https://photoslibrary.googleapis.com/v1/albums?pageSize=1"
+            Log.d(TAG, "🔗 API Endpoint: $endpoint")
+            Log.d(TAG, "🔑 Token (first 20 chars): ${token.take(20)}...")
+            Log.d(TAG, "🔑 Token (last 20 chars): ...${token.takeLast(20)}")
+            Log.d(TAG, "📏 Token length: ${token.length}")
+            
+            // Make a simple API call to list albums (without actually reading results)
+            val url = URL(endpoint)
+            val connection = url.openConnection() as HttpURLConnection
+
+            connection.requestMethod = "GET"
+            connection.setRequestProperty("Authorization", "Bearer $token")
+            connection.setRequestProperty("Content-Type", "application/json")
+            
+            Log.d(TAG, "🌐 HTTP Method: GET")
+            Log.d(TAG, "📋 Request Headers:")
+            Log.d(TAG, "   Authorization: Bearer ${token.take(20)}...")
+            Log.d(TAG, "   Content-Type: application/json")
+
+            val responseCode = connection.responseCode
+            Log.d(TAG, "📨 API availability test response code: $responseCode")
+            
+            when (responseCode) {
+                200 -> {
+                    Log.d(TAG, "✅ Google Photos API is available and accessible")
+                    true
+                }
+                403 -> {
+                    Log.e(TAG, "❌ Google Photos API: 403 Forbidden - API not enabled or insufficient permissions")
+                    val errorResponse = connection.errorStream?.bufferedReader()?.use { it.readText() }
+                    Log.e(TAG, "Error details: $errorResponse")
+                    false
+                }
+                401 -> {
+                    Log.e(TAG, "❌ Google Photos API: 401 Unauthorized - Invalid or expired OAuth token")
+                    false
+                }
+                404 -> {
+                    Log.e(TAG, "❌ Google Photos API: 404 Not Found - API endpoint not available")
+                    false
+                }
+                else -> {
+                    val errorResponse = connection.errorStream?.bufferedReader()?.use { it.readText() }
+                    Log.e(TAG, "❌ Google Photos API: HTTP $responseCode - Unexpected error")
+                    Log.e(TAG, "Error details: $errorResponse")
+                    false
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Exception testing Google Photos API availability", e)
+            when (e) {
+                is java.net.UnknownHostException -> Log.e(TAG, "Network error: Cannot resolve photoslibrary.googleapis.com")
+                is java.net.ConnectException -> Log.e(TAG, "Network error: Cannot connect to Google Photos API servers")
+                is javax.net.ssl.SSLException -> Log.e(TAG, "SSL error: Secure connection issue")
+                else -> Log.e(TAG, "Unexpected error: ${e.message}")
+            }
+            false
+        }
+    }
+    
+    /**
+     * Test different scope request formats to debug scope issues
+     */
+    suspend fun debugScopeRequests(account: Account): String = withContext(Dispatchers.IO) {
+        val results = mutableListOf<String>()
+        
+        val scopeVariants = listOf(
+            "oauth2:$PHOTOS_SCOPE",
+            "oauth2:https://www.googleapis.com/auth/photoslibrary", 
+            "oauth2:photoslibrary",
+            PHOTOS_SCOPE,
+            "https://www.googleapis.com/auth/photoslibrary"
+        )
+        
+        for ((index, scope) in scopeVariants.withIndex()) {
+            try {
+                Log.d(TAG, "🧪 Testing scope variant #${index + 1}: '$scope'")
+                val token = GoogleAuthUtil.getToken(context, account, scope)
+                if (token.isNotEmpty()) {
+                    results.add("✅ Scope #${index + 1} '$scope': SUCCESS (token length ${token.length})")
+                    // Check what scopes this token actually has
+                    val scopeInfo = debugTokenScopes(token)
+                    results.add("   → Token scopes: $scopeInfo")
+                } else {
+                    results.add("❌ Scope #${index + 1} '$scope': Empty token")
+                }
+            } catch (e: Exception) {
+                results.add("❌ Scope #${index + 1} '$scope': ${e.javaClass.simpleName}: ${e.message}")
+            }
+        }
+        
+        return@withContext results.joinToString("\n")
+    }
+    
+    /**
      * Check if we have permission to access Photos
      * Returns a Pair<hasPermission, needsUserConsent>
      */
     suspend fun checkPhotosPermission(account: Account): Pair<Boolean, Boolean> = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "Checking Photos permission for account: ${account.name}")
+            
+            // First, run our comprehensive scope debugging
+            val scopeDebugResults = debugScopeRequests(account)
+            Log.i(TAG, "🧪 COMPREHENSIVE SCOPE DEBUG RESULTS:\n$scopeDebugResults")
 
             // Try the main Photos scope first
             var token: String? = null
             var hasPermission = false
 
             try {
+                Log.d(TAG, "🎯 Primary scope request: oauth2:$PHOTOS_SCOPE")
                 token = GoogleAuthUtil.getToken(
                     context,
                     account,
@@ -1593,10 +1981,15 @@ class PhotosRepository(
                 )
                 hasPermission = !token.isNullOrEmpty()
                 if (hasPermission) {
-                    Log.d(TAG, "Successfully obtained Photos OAuth token with full scope")
+                    Log.d(TAG, "✅ Successfully obtained Photos OAuth token with full scope")
+                    // Immediately debug what scopes are actually in this token
+                    val actualScopes = debugTokenScopes(token!!)
+                    Log.i(TAG, "🔍 PRIMARY TOKEN SCOPE ANALYSIS: $actualScopes")
+                } else {
+                    Log.w(TAG, "❌ Primary scope request returned empty token")
                 }
             } catch (e: Exception) {
-                Log.w(TAG, "Failed to get full Photos scope: ${e.message}")
+                Log.e(TAG, "❌ Failed to get primary Photos scope: ${e.javaClass.simpleName}: ${e.message}", e)
                 // Don't fall back to read-only since we need full access for album creation
                 throw e
             }

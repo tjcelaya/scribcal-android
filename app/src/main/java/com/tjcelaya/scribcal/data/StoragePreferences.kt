@@ -10,6 +10,18 @@ class StoragePreferences(context: Context) {
         private const val KEY_GOOGLE_DRIVE_ENABLED = "google_drive_enabled"
         private const val KEY_GOOGLE_PHOTOS_ENABLED = "google_photos_enabled"
 
+        // Service state persistence keys
+        private const val KEY_DRIVE_INITIALIZED = "drive_initialized"
+        private const val KEY_DRIVE_FOLDER_ID = "drive_folder_id"
+        private const val KEY_DRIVE_LAST_TEST_TIME = "drive_last_test_time"
+        private const val KEY_DRIVE_LAST_TEST_SUCCESS = "drive_last_test_success"
+        private const val KEY_DRIVE_ACCOUNT_NAME = "drive_account_name"
+        
+        private const val KEY_PHOTOS_INITIALIZED = "photos_initialized"
+        private const val KEY_PHOTOS_LAST_TEST_TIME = "photos_last_test_time"
+        private const val KEY_PHOTOS_LAST_TEST_SUCCESS = "photos_last_test_success"
+        private const val KEY_PHOTOS_ACCOUNT_NAME = "photos_account_name"
+
         // Legacy key for migration
         private const val KEY_PHOTO_STORAGE_TYPE = "photo_storage_type"
         const val STORAGE_TYPE_GOOGLE_DRIVE = "google_drive"
@@ -101,6 +113,141 @@ class StoragePreferences(context: Context) {
         sharedPreferences.edit()
             .putBoolean(KEY_GOOGLE_DRIVE_ENABLED, false)
             .putBoolean(KEY_GOOGLE_PHOTOS_ENABLED, false)
+            .apply()
+    }
+
+    // === Drive Service State Persistence ===
+    
+    /**
+     * Save Drive service initialization state
+     */
+    fun saveDriveState(initialized: Boolean, folderId: String?, accountName: String?) {
+        sharedPreferences.edit()
+            .putBoolean(KEY_DRIVE_INITIALIZED, initialized)
+            .putString(KEY_DRIVE_FOLDER_ID, folderId)
+            .putString(KEY_DRIVE_ACCOUNT_NAME, accountName)
+            .apply()
+    }
+    
+    /**
+     * Save Drive connection test results
+     */
+    fun saveDriveTestResult(testTime: Long, success: Boolean) {
+        sharedPreferences.edit()
+            .putLong(KEY_DRIVE_LAST_TEST_TIME, testTime)
+            .putBoolean(KEY_DRIVE_LAST_TEST_SUCCESS, success)
+            .apply()
+    }
+    
+    /**
+     * Get Drive initialization status
+     */
+    fun isDriveInitialized(): Boolean {
+        return sharedPreferences.getBoolean(KEY_DRIVE_INITIALIZED, false)
+    }
+    
+    /**
+     * Get saved Drive folder ID
+     */
+    fun getDriveFolderId(): String? {
+        return sharedPreferences.getString(KEY_DRIVE_FOLDER_ID, null)
+    }
+    
+    /**
+     * Get saved Drive account name
+     */
+    fun getDriveAccountName(): String? {
+        return sharedPreferences.getString(KEY_DRIVE_ACCOUNT_NAME, null)
+    }
+    
+    /**
+     * Get Drive last test time
+     */
+    fun getDriveLastTestTime(): Long? {
+        val time = sharedPreferences.getLong(KEY_DRIVE_LAST_TEST_TIME, -1L)
+        return if (time == -1L) null else time
+    }
+    
+    /**
+     * Get Drive last test success status
+     */
+    fun wasDriveLastTestSuccessful(): Boolean {
+        return sharedPreferences.getBoolean(KEY_DRIVE_LAST_TEST_SUCCESS, false)
+    }
+    
+    /**
+     * Clear Drive service state
+     */
+    fun clearDriveState() {
+        sharedPreferences.edit()
+            .remove(KEY_DRIVE_INITIALIZED)
+            .remove(KEY_DRIVE_FOLDER_ID)
+            .remove(KEY_DRIVE_ACCOUNT_NAME)
+            .remove(KEY_DRIVE_LAST_TEST_TIME)
+            .remove(KEY_DRIVE_LAST_TEST_SUCCESS)
+            .apply()
+    }
+    
+    // === Photos Service State Persistence ===
+    
+    /**
+     * Save Photos service initialization state
+     */
+    fun savePhotosState(initialized: Boolean, accountName: String?) {
+        sharedPreferences.edit()
+            .putBoolean(KEY_PHOTOS_INITIALIZED, initialized)
+            .putString(KEY_PHOTOS_ACCOUNT_NAME, accountName)
+            .apply()
+    }
+    
+    /**
+     * Save Photos connection test results
+     */
+    fun savePhotosTestResult(testTime: Long, success: Boolean) {
+        sharedPreferences.edit()
+            .putLong(KEY_PHOTOS_LAST_TEST_TIME, testTime)
+            .putBoolean(KEY_PHOTOS_LAST_TEST_SUCCESS, success)
+            .apply()
+    }
+    
+    /**
+     * Get Photos initialization status
+     */
+    fun isPhotosInitialized(): Boolean {
+        return sharedPreferences.getBoolean(KEY_PHOTOS_INITIALIZED, false)
+    }
+    
+    /**
+     * Get saved Photos account name
+     */
+    fun getPhotosAccountName(): String? {
+        return sharedPreferences.getString(KEY_PHOTOS_ACCOUNT_NAME, null)
+    }
+    
+    /**
+     * Get Photos last test time
+     */
+    fun getPhotosLastTestTime(): Long? {
+        val time = sharedPreferences.getLong(KEY_PHOTOS_LAST_TEST_TIME, -1L)
+        return if (time == -1L) null else time
+    }
+    
+    /**
+     * Get Photos last test success status
+     */
+    fun wasPhotosLastTestSuccessful(): Boolean {
+        return sharedPreferences.getBoolean(KEY_PHOTOS_LAST_TEST_SUCCESS, false)
+    }
+    
+    /**
+     * Clear Photos service state
+     */
+    fun clearPhotosState() {
+        sharedPreferences.edit()
+            .remove(KEY_PHOTOS_INITIALIZED)
+            .remove(KEY_PHOTOS_ACCOUNT_NAME)
+            .remove(KEY_PHOTOS_LAST_TEST_TIME)
+            .remove(KEY_PHOTOS_LAST_TEST_SUCCESS)
             .apply()
     }
 

@@ -70,8 +70,8 @@ dependencies {
     implementation(libs.androidx.fragment.ktx)
     implementation(libs.androidx.activity.ktx)
 
-    // Google Play Services for authentication
-    implementation("com.google.android.gms:play-services-auth:21.2.0")
+    // Google Play Services for authentication (downgraded to test OAuth issues)
+    implementation("com.google.android.gms:play-services-auth:20.7.0")
 
     // Google Drive API with conflict resolution
     implementation("com.google.apis:google-api-services-drive:v3-rev136-1.25.0") {
@@ -84,10 +84,10 @@ dependencies {
         exclude(group = "com.google.guava", module = "listenablefuture")
     }
 
-    // Google Photos API
-    implementation("com.google.photos.library:google-photos-library-client:1.7.3") {
-        exclude(group = "com.google.guava", module = "listenablefuture")
-    }
+    // Google Photos API (temporarily commented out to test OAuth issues)
+    // implementation("com.google.photos.library:google-photos-library-client:1.7.3") {
+    //     exclude(group = "com.google.guava", module = "listenablefuture")
+    // }
 
     // Explicitly include Guava to resolve conflicts
     implementation("com.google.guava:guava:32.1.3-android")

@@ -8,6 +8,7 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -47,8 +48,29 @@ class SettingsFragment : Fragment() {
     private val photosConsentLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        // After consent screen, re-test the connection
-        testPhotosConnectionWithAlbumCreation()
+        Log.d("SettingsFragment", "Consent screen returned with result code: ${result.resultCode}")
+        when (result.resultCode) {
+            android.app.Activity.RESULT_OK -> {
+                Log.i("SettingsFragment", "✅ User granted consent - waiting for token propagation...")
+                // Wait 5 seconds for OAuth token to propagate through Google's systems
+                lifecycleScope.launch {
+                    setPhotosButtonState(enabled = false, text = "Waiting for permissions...", status = "Processing consent...")
+                    kotlinx.coroutines.delay(5000)
+                    Log.d("SettingsFragment", "Token propagation delay complete, proceeding with connection test")
+                    // After successful consent and delay, re-test the connection
+                    testPhotosConnectionWithAlbumCreation()
+                }
+            }
+            android.app.Activity.RESULT_CANCELED -> {
+                Log.w("SettingsFragment", "❌ User canceled consent screen")
+                handlePhotosConnectionError()
+            }
+            else -> {
+                Log.w("SettingsFragment", "⚠️ Consent screen returned unexpected result: ${result.resultCode}")
+                // Still try to proceed in case the consent was granted
+                testPhotosConnectionWithAlbumCreation()
+            }
+        }
     }
 
     // Activity result launcher for Google Drive consent screen
@@ -270,21 +292,54 @@ class SettingsFragment : Fragment() {
                     }
                 }
 
-                // Clear any cached tokens first to ensure fresh permissions
-                setPhotosButtonState(enabled = false, text = "Refreshing permissions...")
+                // Clear any cached tokens first to ensure fresh permissions  
+                setPhotosButtonState(enabled = false, text = "Clearing cached permissions...")
                 photosRepository.clearCachedTokens()
+                
+                // Also clear any Google Play Services cached tokens
+                try {
+                    val account = getGoogleAccountForServices()
+                    if (account != null) {
+                        // Invalidate all cached tokens for this account and scope
+                        withContext(Dispatchers.IO) {
+                            try {
+                                // Try to get and immediately clear any existing token
+                                val existingToken = GoogleAuthUtil.getToken(
+                                    requireContext(),
+                                    account,
+                                    "oauth2:https://www.googleapis.com/auth/photoslibrary"
+                                )
+                                if (existingToken.isNotEmpty()) {
+                                    GoogleAuthUtil.clearToken(requireContext(), existingToken)
+                                    Log.d("SettingsFragment", "Force-cleared existing OAuth token")
+                                }
+                                // Also try to clear with the invalidateToken method
+                                GoogleAuthUtil.invalidateToken(requireContext(), existingToken)
+                                Log.d("SettingsFragment", "Invalidated OAuth token completely")
+                            } catch (e: Exception) {
+                                Log.d("SettingsFragment", "No cached token to clear: ${e.message}")
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.w("SettingsFragment", "Error force-clearing tokens: ${e.message}")
+                }
 
-                // Wait a moment for cleanup
-                kotlinx.coroutines.delay(500)
+                // Wait longer for cleanup
+                kotlinx.coroutines.delay(1000)
 
                 // Get OAuth token with fresh permissions
                 val account = getGoogleAccountForServices()
                 if (account == null) {
-                    Log.e("SettingsFragment", "No Google account available")
+                    Log.e("SettingsFragment", "No Google account available for OAuth token")
                     handlePhotosConnectionError()
                     return@launch
                 }
 
+                Log.d("SettingsFragment", "Getting OAuth token for account: ${account.name}")
+                Log.d("SettingsFragment", "Requesting scope: https://www.googleapis.com/auth/photoslibrary")
+                Toast.makeText(requireContext(), "Getting OAuth token for ${account.name}", Toast.LENGTH_SHORT).show()
+                
                 val token = try {
                     withContext(Dispatchers.IO) {
                         GoogleAuthUtil.getToken(
@@ -294,21 +349,56 @@ class SettingsFragment : Fragment() {
                         )
                     }
                 } catch (e: com.google.android.gms.auth.UserRecoverableAuthException) {
-                    Log.w("SettingsFragment", "User consent required for Photos access")
-                    photosConsentLauncher.launch(e.intent)
+                    Log.i("SettingsFragment", "✅ UserRecoverableAuthException caught - this is EXPECTED for initial setup")
+                    Log.i("SettingsFragment", "User consent required for Photos access - launching consent screen")
+                    Log.d("SettingsFragment", "Consent intent: ${e.intent}")
+                    try {
+                        photosConsentLauncher.launch(e.intent)
+                        Log.d("SettingsFragment", "Consent screen launched successfully")
+                    } catch (launchError: Exception) {
+                        Log.e("SettingsFragment", "Failed to launch consent screen", launchError)
+                        handlePhotosConnectionError()
+                    }
+                    return@launch
+                } catch (e: com.google.android.gms.auth.GoogleAuthException) {
+                    Log.e("SettingsFragment", "❌ GoogleAuthException - API/OAuth configuration issue")
+                    Log.e("SettingsFragment", "Error type: ${e.javaClass.simpleName}")
+                    Log.e("SettingsFragment", "Error message: ${e.message}")
+                    Log.e("SettingsFragment", "This usually means Google Photos Library API is not enabled in Google Cloud Console")
+                    handlePhotosConnectionError()
                     return@launch
                 } catch (e: Exception) {
-                    Log.e("SettingsFragment", "Failed to get OAuth token", e)
+                    Log.e("SettingsFragment", "❌ Unexpected OAuth error: ${e.javaClass.simpleName}: ${e.message}")
+                    Log.e("SettingsFragment", "This might indicate a configuration problem")
+                    e.printStackTrace()
                     handlePhotosConnectionError()
                     return@launch
                 }
+                
+                Log.d("SettingsFragment", "OAuth token obtained successfully")
 
                 if (token.isEmpty()) {
                     Log.e("SettingsFragment", "OAuth token is empty")
                     handlePhotosConnectionError()
                     return@launch
                 }
+                
+                // Wait a moment for token to propagate through Google's systems
+                // This prevents 403 "insufficient scopes" errors immediately after token grant
+                Log.d("SettingsFragment", "Waiting for OAuth token propagation...")
+                setPhotosButtonState(enabled = false, text = "Waiting for token activation...")
+                kotlinx.coroutines.delay(3000)
 
+                // First test if Google Photos API is available
+                setPhotosButtonState(enabled = false, text = "Testing API access...")
+                val apiAvailable = photosRepository.testPhotosAPIAvailability(token)
+                
+                if (!apiAvailable) {
+                    Log.e("SettingsFragment", "Google Photos API is not available. Check Google Cloud Console setup.")
+                    handlePhotosConnectionError()
+                    return@launch
+                }
+                
                 // Try to find or create the album
                 setPhotosButtonState(enabled = false, text = "Checking album...")
                 val albumId = findOrCreateAlbumWithConfirmation(token, albumName)
@@ -424,6 +514,9 @@ class SettingsFragment : Fragment() {
     private suspend fun createAlbum(token: String, albumName: String): String? {
         return withContext(Dispatchers.IO) {
             try {
+                Log.d("SettingsFragment", "Starting album creation for: $albumName")
+                Log.d("SettingsFragment", "Using OAuth token: ${token.take(20)}...")
+                
                 val url = URL("https://photoslibrary.googleapis.com/v1/albums")
                 val connection = url.openConnection() as HttpURLConnection
 
@@ -437,25 +530,57 @@ class SettingsFragment : Fragment() {
                         put("title", albumName)
                     })
                 }
+                
+                Log.d("SettingsFragment", "Request payload: ${requestJson.toString()}")
 
                 connection.outputStream.use { outputStream ->
                     outputStream.write(requestJson.toString().toByteArray())
                 }
 
                 val responseCode = connection.responseCode
+                Log.d("SettingsFragment", "Album creation response code: $responseCode")
+                
                 if (responseCode == 200) {
                     val response = connection.inputStream.bufferedReader().use { it.readText() }
+                    Log.d("SettingsFragment", "Album creation success response: $response")
                     val responseJson = JSONObject(response)
                     val albumId = responseJson.getString("id")
                     Log.d("SettingsFragment", "Created album: $albumName with ID: $albumId")
                     albumId
                 } else {
                     val errorStream = connection.errorStream?.bufferedReader()?.use { it.readText() }
-                    Log.e("SettingsFragment", "Failed to create album with code $responseCode: $errorStream")
+                    Log.e("SettingsFragment", "Album creation failed with HTTP $responseCode")
+                    Log.e("SettingsFragment", "Error response: $errorStream")
+                    
+                    // Provide specific error guidance based on common response codes
+                    when (responseCode) {
+                        403 -> {
+                            Log.e("SettingsFragment", "ERROR 403: Google Photos API Forbidden")
+                            Log.e("SettingsFragment", "This usually means:")
+                            Log.e("SettingsFragment", "  1. Google Photos Library API not enabled in Google Cloud Console")
+                            Log.e("SettingsFragment", "  2. OAuth client not configured with correct package name and SHA-1")
+                            Log.e("SettingsFragment", "  3. OAuth consent screen not configured with photoslibrary scope")
+                            Log.e("SettingsFragment", "  4. App package/signature doesn't match OAuth client configuration")
+                            Log.e("SettingsFragment", "Current package: com.tjcelaya.scribcal")
+                            Log.e("SettingsFragment", "Expected SHA-1: 8C:61:BF:09:7B:91:85:1C:73:32:9F:A6:A0:C1:3A:6D:C8:D5:C8:49")
+                        }
+                        401 -> Log.e("SettingsFragment", "ERROR 401: OAuth token invalid or expired. This should have triggered consent flow.")
+                        400 -> Log.e("SettingsFragment", "ERROR 400: Malformed request. Album name might be invalid: '$albumName'")
+                        429 -> Log.e("SettingsFragment", "ERROR 429: Rate limit exceeded. Too many API requests.")
+                        404 -> Log.e("SettingsFragment", "ERROR 404: Google Photos Library API endpoint not found. API might not be enabled.")
+                        else -> Log.e("SettingsFragment", "ERROR $responseCode: Unexpected error creating album. Check network and API setup.")
+                    }
                     null
                 }
             } catch (e: Exception) {
-                Log.e("SettingsFragment", "Failed to create album: $albumName", e)
+                Log.e("SettingsFragment", "Exception creating album: $albumName", e)
+                when (e) {
+                    is java.net.UnknownHostException -> Log.e("SettingsFragment", "Network error: No internet connection or DNS resolution failed")
+                    is java.net.ConnectException -> Log.e("SettingsFragment", "Network error: Could not connect to Google Photos API")
+                    is javax.net.ssl.SSLException -> Log.e("SettingsFragment", "SSL error: Certificate or secure connection issue")
+                    is java.io.IOException -> Log.e("SettingsFragment", "IO error: Network or stream issue")
+                    else -> Log.e("SettingsFragment", "Unexpected error type: ${e.javaClass.simpleName}")
+                }
                 null
             }
         }
