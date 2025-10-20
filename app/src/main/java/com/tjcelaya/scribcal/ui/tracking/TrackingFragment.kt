@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -31,6 +32,7 @@ import com.tjcelaya.scribcal.databinding.FragmentTrackingBinding
 import com.tjcelaya.scribcal.ui.main.PhotoEventDialog
 import com.tjcelaya.scribcal.MainActivity
 import com.tjcelaya.scribcal.data.StoragePreferences
+import com.tjcelaya.scribcal.ui.dialogs.NotificationPermissionDialog
 import android.util.Log
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -71,6 +73,18 @@ class TrackingFragment : Fragment() {
             launchCamera()
         } else {
             Toast.makeText(requireContext(), "Camera permission is required to take photos", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    // Notification permission launcher (Android 13+)
+    private val requestNotificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            Log.d("TrackingFragment", "Notification permission granted")
+        } else {
+            Log.w("TrackingFragment", "Notification permission denied - notifications will not appear")
+            Toast.makeText(requireContext(), "Notification permission is required to show ongoing event notifications", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -119,6 +133,7 @@ class TrackingFragment : Fragment() {
         setupClickListeners()
         observeViewModel()
         checkPermissionsAndSetup()
+        checkNotificationPermissions()
 
         // Check if we have a shared photo to handle
         checkForSharedPhoto()
@@ -141,6 +156,9 @@ class TrackingFragment : Fragment() {
             },
             onRecordInstantEvent = { eventType ->
                 viewModel.recordInstantaneousEvent(eventType.id)
+            },
+            onStopEvent = { ongoingEvent ->
+                viewModel.showStopEventConfirmation(ongoingEvent)
             }
         )
 
@@ -182,6 +200,13 @@ class TrackingFragment : Fragment() {
         binding.calendarSetupButton.setOnClickListener {
             findNavController().navigate(R.id.calendarSetupFragment)
         }
+        
+        // Temporary debug: Add long click to test notifications
+        binding.manageEventTypesButton.setOnLongClickListener {
+            val app = requireActivity().application as ScribCalApplication
+            app.notificationService.showTestNotification()
+            true
+        }
     }
 
     private fun observeViewModel() {
@@ -192,14 +217,14 @@ class TrackingFragment : Fragment() {
                 if (eventTypesWithCounts.isEmpty()) View.VISIBLE else View.GONE
         }
 
-        // Observe displayable ongoing items (both events and photo uploads)
+        // Observe displayable ongoing items (both events and photo uploads) for timer updates only
         viewModel.displayableOngoingItems.observe(viewLifecycleOwner) { displayableItems ->
             ongoingEventsAdapter.submitList(displayableItems)
-            binding.ongoingEventsCard.visibility =
-                if (displayableItems.isNotEmpty()) View.VISIBLE else View.GONE
+            binding.ongoingEventsCard.visibility = View.GONE // Hide the separate ongoing events card
 
             // Start or stop timer based on whether there are ongoing items
-            if (displayableItems.isNotEmpty()) {
+            val hasOngoingEvents = displayableItems.any { it.type == DisplayableOngoingItem.Type.REGULAR_EVENT }
+            if (hasOngoingEvents) {
                 startTimerUpdates()
             } else {
                 stopTimerUpdates()
@@ -254,6 +279,9 @@ class TrackingFragment : Fragment() {
             .setPositiveButton("Stop") { _, _ ->
                 viewModel.stopEvent(ongoingEvent)
             }
+            .setNeutralButton("Stop without saving") { _, _ ->
+                viewModel.stopEventWithoutSaving(ongoingEvent)
+            }
             .setNegativeButton("Cancel") { _, _ ->
                 viewModel.hideStopEventConfirmation()
             }
@@ -284,14 +312,44 @@ class TrackingFragment : Fragment() {
         }
     }
 
+    private fun checkNotificationPermissions() {
+        // Check notification permission for Android 13+ (API level 33+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val hasNotificationPermission = ContextCompat.checkSelfPermission(
+                requireContext(), Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+
+            if (!hasNotificationPermission) {
+                Log.d("TrackingFragment", "Notification permission not granted, showing dialog...")
+                
+                // Show explanatory dialog before requesting permission
+                NotificationPermissionDialog.show(
+                    requireContext(),
+                    onPermissionRequested = {
+                        Log.d("TrackingFragment", "User chose to allow notifications, requesting permission...")
+                        requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    },
+                    onSkipped = {
+                        Log.d("TrackingFragment", "User chose to skip notifications")
+                        // Permission can be requested later if needed
+                    }
+                )
+            } else {
+                Log.d("TrackingFragment", "Notification permission already granted")
+            }
+        } else {
+            Log.d("TrackingFragment", "Android version < 13, notification permission not required")
+        }
+    }
+
     private fun startTimerUpdates() {
         // Don't start multiple timers
         if (timerRunnable != null) return
 
         timerRunnable = object : Runnable {
             override fun run() {
-                // Refresh the ongoing events adapter to update elapsed time displays
-                ongoingEventsAdapter.refreshTimers()
+                // Refresh the event types adapter to update elapsed time displays
+                eventTypesAdapter.refreshTimers()
                 timerHandler.postDelayed(this, 1000) // Update every second
             }
         }

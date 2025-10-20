@@ -9,6 +9,7 @@ import androidx.lifecycle.asLiveData
 import androidx.lifecycle.liveData
 import com.tjcelaya.scribcal.data.database.*
 import com.tjcelaya.scribcal.ui.tracking.PhotoUpload
+import com.tjcelaya.scribcal.ui.notifications.NotificationService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
@@ -25,7 +26,8 @@ class EventRepository(
     private val database: ScribCalDatabase,
     private val driveRepository: DriveRepository? = null,
     private val photosRepository: PhotosRepository? = null,
-    private val storagePreferences: StoragePreferences? = null
+    private val storagePreferences: StoragePreferences? = null,
+    private val notificationService: NotificationService? = null
 ) {
 
     private val eventTypeDao = database.eventTypeDao()
@@ -391,6 +393,37 @@ class EventRepository(
         }
 
         val eventId = startTimedEvent(eventTypeId, notes ?: "")
+        
+        // Show notification for ongoing event
+        notificationService?.let { service ->
+            try {
+                Log.d("EventRepository", "Attempting to show notification for event $eventId")
+                val eventType = getEventTypeById(eventTypeId)
+                if (eventType != null) {
+                    // Get the actual event to use the correct start time
+                    val event = eventDao.getEventById(eventId)
+                    if (event != null && event.isOngoing()) {
+                        val ongoingEvent = OngoingEvent(
+                            id = eventId,
+                            eventTypeId = eventTypeId,
+                            startTime = event.startTime,
+                            notes = notes ?: ""
+                        )
+                        service.showOngoingEventNotification(ongoingEvent, eventType)
+                        Log.d("EventRepository", "Successfully requested notification for event ${eventType.name}")
+                    } else {
+                        Log.w("EventRepository", "Event $eventId not found or not ongoing when trying to show notification")
+                    }
+                } else {
+                    Log.w("EventRepository", "EventType $eventTypeId not found when trying to show notification")
+                }
+            } catch (e: Exception) {
+                Log.e("EventRepository", "Failed to show notification for ongoing event", e)
+            }
+        } ?: run {
+            Log.w("EventRepository", "NotificationService is null, cannot show notification")
+        }
+        
         // Note: Timed events will be synced to calendar when completed, not when started
         return eventId
     }
@@ -415,10 +448,53 @@ class EventRepository(
 
         val success = completeOngoingEvent(ongoingEventId)
         if (success) {
+            // Dismiss notification for completed event
+            notificationService?.dismissOngoingEventNotification(ongoingEventId)
+            
             // Sync completed event to calendar
             syncEventToCalendar(ongoingEventId, calendarRepository)
         }
         return success
+    }
+
+    suspend fun getOngoingEventById(eventId: Long): OngoingEvent? = withContext(Dispatchers.IO) {
+        val event = eventDao.getEventById(eventId)
+        if (event != null && event.isOngoing()) {
+            OngoingEvent(
+                id = event.id,
+                eventTypeId = event.eventTypeId,
+                startTime = event.startTime,
+                notes = event.notes ?: ""
+            )
+        } else {
+            null
+        }
+    }
+
+    suspend fun stopEventWithoutSaving(ongoingEventId: Long): Boolean {
+        val success = withContext(Dispatchers.IO) {
+            // Simply delete the ongoing event without saving to calendar
+            val event = eventDao.getEventById(ongoingEventId)
+            if (event != null && event.isOngoing()) {
+                eventDao.deleteEventById(ongoingEventId)
+                Log.d("EventRepository", "Deleted ongoing event $ongoingEventId without saving")
+                true
+            } else {
+                Log.w("EventRepository", "Event $ongoingEventId not found or not ongoing")
+                false
+            }
+        }
+        
+        if (success) {
+            // Dismiss notification for deleted event
+            notificationService?.dismissOngoingEventNotification(ongoingEventId)
+        }
+        
+        return success
+    }
+
+    suspend fun stopOngoingEvent(ongoingEventId: Long): Boolean {
+        return completeOngoingEvent(ongoingEventId)
     }
 
     // Google Drive integration methods

@@ -5,8 +5,10 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.MediatorLiveData
 import com.tjcelaya.scribcal.data.EventRepository
 import com.tjcelaya.scribcal.data.database.EventType
+import com.tjcelaya.scribcal.data.database.OngoingEvent
 import kotlinx.coroutines.launch
 
 class EventsViewModel(
@@ -14,6 +16,40 @@ class EventsViewModel(
 ) : ViewModel() {
 
     val eventTypes: LiveData<List<EventType>> = eventRepository.getAllEventTypes()
+    val ongoingEvents: LiveData<List<OngoingEvent>> = eventRepository.getAllOngoingEvents()
+
+    // Combined list for unified display
+    val displayItems: LiveData<List<EventDisplayItem>> = MediatorLiveData<List<EventDisplayItem>>().apply {
+        var currentTypes: List<EventType> = emptyList()
+        var currentOngoing: List<OngoingEvent> = emptyList()
+
+        fun update() {
+            // Map event types; if an ongoing exists for a type, include that item first
+            val byTypeId = currentTypes.associateBy { it.id }
+            val ongoingByTypeId = currentOngoing.groupBy { it.eventTypeId }
+
+            val items = mutableListOf<EventDisplayItem>()
+            for ((typeId, type) in byTypeId) {
+                val ongoingForType = ongoingByTypeId[typeId]
+                if (!ongoingForType.isNullOrEmpty()) {
+                    // If multiple ongoing are possible, show the first; otherwise adapt as needed
+                    items += EventDisplayItem(type, ongoingForType.first())
+                } else {
+                    items += EventDisplayItem(type, null)
+                }
+            }
+            value = items
+        }
+
+        addSource(eventTypes) {
+            currentTypes = it
+            update()
+        }
+        addSource(ongoingEvents) {
+            currentOngoing = it
+            update()
+        }
+    }
 
     private val _deleteConfirmation = MutableLiveData<EventType?>()
     val deleteConfirmation: LiveData<EventType?> = _deleteConfirmation
@@ -49,6 +85,16 @@ class EventsViewModel(
 
     fun clearErrorMessage() {
         _errorMessage.value = null
+    }
+
+    fun stopOngoingEvent(ongoingEvent: OngoingEvent) {
+        viewModelScope.launch {
+            try {
+                eventRepository.stopOngoingEvent(ongoingEvent.id)
+            } catch (e: Exception) {
+                _errorMessage.value = "Error stopping event: ${e.message}"
+            }
+        }
     }
 }
 

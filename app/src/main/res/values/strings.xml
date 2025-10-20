@@ -49,6 +49,7 @@
     <string name="stop_event">Stop Event</string>
     <string name="stop_event_message">Stop this event?\n\nElapsed time: %1$s\nStarted at: %2$s\n\nThe event will be saved to your calendar.</string>
     <string name="stop">Stop</string>
+    <string name="stop_without_saving">Stop without saving</string>
 
     <!-- Event Types Screen -->
     <string name="event_types_title">Event Types</string>

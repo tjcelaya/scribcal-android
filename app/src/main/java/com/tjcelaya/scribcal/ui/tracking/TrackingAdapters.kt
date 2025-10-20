@@ -18,12 +18,14 @@ import java.util.*
 
 data class EventTypeWithCount(
     val eventType: EventType,
-    val ongoingCount: Int
+    val ongoingCount: Int,
+    val ongoingEvent: OngoingEvent? = null // The first ongoing event if any
 )
 
 class EventTypesTrackingAdapter(
     private val onStartEvent: (EventType) -> Unit,
-    private val onRecordInstantEvent: (EventType) -> Unit
+    private val onRecordInstantEvent: (EventType) -> Unit,
+    private val onStopEvent: (OngoingEvent) -> Unit
 ) : ListAdapter<EventTypeWithCount, EventTypesTrackingAdapter.ViewHolder>(EventTypeWithCountDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -36,17 +38,25 @@ class EventTypesTrackingAdapter(
         holder.bind(getItem(position))
     }
 
+    fun refreshTimers() {
+        // Force refresh all visible items to update elapsed time displays
+        notifyItemRangeChanged(0, itemCount)
+    }
+
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val colorIndicator: View = itemView.findViewById(R.id.colorIndicator)
         private val eventTypeName: TextView = itemView.findViewById(R.id.eventTypeName)
         private val eventTypeDescription: TextView = itemView.findViewById(R.id.eventTypeDescription)
-        private val ongoingStatusText: TextView = itemView.findViewById(R.id.ongoingStatusText)
+        private val ongoingStatusLayout: View = itemView.findViewById(R.id.ongoingStatusLayout)
+        private val elapsedTimeText: TextView = itemView.findViewById(R.id.elapsedTimeText)
+        private val startedAtText: TextView = itemView.findViewById(R.id.startedAtText)
         private val instantEventButton: MaterialButton = itemView.findViewById(R.id.instantEventButton)
         private val startEventButton: MaterialButton = itemView.findViewById(R.id.startEventButton)
+        private val stopEventButton: MaterialButton = itemView.findViewById(R.id.stopEventButton)
 
         fun bind(eventTypeWithCount: EventTypeWithCount) {
             val eventType = eventTypeWithCount.eventType
-            val ongoingCount = eventTypeWithCount.ongoingCount
+            val ongoingEvent = eventTypeWithCount.ongoingEvent
 
             eventTypeName.text = eventType.name
 
@@ -66,25 +76,65 @@ class EventTypesTrackingAdapter(
                 colorIndicator.background.setTint(defaultColor)
             }
 
-            // Handle ongoing events status
-            if (ongoingCount > 0) {
-                ongoingStatusText.visibility = View.VISIBLE
-                ongoingStatusText.text = if (ongoingCount == 1) {
-                    "1 ongoing event"
-                } else {
-                    "$ongoingCount ongoing events"
-                }
+            // Handle ongoing vs normal state
+            if (ongoingEvent != null) {
+                // Show ongoing state
+                showOngoingState(ongoingEvent, eventType)
             } else {
-                ongoingStatusText.visibility = View.GONE
+                // Show normal buttons
+                showNormalState(eventType)
             }
+        }
 
-            // Set click listeners
+        private fun showOngoingState(ongoingEvent: OngoingEvent, eventType: EventType) {
+            // Show ongoing status
+            ongoingStatusLayout.visibility = View.VISIBLE
+            updateElapsedTime(ongoingEvent.startTime)
+
+            // Format started time
+            val startTime = Date(ongoingEvent.startTime)
+            val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+            startedAtText.text = "Started at ${timeFormat.format(startTime)}"
+
+            // Hide normal buttons, show stop button
+            instantEventButton.visibility = View.GONE
+            startEventButton.visibility = View.GONE
+            stopEventButton.visibility = View.VISIBLE
+
+            // Set stop button click listener
+            stopEventButton.setOnClickListener {
+                onStopEvent(ongoingEvent)
+            }
+        }
+
+        private fun showNormalState(eventType: EventType) {
+            // Hide ongoing status
+            ongoingStatusLayout.visibility = View.GONE
+
+            // Show normal buttons, hide stop button
+            instantEventButton.visibility = View.VISIBLE
+            startEventButton.visibility = View.VISIBLE
+            stopEventButton.visibility = View.GONE
+
+            // Set normal button click listeners
             instantEventButton.setOnClickListener {
                 onRecordInstantEvent(eventType)
             }
             startEventButton.setOnClickListener {
                 onStartEvent(eventType)
             }
+        }
+
+        private fun updateElapsedTime(startTime: Long) {
+            val now = System.currentTimeMillis()
+            val elapsedMillis = now - startTime
+            val elapsedSeconds = elapsedMillis / 1000
+
+            val hours = elapsedSeconds / 3600
+            val minutes = (elapsedSeconds % 3600) / 60
+            val seconds = elapsedSeconds % 60
+
+            elapsedTimeText.text = String.format(Locale.getDefault(), "%02d:%02d:%02d", hours, minutes, seconds)
         }
     }
 }

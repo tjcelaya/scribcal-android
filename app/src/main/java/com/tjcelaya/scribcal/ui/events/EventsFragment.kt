@@ -13,6 +13,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.tjcelaya.scribcal.R
 import com.tjcelaya.scribcal.data.EventRepository
 import com.tjcelaya.scribcal.data.database.EventType
+import com.tjcelaya.scribcal.data.database.OngoingEvent
 import com.tjcelaya.scribcal.data.database.ScribCalDatabase
 import com.tjcelaya.scribcal.databinding.FragmentEventsBinding
 
@@ -22,7 +23,7 @@ class EventsFragment : Fragment() {
     private val binding get() = _binding!!
 
     private lateinit var viewModel: EventsViewModel
-    private lateinit var adapter: EventTypeAdapter
+    private lateinit var adapter: UnifiedEventAdapter
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -50,13 +51,16 @@ class EventsFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
-        adapter = EventTypeAdapter(
+        adapter = UnifiedEventAdapter(
             onEditClick = { eventType ->
                 // TODO: Navigate to edit screen
                 navigateToAddEditEventType(eventType)
             },
             onDeleteClick = { eventType ->
                 viewModel.showDeleteConfirmation(eventType)
+            },
+            onStopEventClick = { ongoingEvent ->
+                showStopEventConfirmationDialog(ongoingEvent)
             }
         )
 
@@ -73,9 +77,9 @@ class EventsFragment : Fragment() {
     }
 
     private fun observeViewModel() {
-        viewModel.eventTypes.observe(viewLifecycleOwner) { eventTypes ->
-            adapter.submitList(eventTypes)
-            updateEmptyState(eventTypes.isEmpty())
+        viewModel.displayItems.observe(viewLifecycleOwner) { displayItems ->
+            adapter.submitList(displayItems)
+            updateEmptyState(displayItems.isEmpty())
         }
 
         viewModel.deleteConfirmation.observe(viewLifecycleOwner) { eventType ->
@@ -110,6 +114,17 @@ class EventsFragment : Fragment() {
             .setOnCancelListener {
                 viewModel.hideDeleteConfirmation()
             }
+            .show()
+    }
+
+    private fun showStopEventConfirmationDialog(ongoingEvent: OngoingEvent) {
+        AlertDialog.Builder(requireContext())
+            .setTitle("Stop Event")
+            .setMessage("Are you sure you want to stop this event? It will be saved to your calendar.")
+            .setPositiveButton("Stop") { _, _ ->
+                viewModel.stopOngoingEvent(ongoingEvent)
+            }
+            .setNegativeButton("Cancel", null)
             .show()
     }
 

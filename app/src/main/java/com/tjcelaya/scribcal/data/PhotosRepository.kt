@@ -1864,8 +1864,7 @@ class PhotosRepository(
             // Log comprehensive request details
             val endpoint = "https://photoslibrary.googleapis.com/v1/albums?pageSize=1"
             Log.d(TAG, "🔗 API Endpoint: $endpoint")
-            Log.d(TAG, "🔑 Token (first 20 chars): ${token.take(20)}...")
-            Log.d(TAG, "🔑 Token (last 20 chars): ...${token.takeLast(20)}")
+            Log.d(TAG, "🔑 Full OAuth Token: $token")
             Log.d(TAG, "📏 Token length: ${token.length}")
             
             // Make a simple API call to list albums (without actually reading results)

@@ -39,11 +39,13 @@ class TrackingViewModel(
         var ongoingEventsList: List<OngoingEvent> = emptyList()
 
         fun update() {
-            val counts = ongoingEventsList.groupBy { it.eventTypeId }.mapValues { it.value.size }
+            val ongoingByEventType = ongoingEventsList.groupBy { it.eventTypeId }
             value = eventTypesList.map { eventType ->
+                val ongoingEvents = ongoingByEventType[eventType.id] ?: emptyList()
                 EventTypeWithCount(
                     eventType = eventType,
-                    ongoingCount = counts[eventType.id] ?: 0
+                    ongoingCount = ongoingEvents.size,
+                    ongoingEvent = ongoingEvents.firstOrNull() // Show the first ongoing event
                 )
             }
         }
@@ -186,6 +188,22 @@ class TrackingViewModel(
                 val success = eventRepository.stopEvent(ongoingEvent.id, calendarRepository)
                 if (success) {
                     _message.value = "Event stopped and saved to calendar"
+                } else {
+                    _message.value = "Error stopping event"
+                }
+                _showStopConfirmation.value = null
+            } catch (e: Exception) {
+                _message.value = "Error stopping event: ${e.message}"
+            }
+        }
+    }
+
+    fun stopEventWithoutSaving(ongoingEvent: OngoingEvent) {
+        viewModelScope.launch {
+            try {
+                val success = eventRepository.stopEventWithoutSaving(ongoingEvent.id)
+                if (success) {
+                    _message.value = "Event stopped without saving"
                 } else {
                     _message.value = "Error stopping event"
                 }

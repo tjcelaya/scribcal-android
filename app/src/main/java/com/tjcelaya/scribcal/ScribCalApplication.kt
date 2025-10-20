@@ -10,6 +10,7 @@ import com.tjcelaya.scribcal.data.EventRepository
 import com.tjcelaya.scribcal.data.PhotosRepository
 import com.tjcelaya.scribcal.data.StoragePreferences
 import com.tjcelaya.scribcal.data.database.ScribCalDatabase
+import com.tjcelaya.scribcal.ui.notifications.NotificationService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -32,6 +33,8 @@ class ScribCalApplication : Application() {
     lateinit var storagePreferences: StoragePreferences
         private set
     lateinit var eventRepository: EventRepository
+        private set
+    lateinit var notificationService: NotificationService
         private set
 
     companion object {
@@ -65,7 +68,8 @@ class ScribCalApplication : Application() {
         driveRepository = DriveRepository(this)
         photosRepository = PhotosRepository(this, database)
         storagePreferences = StoragePreferences(this)
-        eventRepository = EventRepository(database, driveRepository, photosRepository, storagePreferences)
+        notificationService = NotificationService(this)
+        eventRepository = EventRepository(database, driveRepository, photosRepository, storagePreferences, notificationService)
 
         Log.d(TAG, "Repositories initialized")
     }
