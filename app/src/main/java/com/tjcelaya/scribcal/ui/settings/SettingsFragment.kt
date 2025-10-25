@@ -8,6 +8,7 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
@@ -18,6 +19,7 @@ import com.tjcelaya.scribcal.R
 import com.tjcelaya.scribcal.ScribCalApplication
 import com.tjcelaya.scribcal.data.CalendarRepository
 import com.tjcelaya.scribcal.data.DriveRepository
+import com.tjcelaya.scribcal.data.InstantEventIcon
 import com.tjcelaya.scribcal.data.PhotosConnectionResult
 import com.tjcelaya.scribcal.data.PhotosRepository
 import com.tjcelaya.scribcal.data.StoragePreferences
@@ -104,6 +106,7 @@ class SettingsFragment : Fragment() {
         setupDriveSection()
         setupPhotosSection()
         setupStorageSelection()
+        setupInstantEventIconSelection()
     }
 
     private fun setupCalendarSection() {
@@ -739,6 +742,27 @@ class SettingsFragment : Fragment() {
         } catch (e: Exception) {
             Log.e("SettingsFragment", "Error getting Google account for services", e)
             null
+        }
+    }
+
+    private fun setupInstantEventIconSelection() {
+        // Get all icon options
+        val iconOptions = InstantEventIcon.values()
+        val iconNames = iconOptions.map { it.displayName }
+
+        // Create adapter for the dropdown
+        val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, iconNames)
+        binding.instantEventIconSpinner.setAdapter(adapter)
+
+        // Set current selection
+        val currentIcon = storagePreferences.getInstantEventIcon()
+        binding.instantEventIconSpinner.setText(currentIcon.displayName, false)
+
+        // Handle selection changes
+        binding.instantEventIconSpinner.setOnItemClickListener { _, _, position, _ ->
+            val selectedIcon = iconOptions[position]
+            storagePreferences.setInstantEventIcon(selectedIcon)
+            Toast.makeText(requireContext(), "Icon changed to ${selectedIcon.displayName}", Toast.LENGTH_SHORT).show()
         }
     }
 

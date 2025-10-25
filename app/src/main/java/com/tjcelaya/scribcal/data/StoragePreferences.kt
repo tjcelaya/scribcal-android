@@ -3,12 +3,23 @@ package com.tjcelaya.scribcal.data
 import android.content.Context
 import android.content.SharedPreferences
 
+enum class InstantEventIcon(val displayName: String, val iconResName: String) {
+    EDIT("Pencil (Default)", "ic_edit"),
+    CHECK("Checkmark", "ic_check"),
+    ADD("Plus", "ic_add"),
+    EVENT_AVAILABLE("Calendar with Check", "ic_event_available"),
+    BOOKMARK("Bookmark", "ic_bookmark"),
+    CIRCLE("Circle", "ic_circle"),
+    NOTE_ADD("Note", "ic_note_add")
+}
+
 class StoragePreferences(context: Context) {
 
     companion object {
         private const val PREFS_NAME = "scribcal_storage_prefs"
         private const val KEY_GOOGLE_DRIVE_ENABLED = "google_drive_enabled"
         private const val KEY_GOOGLE_PHOTOS_ENABLED = "google_photos_enabled"
+        private const val KEY_INSTANT_EVENT_ICON = "instant_event_icon"
 
         // Service state persistence keys
         private const val KEY_DRIVE_INITIALIZED = "drive_initialized"
@@ -265,5 +276,46 @@ class StoragePreferences(context: Context) {
     @Deprecated("Use isAnyStorageEnabled() instead")
     fun isPhotoStorageTypeSelected(): Boolean {
         return isAnyStorageEnabled()
+    }
+
+    // === Instant Event Icon Preference ===
+
+    /**
+     * Get the selected instant event icon
+     */
+    fun getInstantEventIcon(): InstantEventIcon {
+        val iconName = sharedPreferences.getString(KEY_INSTANT_EVENT_ICON, InstantEventIcon.EDIT.name)
+        return try {
+            InstantEventIcon.valueOf(iconName ?: InstantEventIcon.EDIT.name)
+        } catch (e: IllegalArgumentException) {
+            InstantEventIcon.EDIT
+        }
+    }
+
+    /**
+     * Set the instant event icon preference
+     */
+    fun setInstantEventIcon(icon: InstantEventIcon) {
+        sharedPreferences.edit()
+            .putString(KEY_INSTANT_EVENT_ICON, icon.name)
+            .apply()
+    }
+
+    /**
+     * Get the drawable resource ID for the selected instant event icon
+     */
+    fun getInstantEventIconResourceId(context: Context): Int {
+        val icon = getInstantEventIcon()
+        val resourceId = context.resources.getIdentifier(
+            icon.iconResName,
+            "drawable",
+            context.packageName
+        )
+        // Fallback to ic_edit if resource not found
+        return if (resourceId != 0) resourceId else context.resources.getIdentifier(
+            "ic_edit",
+            "drawable",
+            context.packageName
+        )
     }
 }

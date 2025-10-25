@@ -100,20 +100,19 @@
         <!-- Instant Event Button -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/instantEventButton"
-            style="@style/Widget.Material3.Button.IconButton.Outlined"
+            style="@style/Widget.Material3.Button.IconButton.Filled"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:layout_marginEnd="8dp"
             android:contentDescription="Record Instant Event"
             android:insetLeft="0dp"
             android:insetRight="0dp"
-            app:icon="@drawable/ic_flash"
             app:iconSize="18dp" />
 
         <!-- Start Event Button -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/startEventButton"
-            style="@style/Widget.Material3.Button.IconButton.Filled"
+            style="@style/Widget.Material3.Button.IconButton.Outlined"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:contentDescription="Start Event"

@@ -11,6 +11,7 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
 import com.tjcelaya.scribcal.R
+import com.tjcelaya.scribcal.ScribCalApplication
 import com.tjcelaya.scribcal.data.database.EventType
 import com.tjcelaya.scribcal.data.database.OngoingEvent
 import java.text.SimpleDateFormat
@@ -136,6 +137,11 @@ class EventTypesTrackingAdapter(
             instantEventButton.visibility = View.VISIBLE
             startEventButton.visibility = View.VISIBLE
             stopEventButton.visibility = View.GONE
+
+            // Get the selected instant event icon from preferences
+            val app = itemView.context.applicationContext as ScribCalApplication
+            val iconResourceId = app.storagePreferences.getInstantEventIconResourceId(itemView.context)
+            instantEventButton.setIconResource(iconResourceId)
 
             // Set normal button click listeners
             instantEventButton.setOnClickListener {
