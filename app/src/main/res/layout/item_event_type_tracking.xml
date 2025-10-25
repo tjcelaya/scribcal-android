@@ -107,6 +107,7 @@
             android:contentDescription="Record Instant Event"
             android:insetLeft="0dp"
             android:insetRight="0dp"
+            app:icon="@drawable/ic_add"
             app:iconSize="18dp" />
 
         <!-- Start Event Button -->
@@ -118,7 +119,7 @@
             android:contentDescription="Start Event"
             android:insetLeft="0dp"
             android:insetRight="0dp"
-            app:icon="@drawable/ic_play"
+            app:icon="@drawable/ic_schedule"
             app:iconSize="18dp" />
 
         <!-- Stop Event Button (shown when event is ongoing) -->

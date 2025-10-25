@@ -4,9 +4,9 @@ import android.content.Context
 import android.content.SharedPreferences
 
 enum class InstantEventIcon(val displayName: String, val iconResName: String) {
-    EDIT("Pencil (Default)", "ic_edit"),
+    ADD("Plus (Default)", "ic_add"),
+    EDIT("Pencil", "ic_edit"),
     CHECK("Checkmark", "ic_check"),
-    ADD("Plus", "ic_add"),
     EVENT_AVAILABLE("Calendar with Check", "ic_event_available"),
     BOOKMARK("Bookmark", "ic_bookmark"),
     CIRCLE("Circle", "ic_circle"),
@@ -284,11 +284,11 @@ class StoragePreferences(context: Context) {
      * Get the selected instant event icon
      */
     fun getInstantEventIcon(): InstantEventIcon {
-        val iconName = sharedPreferences.getString(KEY_INSTANT_EVENT_ICON, InstantEventIcon.EDIT.name)
+        val iconName = sharedPreferences.getString(KEY_INSTANT_EVENT_ICON, InstantEventIcon.ADD.name)
         return try {
-            InstantEventIcon.valueOf(iconName ?: InstantEventIcon.EDIT.name)
+            InstantEventIcon.valueOf(iconName ?: InstantEventIcon.ADD.name)
         } catch (e: IllegalArgumentException) {
-            InstantEventIcon.EDIT
+            InstantEventIcon.ADD
         }
     }
 

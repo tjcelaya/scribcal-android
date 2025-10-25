@@ -122,7 +122,7 @@
             android:text="@string/start_timed_event"
             android:textAppearance="?attr/textAppearanceButton"
             android:paddingVertical="16dp"
-            app:icon="@drawable/ic_play"
+            app:icon="@drawable/ic_schedule"
             app:iconGravity="start"
             style="@style/Widget.Material3.Button.OutlinedButton" />
 
