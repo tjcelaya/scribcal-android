@@ -673,8 +673,8 @@ class EventRepository(
 
             // Generate filename with event type name and timestamp
             val eventTypeName = getEventTypeNameForFilename(eventId)
-            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-            val fileName = "scribcal_${eventTypeName}_${timestamp}.jpg"
+            val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+            val fileName = "${eventTypeName} ${timestamp}.jpg"
 
             Log.d("EventRepository", "Uploading photo $localPhotoPath as $fileName to Google Drive")
 
@@ -916,12 +916,10 @@ class EventRepository(
                 return@withContext "unknown"
             }
 
-            // Clean the name for use in filename: remove special characters and convert to lowercase
+            // Clean the name for use in filename: preserve readability but make it filesystem-safe
             val cleanName = eventType.name
-                .lowercase()
-                .replace(Regex("[^a-z0-9_-]"), "_")
-                .replace(Regex("_{2,}"), "_") // Replace multiple underscores with single
-                .trim('_') // Remove leading/trailing underscores
+                .replace(Regex("[<>:\"/\\|?*]"), "") // Remove filesystem-unsafe characters
+                .trim()
 
             if (cleanName.isEmpty()) "unknown" else cleanName
 
@@ -1080,8 +1078,8 @@ class EventRepository(
 
             // Generate filename with event type name and timestamp
             val eventTypeName = getEventTypeNameForFilename(eventId)
-            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-            val fileName = "scribcal_${eventTypeName}_${timestamp}.jpg"
+            val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+            val fileName = "${eventTypeName} ${timestamp}.jpg"
 
             Log.d("EventRepository", "Uploading photo $localPhotoPath as $fileName to Google Drive")
 
@@ -1125,8 +1123,8 @@ class EventRepository(
 
             // Generate filename with event type name and timestamp
             val eventTypeName = getEventTypeNameForFilename(eventId)
-            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-            val fileName = "scribcal_${eventTypeName}_${timestamp}.jpg"
+            val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+            val fileName = "${eventTypeName} ${timestamp}.jpg"
 
             Log.d("EventRepository", "Uploading photo $localPhotoPath as $fileName to Google Photos")
 

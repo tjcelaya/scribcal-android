@@ -28,6 +28,10 @@ class EventTypesTrackingAdapter(
     private val onStopEvent: (OngoingEvent) -> Unit
 ) : ListAdapter<EventTypeWithCount, EventTypesTrackingAdapter.ViewHolder>(EventTypeWithCountDiffCallback()) {
 
+    companion object {
+        private const val PAYLOAD_UPDATE_TIMER = "update_timer"
+    }
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.item_event_type_tracking, parent, false)
@@ -38,9 +42,26 @@ class EventTypesTrackingAdapter(
         holder.bind(getItem(position))
     }
 
+    override fun onBindViewHolder(holder: ViewHolder, position: Int, payloads: MutableList<Any>) {
+        if (payloads.isNotEmpty() && payloads.contains(PAYLOAD_UPDATE_TIMER)) {
+            // Only update the timer, don't rebind the entire view
+            val item = getItem(position)
+            if (item.ongoingEvent != null) {
+                holder.updateTimerOnly(item.ongoingEvent.startTime)
+            }
+        } else {
+            super.onBindViewHolder(holder, position, payloads)
+        }
+    }
+
     fun refreshTimers() {
-        // Force refresh all visible items to update elapsed time displays
-        notifyItemRangeChanged(0, itemCount)
+        // Only refresh items that have ongoing events to avoid flashing all items
+        for (position in 0 until itemCount) {
+            val item = getItem(position)
+            if (item.ongoingEvent != null) {
+                notifyItemChanged(position, PAYLOAD_UPDATE_TIMER)
+            }
+        }
     }
 
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -135,6 +156,11 @@ class EventTypesTrackingAdapter(
             val seconds = elapsedSeconds % 60
 
             elapsedTimeText.text = String.format(Locale.getDefault(), "%02d:%02d:%02d", hours, minutes, seconds)
+        }
+
+        fun updateTimerOnly(startTime: Long) {
+            // Only update the elapsed time without rebinding the entire view
+            updateElapsedTime(startTime)
         }
     }
 }

@@ -17,3 +17,6 @@
 local.properties
 .env
 *client_secret_*.json*
+/.ignore
+
+/app/release

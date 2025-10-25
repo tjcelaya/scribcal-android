@@ -142,40 +142,69 @@
 
     </ScrollView>
 
-    <!-- Floating Action Buttons -->
+    <!-- Overlay for FAB menu -->
+    <View
+        android:id="@+id/fabOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#80000000"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true" />
+
+    <!-- FAB Menu Items (bottom to top order) -->
+    <!-- Create New Event Extended FAB -->
+    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+        android:id="@+id/fabNewEvent"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="244dp"
+        android:text="Create a new event"
+        android:textColor="@android:color/white"
+        android:visibility="gone"
+        app:icon="@drawable/ic_edit"
+        app:iconTint="@android:color/white" />
+
+    <!-- Capture Moment Extended FAB -->
+    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+        android:id="@+id/fabCamera"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="172dp"
+        android:text="Capture a moment"
+        android:textColor="@android:color/white"
+        android:visibility="gone"
+        app:icon="@android:drawable/ic_menu_camera"
+        app:iconTint="@android:color/white" />
+
+    <!-- Save Photo Extended FAB -->
+    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+        android:id="@+id/fabImage"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="100dp"
+        android:text="Save an existing photo"
+        android:textColor="@android:color/white"
+        android:visibility="gone"
+        app:icon="@android:drawable/ic_menu_gallery"
+        app:iconTint="@android:color/white" />
+
+    <!-- Main FAB (Close button when menu is open) -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fab"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
-        android:layout_marginEnd="32dp"
+        android:layout_marginEnd="16dp"
         android:layout_marginBottom="32dp"
-        android:contentDescription="Add Event Type"
-        app:srcCompat="@drawable/ic_add"
-        app:fabSize="auto" />
-
-    <!-- Camera FAB -->
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/cameraFab"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_marginEnd="32dp"
-        android:layout_marginBottom="112dp"
-        android:contentDescription="Take Photo"
-        app:srcCompat="@android:drawable/ic_menu_camera"
-        app:fabSize="auto" />
-
-    <!-- Image Picker FAB -->
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/imageFab"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_marginEnd="32dp"
-        android:layout_marginBottom="192dp"
-        android:contentDescription="Select Image"
-        app:srcCompat="@android:drawable/ic_menu_gallery"
-        app:fabSize="auto" />
+        android:contentDescription="Add"
+        app:fabSize="normal"
+        app:srcCompat="@drawable/ic_add" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

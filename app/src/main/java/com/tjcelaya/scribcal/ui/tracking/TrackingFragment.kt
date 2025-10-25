@@ -9,34 +9,33 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
-import androidx.core.content.FileProvider
-import java.io.File
-import java.io.IOException
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.tjcelaya.scribcal.MainActivity
 import com.tjcelaya.scribcal.R
 import com.tjcelaya.scribcal.ScribCalApplication
-import com.tjcelaya.scribcal.data.database.OngoingEvent
 import com.tjcelaya.scribcal.data.database.EventType
+import com.tjcelaya.scribcal.data.database.OngoingEvent
 import com.tjcelaya.scribcal.databinding.FragmentTrackingBinding
-import com.tjcelaya.scribcal.ui.main.PhotoEventDialog
-import com.tjcelaya.scribcal.MainActivity
-import com.tjcelaya.scribcal.data.StoragePreferences
 import com.tjcelaya.scribcal.ui.dialogs.NotificationPermissionDialog
-import android.util.Log
-import kotlinx.coroutines.launch
+import com.tjcelaya.scribcal.ui.dialogs.SaveEventDialog
+import com.tjcelaya.scribcal.ui.main.PhotoEventDialog
+import java.io.File
+import java.io.IOException
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
 
 class TrackingFragment : Fragment() {
 
@@ -53,6 +52,9 @@ class TrackingFragment : Fragment() {
 
     // Photo capture variables
     private var currentPhotoUri: Uri? = null
+    
+    // FAB menu state
+    private var isFabMenuOpen = false
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -181,15 +183,31 @@ class TrackingFragment : Fragment() {
     }
 
     private fun setupClickListeners() {
+        // Main FAB toggles the menu
         binding.fab.setOnClickListener {
+            toggleFabMenu()
+        }
+        
+        // Overlay closes the menu
+        binding.fabOverlay.setOnClickListener {
+            closeFabMenu()
+        }
+
+        // FAB menu item: Create new event
+        binding.fabNewEvent.setOnClickListener {
+            closeFabMenu()
             findNavController().navigate(R.id.addEventFragment)
         }
 
-        binding.cameraFab.setOnClickListener {
+        // FAB menu item: Capture photo
+        binding.fabCamera.setOnClickListener {
+            closeFabMenu()
             checkStorageConfigurationThenOpenCamera()
         }
 
-        binding.imageFab.setOnClickListener {
+        // FAB menu item: Select image
+        binding.fabImage.setOnClickListener {
+            closeFabMenu()
             checkStorageConfigurationThenOpenImagePicker()
         }
 
@@ -245,10 +263,10 @@ class TrackingFragment : Fragment() {
             }
         }
 
-        // Observe stop confirmation dialog
+        // Observe save confirmation dialog
         viewModel.showStopConfirmation.observe(viewLifecycleOwner) { ongoingEvent ->
             if (ongoingEvent != null) {
-                showStopConfirmationDialog(ongoingEvent)
+                showSaveConfirmationDialog(ongoingEvent)
             }
         }
 
@@ -261,34 +279,21 @@ class TrackingFragment : Fragment() {
         }
     }
 
-    private fun showStopConfirmationDialog(ongoingEvent: OngoingEvent) {
-        // Calculate elapsed time for display
-        val elapsedMillis = System.currentTimeMillis() - ongoingEvent.startTime
-        val elapsedSeconds = elapsedMillis / 1000
-        val hours = elapsedSeconds / 3600
-        val minutes = (elapsedSeconds % 3600) / 60
-        val seconds = elapsedSeconds % 60
-        val elapsedTimeString = String.format("%02d:%02d:%02d", hours, minutes, seconds)
-
-        val startTime = Date(ongoingEvent.startTime)
-        val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
-
-        AlertDialog.Builder(requireContext())
-            .setTitle("Stop Event")
-            .setMessage("Stop this event?\n\nElapsed time: $elapsedTimeString\nStarted at: ${timeFormat.format(startTime)}\n\nThe event will be saved to your calendar.")
-            .setPositiveButton("Stop") { _, _ ->
-                viewModel.stopEvent(ongoingEvent)
-            }
-            .setNeutralButton("Stop without saving") { _, _ ->
-                viewModel.stopEventWithoutSaving(ongoingEvent)
-            }
-            .setNegativeButton("Cancel") { _, _ ->
-                viewModel.hideStopEventConfirmation()
-            }
-            .setOnCancelListener {
-                viewModel.hideStopEventConfirmation()
-            }
-            .show()
+    private fun showSaveConfirmationDialog(ongoingEvent: OngoingEvent) {
+        // Get event type for the dialog
+        viewModel.getEventTypeById(ongoingEvent.eventTypeId)?.let { eventType ->
+            SaveEventDialog.show(
+                context = requireContext(),
+                ongoingEvent = ongoingEvent,
+                eventType = eventType,
+                onSave = { viewModel.stopEvent(ongoingEvent) },
+                onDiscardWithoutSaving = { viewModel.stopEventWithoutSaving(ongoingEvent) },
+                onCancel = { viewModel.hideStopEventConfirmation() }
+            )
+        } ?: run {
+            // If event type not found, just hide the dialog
+            viewModel.hideStopEventConfirmation()
+        }
     }
 
     private fun checkPermissionsAndSetup() {
@@ -361,6 +366,87 @@ class TrackingFragment : Fragment() {
             timerHandler.removeCallbacks(it)
             timerRunnable = null
         }
+    }
+    
+    private fun toggleFabMenu() {
+        if (isFabMenuOpen) {
+            closeFabMenu()
+        } else {
+            openFabMenu()
+        }
+    }
+    
+    private fun openFabMenu() {
+        isFabMenuOpen = true
+        
+        // Show overlay
+        binding.fabOverlay.visibility = View.VISIBLE
+        binding.fabOverlay.alpha = 0f
+        binding.fabOverlay.animate()
+            .alpha(1f)
+            .setDuration(200)
+            .start()
+        
+        // Change main FAB to close button with lighter background
+        binding.fab.setImageResource(R.drawable.ic_close)
+        binding.fab.backgroundTintList = android.content.res.ColorStateList.valueOf(
+            android.graphics.Color.parseColor("#E3F2FD")
+        )
+        binding.fab.imageTintList = android.content.res.ColorStateList.valueOf(
+            android.graphics.Color.parseColor("#1976D2")
+        )
+        
+        // Show and animate menu items (from bottom to top)
+        animateFabMenuItem(binding.fabImage, 0)
+        animateFabMenuItem(binding.fabCamera, 50)
+        animateFabMenuItem(binding.fabNewEvent, 100)
+    }
+    
+    private fun closeFabMenu() {
+        isFabMenuOpen = false
+        
+        // Hide overlay
+        binding.fabOverlay.animate()
+            .alpha(0f)
+            .setDuration(200)
+            .withEndAction {
+                binding.fabOverlay.visibility = View.GONE
+            }
+            .start()
+        
+        // Change main FAB back to add button with original colors
+        binding.fab.setImageResource(R.drawable.ic_add)
+        binding.fab.backgroundTintList = null // Reset to theme default
+        binding.fab.imageTintList = null // Reset to theme default
+        
+        // Hide menu items
+        hideFabMenuItem(binding.fabNewEvent, 0)
+        hideFabMenuItem(binding.fabCamera, 50)
+        hideFabMenuItem(binding.fabImage, 100)
+    }
+    
+    private fun animateFabMenuItem(layout: View, delay: Long) {
+        layout.visibility = View.VISIBLE
+        layout.alpha = 0f
+        layout.translationY = 20f
+        layout.animate()
+            .alpha(1f)
+            .translationY(0f)
+            .setStartDelay(delay)
+            .setDuration(150)
+            .start()
+    }
+    
+    private fun hideFabMenuItem(layout: View, delay: Long) {
+        layout.animate()
+            .alpha(0f)
+            .translationY(20f)
+            .setStartDelay(delay)
+            .setDuration(150)
+            .withEndAction {
+                layout.visibility = View.GONE
+            }
+            .start()
     }
 
     private fun checkForSharedPhoto() {

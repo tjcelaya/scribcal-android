@@ -182,6 +182,10 @@ class TrackingViewModel(
         _showStopConfirmation.value = null
     }
 
+    fun getEventTypeById(eventTypeId: Long): EventType? {
+        return eventTypes.value?.find { it.id == eventTypeId }
+    }
+
     fun stopEvent(ongoingEvent: OngoingEvent) {
         viewModelScope.launch {
             try {
