@@ -96,6 +96,33 @@
 
             </LinearLayout>
 
+            <!-- Future Events Section -->
+            <LinearLayout
+                android:id="@+id/futureEventsSection"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="24dp"
+                android:orientation="vertical"
+                android:visibility="gone"
+                tools:visibility="visible">
+
+                <TextView
+                    android:id="@+id/futureEventsHeader"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    android:text="Scheduled Events"
+                    android:textAppearance="@style/TextAppearance.Material3.TitleLarge"
+                    android:textColor="?android:attr/textColorPrimary" />
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/futureEventsRecyclerView"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    tools:listitem="@layout/item_future_event" />
+
+            </LinearLayout>
+
             <!-- Calendar Status Section -->
             <LinearLayout
                 android:id="@+id/calendarStatusCard"
@@ -160,10 +187,22 @@
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
         android:layout_marginEnd="16dp"
-        android:layout_marginBottom="244dp"
+        android:layout_marginBottom="316dp"
         android:text="Create a new event"
         android:visibility="gone"
         app:icon="@drawable/ic_edit" />
+
+    <!-- Schedule Future Event Extended FAB -->
+    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+        android:id="@+id/fabScheduleEvent"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="244dp"
+        android:text="Schedule a future event"
+        android:visibility="gone"
+        app:icon="@drawable/ic_schedule" />
 
     <!-- Capture Moment Extended FAB -->
     <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton

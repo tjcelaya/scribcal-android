@@ -33,6 +33,7 @@ class EventRepository(
     private val eventTypeDao = database.eventTypeDao()
     private val eventDao = database.eventDao()
     private val photoUploadProgressDao = database.photoUploadProgressDao()
+    private val futureEventDao = database.futureEventDao()
 
     // Flag to ensure default event types are only created once per app session
     private var defaultEventTypesEnsured = false
@@ -87,6 +88,10 @@ class EventRepository(
 
     suspend fun getEventTypeById(id: Long): EventType? = withContext(Dispatchers.IO) {
         eventTypeDao.getEventTypeById(id)
+    }
+
+    suspend fun getEventTypeByName(name: String): EventType? = withContext(Dispatchers.IO) {
+        eventTypeDao.getEventTypeByName(name)
     }
 
     suspend fun getAllEventTypesSync(): List<EventType> = withContext(Dispatchers.IO) {
@@ -495,6 +500,65 @@ class EventRepository(
 
     suspend fun stopOngoingEvent(ongoingEventId: Long): Boolean {
         return completeOngoingEvent(ongoingEventId)
+    }
+
+    // Future event operations
+    fun getAllFutureEvents(): LiveData<List<FutureEvent>> = futureEventDao.getAllFutureEvents()
+
+    suspend fun createFutureEvent(eventTypeId: Long, targetTime: Long, notes: String? = null): Long = withContext(Dispatchers.IO) {
+        val futureEvent = FutureEvent(
+            eventTypeId = eventTypeId,
+            targetTime = targetTime,
+            notes = notes
+        )
+        futureEventDao.insertFutureEvent(futureEvent)
+    }
+
+    suspend fun deleteFutureEvent(futureEventId: Long) = withContext(Dispatchers.IO) {
+        futureEventDao.deleteFutureEventById(futureEventId)
+    }
+
+    suspend fun getFutureEventById(futureEventId: Long): FutureEvent? = withContext(Dispatchers.IO) {
+        futureEventDao.getFutureEventById(futureEventId)
+    }
+
+    /**
+     * Check for expired future events and trigger instant events for them
+     * Returns the number of future events that were triggered
+     */
+    suspend fun triggerExpiredFutureEvents(calendarRepository: CalendarRepository): Int = withContext(Dispatchers.IO) {
+        val currentTime = System.currentTimeMillis()
+        val expiredEvents = futureEventDao.getExpiredFutureEvents(currentTime)
+        var triggeredCount = 0
+
+        expiredEvents.forEach { futureEvent ->
+            try {
+                // Create an instantaneous event at the target time
+                createInstantEvent(
+                    eventTypeId = futureEvent.eventTypeId,
+                    notes = futureEvent.notes ?: "Scheduled event",
+                    timestamp = futureEvent.targetTime
+                )
+                
+                // Sync to calendar
+                val eventId = createInstantEvent(
+                    eventTypeId = futureEvent.eventTypeId,
+                    notes = futureEvent.notes ?: "Scheduled event",
+                    timestamp = futureEvent.targetTime
+                )
+                syncEventToCalendar(eventId, calendarRepository)
+                
+                // Delete the future event
+                futureEventDao.deleteFutureEventById(futureEvent.id)
+                triggeredCount++
+                
+                Log.d("EventRepository", "Triggered future event ${futureEvent.id} for event type ${futureEvent.eventTypeId}")
+            } catch (e: Exception) {
+                Log.e("EventRepository", "Failed to trigger future event ${futureEvent.id}", e)
+            }
+        }
+
+        triggeredCount
     }
 
     // Google Drive integration methods

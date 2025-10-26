@@ -6,7 +6,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.GridLayout
-import android.widget.Toast
+import com.google.android.material.snackbar.Snackbar
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
@@ -152,10 +152,10 @@ class AddEditEventTypeFragment : Fragment() {
     private fun observeViewModel() {
         viewModel.saveResult.observe(viewLifecycleOwner) { success ->
             if (success) {
-                Toast.makeText(
-                    requireContext(),
+                Snackbar.make(
+                    binding.root,
                     if (editingEventType == null) "Event type created" else "Event type updated",
-                    Toast.LENGTH_SHORT
+                    Snackbar.LENGTH_SHORT
                 ).show()
                 findNavController().navigateUp()
             }

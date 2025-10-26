@@ -9,7 +9,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
-import android.widget.Toast
+import com.google.android.material.snackbar.Snackbar
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -315,10 +315,9 @@ class SettingsFragment : Fragment() {
                                 if (existingToken.isNotEmpty()) {
                                     GoogleAuthUtil.clearToken(requireContext(), existingToken)
                                     Log.d("SettingsFragment", "Force-cleared existing OAuth token")
+                                    // Note: invalidateToken is deprecated, clearToken is sufficient
                                 }
-                                // Also try to clear with the invalidateToken method
-                                GoogleAuthUtil.invalidateToken(requireContext(), existingToken)
-                                Log.d("SettingsFragment", "Invalidated OAuth token completely")
+                                Log.d("SettingsFragment", "Token cleared successfully")
                             } catch (e: Exception) {
                                 Log.d("SettingsFragment", "No cached token to clear: ${e.message}")
                             }
@@ -341,7 +340,7 @@ class SettingsFragment : Fragment() {
 
                 Log.d("SettingsFragment", "Getting OAuth token for account: ${account.name}")
                 Log.d("SettingsFragment", "Requesting scope: https://www.googleapis.com/auth/photoslibrary")
-                Toast.makeText(requireContext(), "Getting OAuth token for ${account.name}", Toast.LENGTH_SHORT).show()
+                Snackbar.make(binding.root, "Getting OAuth token for ${account.name}", Snackbar.LENGTH_SHORT).show()
                 
                 val token = try {
                     withContext(Dispatchers.IO) {
@@ -474,6 +473,7 @@ class SettingsFragment : Fragment() {
     }
 
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     private suspend fun askUserToCreateAlbum(token: String, albumName: String): String? {
         Log.d("SettingsFragment", "Asking user to create album: $albumName")
         return kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
@@ -762,7 +762,7 @@ class SettingsFragment : Fragment() {
         binding.instantEventIconSpinner.setOnItemClickListener { _, _, position, _ ->
             val selectedIcon = iconOptions[position]
             storagePreferences.setInstantEventIcon(selectedIcon)
-            Toast.makeText(requireContext(), "Icon changed to ${selectedIcon.displayName}", Toast.LENGTH_SHORT).show()
+            Snackbar.make(binding.root, "Icon changed to ${selectedIcon.displayName}", Snackbar.LENGTH_SHORT).show()
         }
     }
 

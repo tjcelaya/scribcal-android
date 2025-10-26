@@ -8,7 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
-import android.widget.Toast
+import com.google.android.material.snackbar.Snackbar
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
@@ -154,10 +154,10 @@ class CalendarSetupFragment : Fragment() {
 
     private fun selectCalendar(calendar: CalendarInfo) {
         calendarRepository.setSelectedCalendar(calendar)
-        Toast.makeText(
-            requireContext(),
+        Snackbar.make(
+            containerLayout,
             "Selected calendar: ${calendar.displayName}",
-            Toast.LENGTH_SHORT
+            Snackbar.LENGTH_SHORT
         ).show()
 
         // Navigate back

@@ -3,7 +3,12 @@ package com.tjcelaya.scribcal.data.database
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "event_types")
+import androidx.room.Index
+
+@Entity(
+    tableName = "event_types",
+    indices = [Index(value = ["name"], unique = true)]
+)
 data class EventType(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,

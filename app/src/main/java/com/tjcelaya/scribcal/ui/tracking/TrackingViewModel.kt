@@ -1,5 +1,6 @@
 package com.tjcelaya.scribcal.ui.tracking
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.MutableLiveData
@@ -11,6 +12,7 @@ import com.tjcelaya.scribcal.data.EventRepository
 import com.tjcelaya.scribcal.data.CalendarRepository
 import com.tjcelaya.scribcal.data.database.EventType
 import com.tjcelaya.scribcal.data.database.OngoingEvent
+import com.tjcelaya.scribcal.data.database.FutureEvent
 import kotlinx.coroutines.launch
 
 class TrackingViewModel(
@@ -20,6 +22,7 @@ class TrackingViewModel(
 
     val eventTypes: LiveData<List<EventType>> = eventRepository.getAllEventTypes()
     val ongoingEvents: LiveData<List<OngoingEvent>> = eventRepository.getAllOngoingEvents()
+    val futureEvents: LiveData<List<FutureEvent>> = eventRepository.getAllFutureEvents()
 
     private val _calendarStatus = MutableLiveData<String>()
     val calendarStatus: LiveData<String> = _calendarStatus
@@ -148,6 +151,31 @@ class TrackingViewModel(
         }
     }
 
+    // Combined LiveData for future events with their event types
+    val futureEventsWithTypes: LiveData<List<com.tjcelaya.scribcal.ui.tracking.FutureEventWithType>> = MediatorLiveData<List<com.tjcelaya.scribcal.ui.tracking.FutureEventWithType>>().apply {
+        var eventTypesList: List<EventType> = emptyList()
+        var futureEventsList: List<FutureEvent> = emptyList()
+
+        fun update() {
+            val eventTypesMap = eventTypesList.associateBy { it.id }
+            value = futureEventsList.mapNotNull { futureEvent ->
+                eventTypesMap[futureEvent.eventTypeId]?.let { eventType ->
+                    com.tjcelaya.scribcal.ui.tracking.FutureEventWithType(futureEvent, eventType)
+                }
+            }
+        }
+
+        addSource(eventTypes) { types ->
+            eventTypesList = types
+            update()
+        }
+
+        addSource(futureEvents) { events ->
+            futureEventsList = events
+            update()
+        }
+    }
+
     fun onCalendarPermissionsGranted() {
         updateCalendarStatus()
     }
@@ -246,6 +274,101 @@ class TrackingViewModel(
                 _message.value = e.message
             } catch (e: Exception) {
                 _message.value = "Error starting timed event with photo: ${e.message}"
+            }
+        }
+    }
+
+    fun createFutureEvent(eventTypeId: Long, targetTime: Long, notes: String? = null) {
+        viewModelScope.launch {
+            try {
+                eventRepository.createFutureEvent(eventTypeId, targetTime, notes)
+                _message.value = "Future event scheduled"
+            } catch (e: Exception) {
+                _message.value = "Error scheduling future event: ${e.message}"
+            }
+        }
+    }
+
+    suspend fun createEventTypeFromCalendarEvent(eventTitle: String): Long? {
+        return try {
+            // Check if an event type with this name already exists
+            val existingEventType = eventRepository.getEventTypeByName(eventTitle)
+            if (existingEventType != null) {
+                Log.d("TrackingViewModel", "Reusing existing event type: ${existingEventType.name}")
+                return existingEventType.id
+            }
+            
+            // Create new event type if it doesn't exist
+            val newEventType = EventType(
+                name = eventTitle,
+                description = "Created from calendar event",
+                color = null
+            )
+            eventRepository.insertEventType(newEventType)
+        } catch (e: Exception) {
+            Log.e("TrackingViewModel", "Error creating event type from calendar event", e)
+            null
+        }
+    }
+
+    fun deleteFutureEvent(futureEventId: Long) {
+        viewModelScope.launch {
+            try {
+                eventRepository.deleteFutureEvent(futureEventId)
+                _message.value = "Future event deleted"
+            } catch (e: Exception) {
+                _message.value = "Error deleting future event: ${e.message}"
+            }
+        }
+    }
+
+    fun recordEarlyEvent(futureEventId: Long, eventTypeId: Long, eventTypeName: String) {
+        viewModelScope.launch {
+            try {
+                // Create an instant event with "(early)" suffix
+                val modifiedTitle = "$eventTypeName (early)"
+                
+                // Create a temporary event type with the modified name for this event
+                val currentTime = System.currentTimeMillis()
+                
+                // Record the event directly to calendar with modified title
+                val eventType = eventTypes.value?.find { it.id == eventTypeId }
+                if (eventType != null) {
+                    val modifiedEventType = eventType.copy(name = modifiedTitle)
+                    val calendarEventId = calendarRepository.syncEventToCalendar(
+                        eventId = 0L, // Temporary ID, not saved to DB
+                        eventType = modifiedEventType,
+                        startTime = currentTime,
+                        endTime = currentTime,
+                        notes = null
+                    )
+                    
+                    // Delete the future event
+                    eventRepository.deleteFutureEvent(futureEventId)
+                    
+                    if (calendarEventId != null) {
+                        _message.value = "Event completed early and saved to calendar"
+                    } else {
+                        _message.value = "Event completed early but failed to save to calendar"
+                    }
+                } else {
+                    _message.value = "Error: Event type not found"
+                }
+            } catch (e: Exception) {
+                _message.value = "Error recording early event: ${e.message}"
+            }
+        }
+    }
+
+    fun checkExpiredFutureEvents() {
+        viewModelScope.launch {
+            try {
+                val triggeredCount = eventRepository.triggerExpiredFutureEvents(calendarRepository)
+                if (triggeredCount > 0) {
+                    _message.value = "$triggeredCount scheduled event(s) triggered"
+                }
+            } catch (e: Exception) {
+                Log.e("TrackingViewModel", "Error checking expired future events", e)
             }
         }
     }

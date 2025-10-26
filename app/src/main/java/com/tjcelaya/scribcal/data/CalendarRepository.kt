@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.tjcelaya.scribcal.data.database.EventType
 import com.tjcelaya.scribcal.utils.CalendarInfo
+import com.tjcelaya.scribcal.utils.CalendarEventInfo
 import com.tjcelaya.scribcal.utils.CalendarUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -24,6 +25,11 @@ class CalendarRepository(private val context: Context) {
 
     suspend fun getAvailableCalendars(): List<CalendarInfo> {
         return CalendarUtils.getAvailableCalendars(context)
+    }
+
+    suspend fun getUpcomingEvents(daysAhead: Int = 30): List<CalendarEventInfo> {
+        val calendarId = getSelectedCalendarId() ?: return emptyList()
+        return CalendarUtils.getUpcomingEvents(context, calendarId, daysAhead)
     }
 
     fun getSelectedCalendarId(): Long? {

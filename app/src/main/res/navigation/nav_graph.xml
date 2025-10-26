@@ -23,6 +23,9 @@
         <action
             android:id="@+id/action_tracking_to_add_event"
             app:destination="@id/addEventFragment" />
+        <action
+            android:id="@+id/action_tracking_to_add_edit_event_type"
+            app:destination="@id/addEditEventTypeFragment" />
     </fragment>
 
     <fragment

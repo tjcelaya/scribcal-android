@@ -10,7 +10,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
-import android.widget.Toast
+import com.google.android.material.snackbar.Snackbar
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
@@ -189,7 +189,7 @@ class AddEventFragment : Fragment() {
                     }
                     else -> message // Fallback to original message
                 }
-                Toast.makeText(requireContext(), displayMessage, Toast.LENGTH_LONG).show()
+                Snackbar.make(binding.root, displayMessage, Snackbar.LENGTH_LONG).show()
                 viewModel.clearMessage()
             }
         }
@@ -208,7 +208,7 @@ class AddEventFragment : Fragment() {
         val eventTypeName = binding.eventTypeAutoComplete.text.toString().trim()
 
         if (eventTypeName.isEmpty()) {
-            Toast.makeText(requireContext(), getString(R.string.please_enter_event_type), Toast.LENGTH_SHORT).show()
+            Snackbar.make(binding.root, getString(R.string.please_enter_event_type), Snackbar.LENGTH_SHORT).show()
             return
         }
 
@@ -223,7 +223,7 @@ class AddEventFragment : Fragment() {
                     viewModel.startTimedEvent(eventTypeName, selectedDateTime.timeInMillis)
                 }
             } catch (e: Exception) {
-                Toast.makeText(requireContext(), getString(R.string.error_format, e.message), Toast.LENGTH_LONG).show()
+                Snackbar.make(binding.root, getString(R.string.error_format, e.message), Snackbar.LENGTH_LONG).show()
                 setLoadingState(false)
             }
         }

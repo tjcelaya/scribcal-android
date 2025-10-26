@@ -200,6 +200,140 @@ data class PhotoUpload(
 )
 
 /**
+ * Represents a future event with countdown
+ */
+data class FutureEventWithType(
+    val futureEvent: com.tjcelaya.scribcal.data.database.FutureEvent,
+    val eventType: EventType
+)
+
+/**
+ * Adapter for displaying future events with countdown timers
+ */
+class FutureEventsAdapter(
+    private val onCompleteEarly: (com.tjcelaya.scribcal.data.database.FutureEvent, EventType) -> Unit,
+    private val onCancelEvent: (com.tjcelaya.scribcal.data.database.FutureEvent) -> Unit
+) : ListAdapter<FutureEventWithType, FutureEventsAdapter.ViewHolder>(FutureEventDiffCallback()) {
+
+    companion object {
+        private const val PAYLOAD_UPDATE_TIMER = "update_timer"
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_future_event, parent, false)
+        return ViewHolder(view)
+    }
+
+    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+        holder.bind(getItem(position))
+    }
+
+    override fun onBindViewHolder(holder: ViewHolder, position: Int, payloads: MutableList<Any>) {
+        if (payloads.isNotEmpty() && payloads.contains(PAYLOAD_UPDATE_TIMER)) {
+            val item = getItem(position)
+            holder.updateTimerOnly(item.futureEvent.targetTime)
+        } else {
+            super.onBindViewHolder(holder, position, payloads)
+        }
+    }
+
+    fun refreshTimers() {
+        for (position in 0 until itemCount) {
+            notifyItemChanged(position, PAYLOAD_UPDATE_TIMER)
+        }
+    }
+
+    inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        private val colorIndicator: View = itemView.findViewById(R.id.colorIndicator)
+        private val eventTypeName: TextView = itemView.findViewById(R.id.eventTypeName)
+        private val countdownText: TextView = itemView.findViewById(R.id.countdownText)
+        private val targetTimeText: TextView = itemView.findViewById(R.id.targetTimeText)
+        private val notesText: TextView = itemView.findViewById(R.id.notesText)
+        private val completeEarlyButton: MaterialButton = itemView.findViewById(R.id.completeEarlyButton)
+        private val cancelButton: MaterialButton = itemView.findViewById(R.id.cancelButton)
+
+        fun bind(item: FutureEventWithType) {
+            val eventType = item.eventType
+            val futureEvent = item.futureEvent
+
+            eventTypeName.text = eventType.name
+
+            // Set color indicator
+            if (eventType.color != null) {
+                colorIndicator.background.setTint(eventType.color)
+            } else {
+                val defaultColor = ContextCompat.getColor(itemView.context, R.color.scribcal_blue)
+                colorIndicator.background.setTint(defaultColor)
+            }
+
+            // Update countdown
+            updateCountdown(futureEvent.targetTime)
+
+            // Format target time
+            val targetTime = Date(futureEvent.targetTime)
+            val dateFormat = SimpleDateFormat("MMM d, h:mm a", Locale.getDefault())
+            targetTimeText.text = "Scheduled for ${dateFormat.format(targetTime)}"
+
+            // Handle notes
+            if (futureEvent.notes.isNullOrBlank()) {
+                notesText.visibility = View.GONE
+            } else {
+                notesText.visibility = View.VISIBLE
+                notesText.text = futureEvent.notes
+            }
+
+            // Set button click listeners
+            completeEarlyButton.setOnClickListener {
+                onCompleteEarly(futureEvent, eventType)
+            }
+            
+            cancelButton.setOnClickListener {
+                onCancelEvent(futureEvent)
+            }
+        }
+
+        private fun updateCountdown(targetTime: Long) {
+            val now = System.currentTimeMillis()
+            val remainingMillis = targetTime - now
+
+            if (remainingMillis <= 0) {
+                countdownText.text = "00:00:00"
+                return
+            }
+
+            val remainingSeconds = remainingMillis / 1000
+            val days = remainingSeconds / 86400  // 86400 seconds in a day
+            val hours = (remainingSeconds % 86400) / 3600
+            val minutes = (remainingSeconds % 3600) / 60
+            val seconds = remainingSeconds % 60
+
+            val countdownString = if (days > 0) {
+                String.format(Locale.getDefault(), "%dd %02d:%02d:%02d", days, hours, minutes, seconds)
+            } else {
+                String.format(Locale.getDefault(), "%02d:%02d:%02d", hours, minutes, seconds)
+            }
+
+            countdownText.text = countdownString
+        }
+
+        fun updateTimerOnly(targetTime: Long) {
+            updateCountdown(targetTime)
+        }
+    }
+}
+
+class FutureEventDiffCallback : DiffUtil.ItemCallback<FutureEventWithType>() {
+    override fun areItemsTheSame(oldItem: FutureEventWithType, newItem: FutureEventWithType): Boolean {
+        return oldItem.futureEvent.id == newItem.futureEvent.id
+    }
+
+    override fun areContentsTheSame(oldItem: FutureEventWithType, newItem: FutureEventWithType): Boolean {
+        return oldItem == newItem
+    }
+}
+
+/**
  * Combined type for displaying both real ongoing events and photo uploads
  */
 data class DisplayableOngoingItem(

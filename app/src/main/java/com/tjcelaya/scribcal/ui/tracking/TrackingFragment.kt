@@ -13,15 +13,17 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
+import com.google.android.material.snackbar.Snackbar
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
+import kotlinx.coroutines.launch
 import com.tjcelaya.scribcal.MainActivity
 import com.tjcelaya.scribcal.R
 import com.tjcelaya.scribcal.ScribCalApplication
@@ -45,6 +47,7 @@ class TrackingFragment : Fragment() {
     private lateinit var viewModel: TrackingViewModel
     private lateinit var eventTypesAdapter: EventTypesTrackingAdapter
     private lateinit var ongoingEventsAdapter: OngoingEventsAdapter
+    private lateinit var futureEventsAdapter: FutureEventsAdapter
 
     // Timer for real-time updates
     private val timerHandler = Handler(Looper.getMainLooper())
@@ -74,7 +77,7 @@ class TrackingFragment : Fragment() {
         if (isGranted) {
             launchCamera()
         } else {
-            Toast.makeText(requireContext(), "Camera permission is required to take photos", Toast.LENGTH_LONG).show()
+            Snackbar.make(binding.root, "Camera permission is required to take photos", Snackbar.LENGTH_LONG).show()
         }
     }
 
@@ -86,7 +89,7 @@ class TrackingFragment : Fragment() {
             Log.d("TrackingFragment", "Notification permission granted")
         } else {
             Log.w("TrackingFragment", "Notification permission denied - notifications will not appear")
-            Toast.makeText(requireContext(), "Notification permission is required to show ongoing event notifications", Toast.LENGTH_LONG).show()
+            Snackbar.make(binding.root, "Notification permission is required to show ongoing event notifications", Snackbar.LENGTH_LONG).show()
         }
     }
 
@@ -180,6 +183,21 @@ class TrackingFragment : Fragment() {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = ongoingEventsAdapter
         }
+
+        // Future Events RecyclerView
+        futureEventsAdapter = FutureEventsAdapter(
+            onCompleteEarly = { futureEvent, eventType ->
+                viewModel.recordEarlyEvent(futureEvent.id, eventType.id, eventType.name)
+            },
+            onCancelEvent = { futureEvent ->
+                viewModel.deleteFutureEvent(futureEvent.id)
+            }
+        )
+
+        binding.futureEventsRecyclerView.apply {
+            layoutManager = LinearLayoutManager(requireContext())
+            adapter = futureEventsAdapter
+        }
     }
 
     private fun setupClickListeners() {
@@ -193,10 +211,10 @@ class TrackingFragment : Fragment() {
             closeFabMenu()
         }
 
-        // FAB menu item: Create new event
+        // FAB menu item: Create new event type
         binding.fabNewEvent.setOnClickListener {
             closeFabMenu()
-            findNavController().navigate(R.id.addEventFragment)
+            findNavController().navigate(R.id.action_tracking_to_add_edit_event_type)
         }
 
         // FAB menu item: Capture photo
@@ -209,6 +227,12 @@ class TrackingFragment : Fragment() {
         binding.fabImage.setOnClickListener {
             closeFabMenu()
             checkStorageConfigurationThenOpenImagePicker()
+        }
+
+        // FAB menu item: Schedule future event
+        binding.fabScheduleEvent.setOnClickListener {
+            closeFabMenu()
+            showEventTypePickerForScheduling()
         }
 
         binding.manageEventTypesButton.setOnClickListener {
@@ -273,8 +297,25 @@ class TrackingFragment : Fragment() {
         // Observe messages
         viewModel.message.observe(viewLifecycleOwner) { message ->
             if (message != null) {
-                Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
+                Snackbar.make(binding.root, message, Snackbar.LENGTH_LONG).show()
                 viewModel.clearMessage()
+            }
+        }
+
+        // Observe future events
+        viewModel.futureEventsWithTypes.observe(viewLifecycleOwner) { futureEvents ->
+            futureEventsAdapter.submitList(futureEvents)
+            
+            // Show/hide section based on whether there are future events
+            binding.futureEventsSection.visibility = if (futureEvents.isEmpty()) {
+                View.GONE
+            } else {
+                View.VISIBLE
+            }
+            
+            // Start timer if there are future events (for countdown updates)
+            if (futureEvents.isNotEmpty()) {
+                startTimerUpdates()
             }
         }
     }
@@ -355,6 +396,8 @@ class TrackingFragment : Fragment() {
             override fun run() {
                 // Refresh the event types adapter to update elapsed time displays
                 eventTypesAdapter.refreshTimers()
+                // Refresh future event countdown timers
+                futureEventsAdapter.refreshTimers()
                 timerHandler.postDelayed(this, 1000) // Update every second
             }
         }
@@ -399,7 +442,8 @@ class TrackingFragment : Fragment() {
         // Show and animate menu items (from bottom to top)
         animateFabMenuItem(binding.fabImage, 0)
         animateFabMenuItem(binding.fabCamera, 50)
-        animateFabMenuItem(binding.fabNewEvent, 100)
+        animateFabMenuItem(binding.fabScheduleEvent, 100)
+        animateFabMenuItem(binding.fabNewEvent, 150)
     }
     
     private fun closeFabMenu() {
@@ -410,7 +454,7 @@ class TrackingFragment : Fragment() {
             .alpha(0f)
             .setDuration(200)
             .withEndAction {
-                binding.fabOverlay.visibility = View.GONE
+                _binding?.fabOverlay?.visibility = View.GONE
             }
             .start()
         
@@ -421,8 +465,9 @@ class TrackingFragment : Fragment() {
         
         // Hide menu items
         hideFabMenuItem(binding.fabNewEvent, 0)
-        hideFabMenuItem(binding.fabCamera, 50)
-        hideFabMenuItem(binding.fabImage, 100)
+        hideFabMenuItem(binding.fabScheduleEvent, 50)
+        hideFabMenuItem(binding.fabCamera, 100)
+        hideFabMenuItem(binding.fabImage, 150)
     }
     
     private fun animateFabMenuItem(layout: View, delay: Long) {
@@ -444,7 +489,9 @@ class TrackingFragment : Fragment() {
             .setStartDelay(delay)
             .setDuration(150)
             .withEndAction {
-                layout.visibility = View.GONE
+                if (_binding != null) {
+                    layout.visibility = View.GONE
+                }
             }
             .start()
     }
@@ -572,7 +619,7 @@ class TrackingFragment : Fragment() {
 
             cameraLauncher.launch(intent)
         } else {
-            Toast.makeText(requireContext(), "Unable to create photo file", Toast.LENGTH_SHORT).show()
+            Snackbar.make(binding.root, "Unable to create photo file", Snackbar.LENGTH_SHORT).show()
         }
     }
 
@@ -625,7 +672,7 @@ class TrackingFragment : Fragment() {
             if (eventTypes.isNotEmpty()) {
                 showPhotoEventDialog(photoPath, eventTypes)
             } else {
-                Toast.makeText(requireContext(), "No event types available. Create an event type first.", Toast.LENGTH_LONG).show()
+                Snackbar.make(binding.root, "No event types available. Create an event type first.", Snackbar.LENGTH_LONG).show()
             }
         }
     }
@@ -636,7 +683,7 @@ class TrackingFragment : Fragment() {
             if (eventTypes.isNotEmpty()) {
                 showPhotoEventDialog(imagePath, eventTypes)
             } else {
-                Toast.makeText(requireContext(), "No event types available. Create an event type first.", Toast.LENGTH_LONG).show()
+                Snackbar.make(binding.root, "No event types available. Create an event type first.", Snackbar.LENGTH_LONG).show()
             }
         }
     }
@@ -653,6 +700,134 @@ class TrackingFragment : Fragment() {
                 startTimedEventWithPhoto(eventType.id, photoPath, notes)
             }
         }
+    }
+
+    private fun showEventTypePickerForScheduling() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val app = requireActivity().application as ScribCalApplication
+            val calendarRepository = app.calendarRepository
+            
+            // Fetch both event types and upcoming calendar events
+            val eventTypes = viewModel.eventTypes.value ?: emptyList()
+            val calendarEvents = calendarRepository.getUpcomingEvents(30)
+            
+            if (eventTypes.isEmpty() && calendarEvents.isEmpty()) {
+                Snackbar.make(binding.root, "No event types or calendar events available.", Snackbar.LENGTH_LONG).show()
+                return@launch
+            }
+            
+            // Build combined list of options
+            val items = mutableListOf<String>()
+            val itemTypes = mutableListOf<ItemType>()
+            
+            // Add header and event types
+            if (eventTypes.isNotEmpty()) {
+                items.add("--- Your Event Types ---")
+                itemTypes.add(ItemType.Header)
+                
+                eventTypes.forEach { eventType ->
+                    items.add(eventType.name)
+                    itemTypes.add(ItemType.EventType(eventType.id))
+                }
+            }
+            
+            // Add header and calendar events
+            if (calendarEvents.isNotEmpty()) {
+                items.add("--- Upcoming Calendar Events ---")
+                itemTypes.add(ItemType.Header)
+                
+                calendarEvents.take(10).forEach { calendarEvent ->
+                    val dateFormat = SimpleDateFormat("MMM d, h:mm a", Locale.getDefault())
+                    val timeStr = dateFormat.format(Date(calendarEvent.startTime))
+                    items.add("${calendarEvent.title} ($timeStr)")
+                    itemTypes.add(ItemType.CalendarEvent(calendarEvent.title, calendarEvent.startTime))
+                }
+            }
+            
+            AlertDialog.Builder(requireContext())
+                .setTitle("Select Event Type or Calendar Event")
+                .setItems(items.toTypedArray()) { _, which ->
+                    when (val itemType = itemTypes[which]) {
+                        is ItemType.EventType -> {
+                            showScheduleFutureEventDialog(itemType.eventTypeId)
+                        }
+                        is ItemType.CalendarEvent -> {
+                            handleCalendarEventSelection(itemType.title, itemType.startTime)
+                        }
+                        is ItemType.Header -> {
+                            // Do nothing for headers
+                        }
+                    }
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
+    }
+    
+    private sealed class ItemType {
+        object Header : ItemType()
+        data class EventType(val eventTypeId: Long) : ItemType()
+        data class CalendarEvent(val title: String, val startTime: Long) : ItemType()
+    }
+    
+    private fun handleCalendarEventSelection(eventTitle: String, startTime: Long) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            // Create new event type from calendar event title
+            val eventTypeId = viewModel.createEventTypeFromCalendarEvent(eventTitle)
+            
+            if (eventTypeId != null) {
+                // Schedule the future event with the calendar event's start time
+                viewModel.createFutureEvent(
+                    eventTypeId = eventTypeId,
+                    targetTime = startTime,
+                    notes = "From calendar event"
+                )
+            } else {
+                Snackbar.make(binding.root, "Failed to create event type", Snackbar.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun showScheduleFutureEventDialog(eventTypeId: Long) {
+        // Use MaterialDatePicker and MaterialTimePicker
+        val datePicker = com.google.android.material.datepicker.MaterialDatePicker.Builder.datePicker()
+            .setTitleText("Select date")
+            .setSelection(com.google.android.material.datepicker.MaterialDatePicker.todayInUtcMilliseconds())
+            .build()
+        
+        datePicker.addOnPositiveButtonClickListener { dateMillis ->
+            // Then show time picker
+            val timePicker = com.google.android.material.timepicker.MaterialTimePicker.Builder()
+                .setTitleText("Select time")
+                .setHour(12)
+                .setMinute(0)
+                .build()
+            
+            timePicker.addOnPositiveButtonClickListener {
+                val calendar = java.util.Calendar.getInstance().apply {
+                    timeInMillis = dateMillis
+                    set(java.util.Calendar.HOUR_OF_DAY, timePicker.hour)
+                    set(java.util.Calendar.MINUTE, timePicker.minute)
+                    set(java.util.Calendar.SECOND, 0)
+                }
+                
+                viewModel.createFutureEvent(
+                    eventTypeId = eventTypeId,
+                    targetTime = calendar.timeInMillis,
+                    notes = null
+                )
+            }
+            
+            timePicker.show(childFragmentManager, "time_picker")
+        }
+        
+        datePicker.show(childFragmentManager, "date_picker")
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Check for expired future events when fragment resumes
+        viewModel.checkExpiredFutureEvents()
     }
 
     override fun onDestroyView() {

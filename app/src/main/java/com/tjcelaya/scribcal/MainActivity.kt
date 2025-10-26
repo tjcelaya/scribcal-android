@@ -8,7 +8,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
-import android.widget.Toast
+import com.google.android.material.snackbar.Snackbar
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.color.DynamicColors
 import androidx.lifecycle.ViewModelProvider
@@ -69,7 +69,12 @@ class MainActivity : AppCompatActivity() {
         Log.d("MainActivity", "Intent action: $action, type: $type")
 
         if (Intent.ACTION_SEND == action && type != null && type.startsWith("image/")) {
-            val imageUri = intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
+            val imageUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
+            }
             Log.d("MainActivity", "Received shared image: $imageUri")
 
             if (imageUri != null) {
@@ -184,7 +189,7 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun showErrorToast(message: String) {
-        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+        Snackbar.make(binding.root, message, Snackbar.LENGTH_LONG).show()
         Log.e("MainActivity", "Error: $message")
     }
 

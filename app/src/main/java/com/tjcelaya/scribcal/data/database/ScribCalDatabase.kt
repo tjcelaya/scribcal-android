@@ -10,9 +10,10 @@ import androidx.room.RoomDatabase
         EventType::class,
         Event::class,
         PhotoUploadProgress::class,
-        AlbumConfig::class
+        AlbumConfig::class,
+        FutureEvent::class
     ],
-    version = 3,
+    version = 5,
     exportSchema = false
 )
 abstract class ScribCalDatabase : RoomDatabase() {
@@ -21,6 +22,7 @@ abstract class ScribCalDatabase : RoomDatabase() {
     abstract fun eventDao(): EventDao
     abstract fun photoUploadProgressDao(): PhotoUploadProgressDao
     abstract fun albumConfigDao(): AlbumConfigDao
+    abstract fun futureEventDao(): FutureEventDao
 
     companion object {
         @Volatile

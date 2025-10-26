@@ -20,6 +20,13 @@ data class CalendarInfo(
     val isPrimary: Boolean
 )
 
+data class CalendarEventInfo(
+    val id: Long,
+    val title: String,
+    val startTime: Long,
+    val endTime: Long
+)
+
 object CalendarUtils {
 
     const val CALENDAR_READ_PERMISSION = Manifest.permission.READ_CALENDAR
@@ -78,6 +85,61 @@ object CalendarUtils {
         }
 
         calendars
+    }
+
+    suspend fun getUpcomingEvents(context: Context, calendarId: Long, daysAhead: Int = 30): List<CalendarEventInfo> = withContext(Dispatchers.IO) {
+        if (!hasCalendarPermissions(context)) {
+            return@withContext emptyList()
+        }
+
+        val events = mutableListOf<CalendarEventInfo>()
+        val contentResolver: ContentResolver = context.contentResolver
+
+        // Query for events starting from now to 30 days ahead
+        val now = System.currentTimeMillis()
+        val endTime = now + (daysAhead * 24 * 60 * 60 * 1000L)
+
+        val projection = arrayOf(
+            CalendarContract.Events._ID,
+            CalendarContract.Events.TITLE,
+            CalendarContract.Events.DTSTART,
+            CalendarContract.Events.DTEND
+        )
+
+        val selection = "${CalendarContract.Events.CALENDAR_ID} = ? AND ${CalendarContract.Events.DTSTART} >= ? AND ${CalendarContract.Events.DTSTART} <= ? AND ${CalendarContract.Events.DELETED} != 1"
+        val selectionArgs = arrayOf(
+            calendarId.toString(),
+            now.toString(),
+            endTime.toString()
+        )
+
+        val sortOrder = "${CalendarContract.Events.DTSTART} ASC"
+
+        try {
+            val cursor: Cursor? = contentResolver.query(
+                CalendarContract.Events.CONTENT_URI,
+                projection,
+                selection,
+                selectionArgs,
+                sortOrder
+            )
+
+            cursor?.use {
+                while (it.moveToNext()) {
+                    val id = it.getLong(it.getColumnIndexOrThrow(CalendarContract.Events._ID))
+                    val title = it.getString(it.getColumnIndexOrThrow(CalendarContract.Events.TITLE)) ?: "Untitled"
+                    val startTime = it.getLong(it.getColumnIndexOrThrow(CalendarContract.Events.DTSTART))
+                    val endTime = it.getLong(it.getColumnIndexOrThrow(CalendarContract.Events.DTEND))
+
+                    events.add(CalendarEventInfo(id, title, startTime, endTime))
+                }
+            }
+        } catch (e: SecurityException) {
+            // Handle permission error
+            return@withContext emptyList()
+        }
+
+        events
     }
 
     suspend fun insertEventToCalendar(

@@ -15,6 +15,9 @@ interface EventTypeDao {
     @Query("SELECT * FROM event_types WHERE id = :id")
     suspend fun getEventTypeById(id: Long): EventType?
 
+    @Query("SELECT * FROM event_types WHERE name = :name COLLATE NOCASE LIMIT 1")
+    suspend fun getEventTypeByName(name: String): EventType?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertEventType(eventType: EventType): Long
 

@@ -10,4 +10,8 @@
     
     <!-- Legacy purple (kept for backwards compatibility) -->
     <color name="purple_500">#9C27B0</color>
+    
+    <!-- Semantic colors -->
+    <color name="primary">@color/scribcal_blue</color>
+    <color name="error">#B00020</color>
 </resources>
