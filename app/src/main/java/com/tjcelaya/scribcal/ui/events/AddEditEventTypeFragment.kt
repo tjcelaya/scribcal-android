@@ -1,6 +1,8 @@
 package com.tjcelaya.scribcal.ui.events
 
 import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -14,10 +16,12 @@ import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.google.android.material.button.MaterialButton
 import com.tjcelaya.scribcal.R
+import com.tjcelaya.scribcal.ui.components.CustomColorPickerDialog
 import com.tjcelaya.scribcal.data.EventRepository
 import com.tjcelaya.scribcal.data.database.EventType
 import com.tjcelaya.scribcal.data.database.ScribCalDatabase
 import com.tjcelaya.scribcal.databinding.FragmentAddEditEventTypeBinding
+import com.tjcelaya.scribcal.utils.GoogleCalendarColors
 
 class AddEditEventTypeFragment : Fragment() {
 
@@ -27,29 +31,8 @@ class AddEditEventTypeFragment : Fragment() {
 
     private lateinit var viewModel: AddEditEventTypeViewModel
     private var editingEventType: EventType? = null
-    private var selectedColor: Int? = null
-
-    // Predefined color palette
-    private val colorPalette = listOf(
-        Color.parseColor("#F44336"), // Red
-        Color.parseColor("#E91E63"), // Pink
-        Color.parseColor("#4285f4"), // ScribCal Blue
-        Color.parseColor("#673AB7"), // Deep Purple
-        Color.parseColor("#3F51B5"), // Indigo
-        Color.parseColor("#2196F3"), // Blue
-        Color.parseColor("#03A9F4"), // Light Blue
-        Color.parseColor("#00BCD4"), // Cyan
-        Color.parseColor("#009688"), // Teal
-        Color.parseColor("#4CAF50"), // Green
-        Color.parseColor("#8BC34A"), // Light Green
-        Color.parseColor("#CDDC39"), // Lime
-        Color.parseColor("#FFEB3B"), // Yellow
-        Color.parseColor("#FFC107"), // Amber
-        Color.parseColor("#FF9800"), // Orange
-        Color.parseColor("#FF5722"), // Deep Orange
-        Color.parseColor("#795548"), // Brown
-        Color.parseColor("#607D8B"), // Blue Grey
-    )
+    private var selectedColorId: Int? = null // Google Calendar color ID or CUSTOM_COLOR_ID
+    private var selectedCustomColor: Int? = null // Hex color when using custom color
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -66,6 +49,7 @@ class AddEditEventTypeFragment : Fragment() {
         setupViewModel()
         loadEventTypeFromArguments()
         setupColorGrid()
+        // setupCustomColorButton() // Commented out - custom colors not supported by Google Calendar API
         setupClickListeners()
         observeViewModel()
     }
@@ -93,42 +77,93 @@ class AddEditEventTypeFragment : Fragment() {
         val colorButtonSize = resources.getDimensionPixelSize(R.dimen.color_button_size)
         val colorButtonMargin = resources.getDimensionPixelSize(R.dimen.color_button_margin)
 
-        colorPalette.forEachIndexed { index, color ->
-            val colorButton = MaterialButton(requireContext()).apply {
-                layoutParams = GridLayout.LayoutParams().apply {
-                    width = colorButtonSize
-                    height = colorButtonSize
-                    setMargins(colorButtonMargin, colorButtonMargin, colorButtonMargin, colorButtonMargin)
-                }
-                setBackgroundColor(color)
-                cornerRadius = colorButtonSize / 2
-                setOnClickListener {
-                    selectColor(color)
-                }
-                tag = color
-            }
-
+        // Add Google Calendar colors
+        GoogleCalendarColors.ALL_COLORS.forEach { calColor ->
+            val colorButton = createColorButton(
+                colorButtonSize, 
+                colorButtonMargin, 
+                calColor.hexColor,
+                calColor.id
+            )
             gridLayout.addView(colorButton)
         }
 
-        // Select first color by default
-        if (selectedColor == null) {
-            selectColor(colorPalette.first())
+        // Select first color by default if nothing is selected
+        if (selectedColorId == null) {
+            selectColor(GoogleCalendarColors.BLUEBERRY.id, GoogleCalendarColors.BLUEBERRY.hexColor)
+        }
+    }
+    
+    private fun createColorButton(
+        size: Int,
+        margin: Int,
+        hexColor: Int,
+        colorId: Int
+    ): MaterialButton {
+        return MaterialButton(requireContext()).apply {
+            layoutParams = GridLayout.LayoutParams().apply {
+                width = size
+                height = size
+                setMargins(margin, margin, margin, margin)
+            }
+            setBackgroundColor(hexColor)
+            cornerRadius = size / 2
+            setOnClickListener {
+                selectColor(colorId, hexColor)
+            }
+            tag = colorId
         }
     }
 
-    private fun selectColor(color: Int) {
-        selectedColor = color
+    private fun selectColor(colorId: Int, hexColor: Int? = null) {
+        selectedColorId = colorId
+        if (GoogleCalendarColors.isCustomColor(colorId)) {
+            selectedCustomColor = hexColor
+        } else {
+            selectedCustomColor = null
+        }
         updateColorSelection()
     }
+    
+    // Custom color picker commented out - not supported by Google Calendar API
+    /*
+    private fun showCustomColorPicker() {
+        val initialColor = selectedCustomColor ?: Color.BLUE
+        
+        CustomColorPickerDialog.show(
+            requireContext(),
+            initialColor
+        ) { selectedColor ->
+            selectCustomColor(selectedColor)
+        }
+    }
+    */
+    
+    // Custom color functionality commented out - not supported by Google Calendar API
+    /*
+    private fun setupCustomColorButton() {
+        binding.customColorButton.setOnClickListener {
+            showCustomColorPicker()
+        }
+    }
+    
+    private fun selectCustomColor(hexColor: Int) {
+        // Update the custom color button to show the selected color
+        val hexString = String.format("#%06X", 0xFFFFFF and hexColor)
+        binding.customColorButton.text = "Custom Color: $hexString"
+        binding.customColorButton.iconTint = ContextCompat.getColorStateList(requireContext(), android.R.color.transparent)
+        binding.customColorButton.setBackgroundColor(hexColor)
+        selectColor(GoogleCalendarColors.CUSTOM_COLOR_ID, hexColor)
+    }
+    */
 
     private fun updateColorSelection() {
         val gridLayout = binding.colorGrid
         for (i in 0 until gridLayout.childCount) {
             val button = gridLayout.getChildAt(i) as MaterialButton
-            val buttonColor = button.tag as Int
+            val buttonColorId = button.tag as Int
 
-            if (buttonColor == selectedColor) {
+            if (buttonColorId == selectedColorId) {
                 // Add selection indicator (white stroke)
                 button.strokeWidth = 4
                 button.strokeColor = ContextCompat.getColorStateList(requireContext(), android.R.color.white)
@@ -173,16 +208,17 @@ class AddEditEventTypeFragment : Fragment() {
             updateUI()
         }
     }
-
+    
     private fun updateUI() {
         editingEventType?.let { eventType ->
             binding.nameEditText.setText(eventType.name)
             binding.descriptionEditText.setText(eventType.description)
             binding.saveButton.text = "Update"
 
-            eventType.color?.let { color ->
-                selectedColor = color
-                updateColorSelection()
+            // Restore color selection (custom colors commented out)
+            if (eventType.colorId != null) {
+                val hexColor = GoogleCalendarColors.getHexColorById(eventType.colorId!!)
+                selectColor(eventType.colorId!!, hexColor)
             }
         }
     }
@@ -203,14 +239,16 @@ class AddEditEventTypeFragment : Fragment() {
             EventType(
                 name = name,
                 description = description.takeIf { it?.isNotBlank() == true },
-                color = selectedColor
+                colorId = selectedColorId,
+                customColorHex = selectedCustomColor
             )
         } else {
             // Updating existing event type
             editingEventType!!.copy(
                 name = name,
                 description = description.takeIf { it?.isNotBlank() == true },
-                color = selectedColor
+                colorId = selectedColorId,
+                customColorHex = selectedCustomColor
             )
         }
 

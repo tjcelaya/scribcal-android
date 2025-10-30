@@ -13,10 +13,14 @@ class CalendarRepository(private val context: Context) {
 
     private val prefs: SharedPreferences = context.getSharedPreferences("scribcal_prefs", Context.MODE_PRIVATE)
 
+    private val googleCalendarApiService = GoogleCalendarApiService(context)
+
     companion object {
         private const val KEY_SELECTED_CALENDAR_ID = "selected_calendar_id"
         private const val KEY_CALENDAR_SETUP_COMPLETE = "calendar_setup_complete"
         private const val KEY_SELECTED_CALENDAR_NAME = "selected_calendar_name"
+        private const val KEY_SELECTED_CALENDAR_ACCOUNT = "selected_calendar_account"
+        private const val KEY_ENHANCED_CALENDAR_ENABLED = "enhanced_calendar_enabled"
     }
 
     fun hasCalendarPermissions(): Boolean {
@@ -45,6 +49,7 @@ class CalendarRepository(private val context: Context) {
         prefs.edit()
             .putLong(KEY_SELECTED_CALENDAR_ID, calendarInfo.id)
             .putString(KEY_SELECTED_CALENDAR_NAME, calendarInfo.displayName)
+            .putString(KEY_SELECTED_CALENDAR_ACCOUNT, calendarInfo.accountName)
             .putBoolean(KEY_CALENDAR_SETUP_COMPLETE, true)
             .apply()
     }
@@ -93,7 +98,12 @@ class CalendarRepository(private val context: Context) {
             startTime,
             endTime,
             description,
-            photoPath
+            photoPath,
+            eventType.colorId,
+            eventType.customColorHex,
+            getSelectedCalendarAccount(),
+            this@CalendarRepository,
+            eventType
         )
     }
 
@@ -127,7 +137,9 @@ class CalendarRepository(private val context: Context) {
             startTime,
             endTime,
             description,
-            photoPath
+            photoPath,
+            eventType.colorId,
+            eventType.customColorHex
         )
     }
 
@@ -172,5 +184,58 @@ class CalendarRepository(private val context: Context) {
         }
 
         return@withContext syncedCount
+    }
+    
+    // Enhanced Calendar Integration methods
+    
+    fun isEnhancedCalendarEnabled(): Boolean {
+        return prefs.getBoolean(KEY_ENHANCED_CALENDAR_ENABLED, false)
+    }
+    
+    fun setEnhancedCalendarEnabled(enabled: Boolean) {
+        prefs.edit()
+            .putBoolean(KEY_ENHANCED_CALENDAR_ENABLED, enabled)
+            .apply()
+    }
+    
+    fun getSelectedCalendarAccount(): String? {
+        return prefs.getString(KEY_SELECTED_CALENDAR_ACCOUNT, null)
+    }
+    
+    suspend fun initializeEnhancedCalendar(): Boolean = withContext(Dispatchers.IO) {
+        val accountName = getSelectedCalendarAccount()
+        if (accountName == null) {
+            android.util.Log.e("CalendarRepository", "No calendar account found")
+            return@withContext false
+        }
+        
+        return@withContext googleCalendarApiService.initialize(accountName)
+    }
+    
+    suspend fun syncEventWithEnhancedApi(
+        calendarAccountEmail: String,
+        localEventId: String,
+        eventType: EventType
+    ): Boolean = withContext(Dispatchers.IO) {
+        if (!isEnhancedCalendarEnabled()) {
+            return@withContext false
+        }
+        
+        if (!googleCalendarApiService.isInitialized()) {
+            val success = initializeEnhancedCalendar()
+            if (!success) return@withContext false
+        }
+        
+        // Only use REST API for standard Google Calendar colors (1-11)
+        // Custom colors aren't supported by the colorId field
+        return@withContext if (eventType.colorId != null && eventType.colorId in 1..11) {
+            googleCalendarApiService.updateEventColor(
+                calendarAccountEmail,
+                localEventId,
+                eventType.colorId
+            )
+        } else {
+            true // Not an error, just skip API sync for custom colors
+        }
     }
 }

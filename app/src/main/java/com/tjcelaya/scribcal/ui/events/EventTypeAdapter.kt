@@ -47,8 +47,9 @@ class EventTypeAdapter(
             }
 
             // Set color indicator
-            if (eventType.color != null) {
-                colorIndicator.background.setTint(eventType.color)
+            val displayColor = eventType.getDisplayColor()
+            if (displayColor != null) {
+                colorIndicator.background.setTint(displayColor)
             } else {
                 // Use default primary color if no color is set
                 val defaultColor = ContextCompat.getColor(itemView.context, R.color.scribcal_blue)

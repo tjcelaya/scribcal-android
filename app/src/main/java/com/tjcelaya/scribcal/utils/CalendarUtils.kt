@@ -149,7 +149,12 @@ object CalendarUtils {
         startTime: Long,
         endTime: Long,
         description: String? = null,
-        photoPath: String? = null
+        photoPath: String? = null,
+        colorId: Int? = null,
+        customColorHex: Int? = null,
+        calendarAccountEmail: String? = null,
+        calendarRepository: com.tjcelaya.scribcal.data.CalendarRepository? = null,
+        eventType: com.tjcelaya.scribcal.data.database.EventType? = null
     ): Long? = withContext(Dispatchers.IO) {
         if (!hasCalendarPermissions(context)) {
             return@withContext null
@@ -176,22 +181,85 @@ object CalendarUtils {
             // For instant events (startTime == endTime), we want zero-duration events, not all-day
             // Only set as all-day if explicitly requested (which we don't do for now)
             put(CalendarContract.Events.ALL_DAY, 0)
+            
+            // Set event color
+            when {
+                GoogleCalendarColors.isCustomColor(colorId) && customColorHex != null -> {
+                    // Use custom hex color directly
+                    android.util.Log.d("CalendarUtils", "Setting custom color: #${Integer.toHexString(customColorHex)}")
+                    put(CalendarContract.Events.EVENT_COLOR, customColorHex)
+                }
+                colorId != null && colorId in 1..11 -> {
+                    // Use Google Calendar standard color hex value
+                    val hexColor = GoogleCalendarColors.getHexColorById(colorId)
+                    android.util.Log.d("CalendarUtils", "Setting Google Calendar color ID $colorId with hex: #${Integer.toHexString(hexColor ?: 0)}")
+                    if (hexColor != null) {
+                        put(CalendarContract.Events.EVENT_COLOR, hexColor)
+                    }
+                }
+                else -> {
+                    android.util.Log.d("CalendarUtils", "No color specified, colorId=$colorId, customColorHex=$customColorHex")
+                }
+            }
         }
+        
+        // Log the full ContentValues being sent
+        android.util.Log.d("CalendarUtils", "========== INSERT REQUEST ==========")
+        android.util.Log.d("CalendarUtils", "Full ContentValues:")
+        for (key in values.keySet()) {
+            val value = values.get(key)
+            if (key == CalendarContract.Events.EVENT_COLOR) {
+                android.util.Log.d("CalendarUtils", "  $key = ${if (value != null) "#${Integer.toHexString(value as Int)} (decimal: $value)" else "NULL"}")
+            } else {
+                android.util.Log.d("CalendarUtils", "  $key = $value")
+            }
+        }
+        android.util.Log.d("CalendarUtils", "====================================")
 
         try {
+            android.util.Log.d("CalendarUtils", "Calling contentResolver.insert()...")
             val uri: Uri? = contentResolver.insert(CalendarContract.Events.CONTENT_URI, values)
+            
+            android.util.Log.d("CalendarUtils", "========== INSERT RESPONSE ==========")
+            android.util.Log.d("CalendarUtils", "Returned URI: $uri")
+            
             val eventId = uri?.lastPathSegment?.toLongOrNull()
             if (eventId != null) {
                 android.util.Log.d("CalendarUtils", "Successfully created calendar event with ID: $eventId")
+                android.util.Log.d("CalendarUtils", "=====================================")
+                
+                // Verify what was actually stored by reading it back
+                verifyEventColor(context, eventId)
+                
+                // If enhanced calendar is enabled, also sync via REST API
+                if (calendarRepository != null && eventType != null && calendarAccountEmail != null) {
+                    try {
+                        val apiSuccess = calendarRepository.syncEventWithEnhancedApi(
+                            calendarAccountEmail,
+                            eventId.toString(),
+                            eventType
+                        )
+                        if (apiSuccess) {
+                            android.util.Log.d("CalendarUtils", "Successfully synced color via REST API")
+                        } else {
+                            android.util.Log.w("CalendarUtils", "Failed to sync color via REST API (may not be enabled)")
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("CalendarUtils", "Error syncing via REST API", e)
+                    }
+                }
             } else {
                 android.util.Log.e("CalendarUtils", "Failed to create calendar event - no ID returned")
+                android.util.Log.d("CalendarUtils", "=====================================")
             }
             return@withContext eventId
         } catch (e: SecurityException) {
             // Handle permission error
+            android.util.Log.e("CalendarUtils", "SecurityException creating event", e)
             return@withContext null
         } catch (e: Exception) {
             // Handle other errors
+            android.util.Log.e("CalendarUtils", "Exception creating event", e)
             return@withContext null
         }
     }
@@ -203,7 +271,9 @@ object CalendarUtils {
         startTime: Long,
         endTime: Long,
         description: String? = null,
-        photoPath: String? = null
+        photoPath: String? = null,
+        colorId: Int? = null,
+        customColorHex: Int? = null
     ): Boolean = withContext(Dispatchers.IO) {
         if (!hasCalendarPermissions(context)) {
             return@withContext false
@@ -221,6 +291,26 @@ object CalendarUtils {
             put(CalendarContract.Events.EVENT_TIMEZONE, java.util.TimeZone.getDefault().id)
             put(CalendarContract.Events.ALL_DAY, 0)
             put(CalendarContract.Events.DTEND, endTime)
+            
+            // Set event color
+            when {
+                GoogleCalendarColors.isCustomColor(colorId) && customColorHex != null -> {
+                    // Use custom hex color directly
+                    android.util.Log.d("CalendarUtils", "Updating with custom color: #${Integer.toHexString(customColorHex)}")
+                    put(CalendarContract.Events.EVENT_COLOR, customColorHex)
+                }
+                colorId != null && colorId in 1..11 -> {
+                    // Use Google Calendar standard color hex value
+                    val hexColor = GoogleCalendarColors.getHexColorById(colorId)
+                    android.util.Log.d("CalendarUtils", "Updating with Google Calendar color ID $colorId with hex: #${Integer.toHexString(hexColor ?: 0)}")
+                    if (hexColor != null) {
+                        put(CalendarContract.Events.EVENT_COLOR, hexColor)
+                    }
+                }
+                else -> {
+                    android.util.Log.d("CalendarUtils", "No color specified for update, colorId=$colorId, customColorHex=$customColorHex")
+                }
+            }
         }
 
         try {
@@ -252,6 +342,56 @@ object CalendarUtils {
         }
     }
 
+    /**
+     * Verify what color was actually stored in the calendar event
+     */
+    private fun verifyEventColor(context: Context, eventId: Long) {
+        try {
+            val contentResolver = context.contentResolver
+            val projection = arrayOf(
+                CalendarContract.Events._ID,
+                CalendarContract.Events.TITLE,
+                CalendarContract.Events.EVENT_COLOR,
+                CalendarContract.Events.DISPLAY_COLOR
+            )
+            
+            val uri = Uri.withAppendedPath(CalendarContract.Events.CONTENT_URI, eventId.toString())
+            val cursor = contentResolver.query(uri, projection, null, null, null)
+            
+            cursor?.use {
+                if (it.moveToFirst()) {
+                    val id = it.getLong(it.getColumnIndexOrThrow(CalendarContract.Events._ID))
+                    val title = it.getString(it.getColumnIndexOrThrow(CalendarContract.Events.TITLE))
+                    val eventColorIndex = it.getColumnIndex(CalendarContract.Events.EVENT_COLOR)
+                    val displayColorIndex = it.getColumnIndex(CalendarContract.Events.DISPLAY_COLOR)
+                    
+                    val eventColor = if (!it.isNull(eventColorIndex)) {
+                        it.getInt(eventColorIndex)
+                    } else {
+                        null
+                    }
+                    
+                    val displayColor = if (!it.isNull(displayColorIndex)) {
+                        it.getInt(displayColorIndex)
+                    } else {
+                        null
+                    }
+                    
+                    android.util.Log.d("CalendarUtils", "========== VERIFICATION ==========")
+                    android.util.Log.d("CalendarUtils", "Event ID: $id")
+                    android.util.Log.d("CalendarUtils", "Event Title: $title")
+                    android.util.Log.d("CalendarUtils", "EVENT_COLOR field: ${if (eventColor != null) "#${Integer.toHexString(eventColor)}" else "NULL"}")
+                    android.util.Log.d("CalendarUtils", "DISPLAY_COLOR field: ${if (displayColor != null) "#${Integer.toHexString(displayColor)}" else "NULL"}")
+                    android.util.Log.d("CalendarUtils", "=================================")
+                } else {
+                    android.util.Log.e("CalendarUtils", "Could not find event $eventId for verification")
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("CalendarUtils", "Error verifying event color", e)
+        }
+    }
+    
     /**
      * Format event description with photo link if available
      */

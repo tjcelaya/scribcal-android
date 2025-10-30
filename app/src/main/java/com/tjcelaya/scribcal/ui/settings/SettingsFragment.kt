@@ -103,6 +103,7 @@ class SettingsFragment : Fragment() {
 
     private fun setupUI() {
         setupCalendarSection()
+        setupEnhancedCalendarSection()
         setupDriveSection()
         setupPhotosSection()
         setupStorageSelection()
@@ -128,6 +129,70 @@ class SettingsFragment : Fragment() {
         binding.changeCalendarButton.setOnClickListener {
             findNavController().navigate(R.id.calendarSetupFragment)
         }
+    }
+    
+    private fun setupEnhancedCalendarSection() {
+        // Enable switch only if calendar is set up
+        val isCalendarSetup = calendarRepository.isCalendarSetupComplete()
+        binding.enhancedCalendarSwitch.isEnabled = isCalendarSetup
+        
+        // Load current state
+        binding.enhancedCalendarSwitch.isChecked = calendarRepository.isEnhancedCalendarEnabled()
+        
+        // Update status text
+        updateEnhancedCalendarStatus()
+        
+        // Handle toggle
+        binding.enhancedCalendarSwitch.setOnCheckedChangeListener { _, isChecked ->
+            lifecycleScope.launch {
+                try {
+                    if (isChecked) {
+                        // Try to initialize the API
+                        binding.enhancedCalendarStatus.text = "Initializing..."
+                        val success = calendarRepository.initializeEnhancedCalendar()
+                        
+                        if (success) {
+                            calendarRepository.setEnhancedCalendarEnabled(true)
+                            binding.enhancedCalendarStatus.text = "✓ Enabled - Colors will appear in Google Calendar"
+                            binding.enhancedCalendarStatus.setTextColor(requireContext().getColor(android.R.color.holo_green_dark))
+                            Snackbar.make(binding.root, "Enhanced calendar integration enabled", Snackbar.LENGTH_SHORT).show()
+                        } else {
+                            binding.enhancedCalendarSwitch.isChecked = false
+                            binding.enhancedCalendarStatus.text = "Failed to initialize API"
+                            binding.enhancedCalendarStatus.setTextColor(requireContext().getColor(android.R.color.holo_red_dark))
+                            Snackbar.make(binding.root, "Failed to enable enhanced integration", Snackbar.LENGTH_LONG).show()
+                        }
+                    } else {
+                        calendarRepository.setEnhancedCalendarEnabled(false)
+                        updateEnhancedCalendarStatus()
+                        Snackbar.make(binding.root, "Enhanced calendar integration disabled", Snackbar.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    Log.e("SettingsFragment", "Error toggling enhanced calendar", e)
+                    binding.enhancedCalendarSwitch.isChecked = false
+                    binding.enhancedCalendarStatus.text = "Error: ${e.message}"
+                    binding.enhancedCalendarStatus.setTextColor(requireContext().getColor(android.R.color.holo_red_dark))
+                }
+            }
+        }
+    }
+    
+    private fun updateEnhancedCalendarStatus() {
+        val isEnabled = calendarRepository.isEnhancedCalendarEnabled()
+        val isCalendarSetup = calendarRepository.isCalendarSetupComplete()
+        
+        binding.enhancedCalendarStatus.text = when {
+            !isCalendarSetup -> "Select a calendar first to enable this feature"
+            isEnabled -> "✓ Enabled - Colors will appear in Google Calendar"
+            else -> "Disabled - Colors only visible in some calendar apps"
+        }
+        
+        val color = when {
+            isEnabled -> android.R.color.holo_green_dark
+            !isCalendarSetup -> android.R.color.tab_indicator_text
+            else -> android.R.color.tab_indicator_text
+        }
+        binding.enhancedCalendarStatus.setTextColor(requireContext().getColor(color))
     }
 
     private fun setupDriveSection() {

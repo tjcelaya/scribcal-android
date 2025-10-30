@@ -129,8 +129,9 @@ class EventTypesTrackingAdapter(
             }
 
             // Set color indicator
-            if (eventType.color != null) {
-                colorIndicator.background.setTint(eventType.color)
+            val displayColor = eventType.getDisplayColor()
+            if (displayColor != null) {
+                colorIndicator.background.setTint(displayColor)
             } else {
                 val defaultColor = ContextCompat.getColor(itemView.context, R.color.scribcal_blue)
                 colorIndicator.background.setTint(defaultColor)
@@ -350,8 +351,9 @@ class FutureEventsAdapter(
             eventTypeName.text = eventType.name
 
             // Set color indicator
-            if (eventType.color != null) {
-                colorIndicator.background.setTint(eventType.color)
+            val displayColor = eventType.getDisplayColor()
+            if (displayColor != null) {
+                colorIndicator.background.setTint(displayColor)
             } else {
                 val defaultColor = ContextCompat.getColor(itemView.context, R.color.scribcal_blue)
                 colorIndicator.background.setTint(defaultColor)

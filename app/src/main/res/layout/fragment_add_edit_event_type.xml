@@ -76,11 +76,34 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:columnCount="6"
-            android:layout_marginBottom="32dp">
+            android:rowCount="2"
+            android:useDefaultMargins="false"
+            android:alignmentMode="alignBounds"
+            android:layout_marginBottom="24dp">
 
             <!-- Colors will be added programmatically -->
 
         </GridLayout>
+
+        <!-- Custom Color Section (Commented out - not supported by Google Calendar API) -->
+        <!--
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="or choose a custom color"
+            android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:layout_marginBottom="8dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/customColorButton"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Select Custom Color"
+            app:icon="@android:drawable/ic_menu_edit"
+            android:layout_marginBottom="32dp" />
+        -->
 
         <!-- Action Buttons -->
         <LinearLayout

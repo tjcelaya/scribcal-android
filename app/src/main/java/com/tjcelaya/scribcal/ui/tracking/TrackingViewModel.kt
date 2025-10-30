@@ -320,7 +320,8 @@ class TrackingViewModel(
             val newEventType = EventType(
                 name = eventTitle,
                 description = "Created from calendar event",
-                color = null
+                colorId = null,
+                customColorHex = null
             )
             eventRepository.insertEventType(newEventType)
         } catch (e: Exception) {
