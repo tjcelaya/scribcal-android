@@ -19,6 +19,7 @@ class UnifiedEventAdapter(
     private val onEditClick: (EventType) -> Unit,
     private val onDeleteClick: (EventType) -> Unit,
     private val onStopEventClick: (OngoingEvent) -> Unit,
+    private val onItemClick: ((EventDisplayItem) -> Unit)? = null,
     private val getCurrentTime: () -> Long = { System.currentTimeMillis() }
 ) : ListAdapter<EventDisplayItem, RecyclerView.ViewHolder>(EventDisplayItemDiffCallback()) {
 
@@ -50,7 +51,7 @@ class UnifiedEventAdapter(
         val item = getItem(position)
         when (holder) {
             is OngoingEventViewHolder -> holder.bind(item.eventType, item.ongoingEvent!!)
-            is EventTypeViewHolder -> holder.bind(item.eventType)
+            is EventTypeViewHolder -> holder.bind(item)
         }
     }
 
@@ -58,10 +59,17 @@ class UnifiedEventAdapter(
         private val colorIndicator: View = itemView.findViewById(R.id.colorIndicator)
         private val eventTypeName: TextView = itemView.findViewById(R.id.eventTypeName)
         private val eventTypeDescription: TextView = itemView.findViewById(R.id.eventTypeDescription)
+        private val lastOccurrenceText: TextView = itemView.findViewById(R.id.lastOccurrenceText)
+        private val frequencyStatsLayout: View = itemView.findViewById(R.id.frequencyStatsLayout)
+        private val hourlyFrequency: TextView = itemView.findViewById(R.id.hourlyFrequency)
+        private val dailyFrequency: TextView = itemView.findViewById(R.id.dailyFrequency)
+        private val weeklyFrequency: TextView = itemView.findViewById(R.id.weeklyFrequency)
+        private val monthlyFrequency: TextView = itemView.findViewById(R.id.monthlyFrequency)
         private val editButton: MaterialButton = itemView.findViewById(R.id.editButton)
         private val deleteButton: MaterialButton = itemView.findViewById(R.id.deleteButton)
 
-        fun bind(eventType: EventType) {
+        fun bind(item: EventDisplayItem) {
+            val eventType = item.eventType
             eventTypeName.text = eventType.name
 
             // Handle description visibility
@@ -81,9 +89,51 @@ class UnifiedEventAdapter(
                 colorIndicator.background.setTint(defaultColor)
             }
 
-            // Set click listeners
+            // Display time since last occurrence
+            if (item.lastOccurrenceTime != null) {
+                val timeSince = getCurrentTime() - item.lastOccurrenceTime
+                lastOccurrenceText.text = "Last: ${formatTimeSince(timeSince)}"
+                lastOccurrenceText.visibility = View.VISIBLE
+            } else {
+                lastOccurrenceText.text = "Last: Never"
+                lastOccurrenceText.visibility = View.VISIBLE
+            }
+
+            // Display frequency statistics
+            hourlyFrequency.text = "Hourly: ${item.hourlyCount}"
+            dailyFrequency.text = "Daily: ${item.dailyCount}"
+            weeklyFrequency.text = "Weekly: ${item.weeklyCount}"
+            monthlyFrequency.text = "Monthly: ${item.monthlyCount}"
+
+            // Handle expanded/collapsed state
+            frequencyStatsLayout.visibility = if (item.isExpanded) View.VISIBLE else View.GONE
+
+            // Set click listener for the entire item (excluding buttons)
+            itemView.setOnClickListener {
+                onItemClick?.invoke(item)
+            }
+
+            // Set click listeners for buttons
             editButton.setOnClickListener { onEditClick(eventType) }
             deleteButton.setOnClickListener { onDeleteClick(eventType) }
+        }
+
+        private fun formatTimeSince(millis: Long): String {
+            val seconds = millis / 1000
+            val minutes = seconds / 60
+            val hours = minutes / 60
+            val days = hours / 24
+            val weeks = days / 7
+            val months = days / 30
+
+            return when {
+                months > 0 -> "$months month${if (months > 1) "s" else ""} ago"
+                weeks > 0 -> "$weeks week${if (weeks > 1) "s" else ""} ago"
+                days > 0 -> "$days day${if (days > 1) "s" else ""} ago"
+                hours > 0 -> "$hours hour${if (hours > 1) "s" else ""} ago"
+                minutes > 0 -> "$minutes minute${if (minutes > 1) "s" else ""} ago"
+                else -> "$seconds second${if (seconds != 1L) "s" else ""} ago"
+            }
         }
     }
 

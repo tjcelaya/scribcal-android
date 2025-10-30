@@ -61,6 +61,9 @@ class EventsFragment : Fragment() {
             },
             onStopEventClick = { ongoingEvent ->
                 showStopEventConfirmationDialog(ongoingEvent)
+            },
+            onItemClick = { item ->
+                viewModel.toggleItemExpanded(item)
             }
         )
 

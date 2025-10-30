@@ -89,6 +89,69 @@
 
         </LinearLayout>
 
+        <!-- Last Occurrence -->
+        <TextView
+            android:id="@+id/lastOccurrenceText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+            android:textColor="?android:attr/textColorSecondary"
+            android:layout_marginTop="4dp"
+            tools:text="Last: 2 hours ago" />
+
+        <!-- Frequency Statistics (expandable) -->
+        <LinearLayout
+            android:id="@+id/frequencyStatsLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="8dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="4dp"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:background="#10000000"
+            android:visibility="gone"
+            tools:visibility="visible">
+
+            <TextView
+                android:id="@+id/hourlyFrequency"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                tools:text="Hourly: 1" />
+
+            <TextView
+                android:id="@+id/dailyFrequency"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                tools:text="Daily: 5" />
+
+            <TextView
+                android:id="@+id/weeklyFrequency"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                tools:text="Weekly: 12" />
+
+            <TextView
+                android:id="@+id/monthlyFrequency"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                tools:text="Monthly: 35" />
+
+        </LinearLayout>
+
     </LinearLayout>
 
     <!-- Action Buttons -->

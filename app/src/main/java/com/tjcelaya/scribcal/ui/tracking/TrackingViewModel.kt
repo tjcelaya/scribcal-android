@@ -42,14 +42,32 @@ class TrackingViewModel(
         var ongoingEventsList: List<OngoingEvent> = emptyList()
 
         fun update() {
-            val ongoingByEventType = ongoingEventsList.groupBy { it.eventTypeId }
-            value = eventTypesList.map { eventType ->
-                val ongoingEvents = ongoingByEventType[eventType.id] ?: emptyList()
-                EventTypeWithCount(
-                    eventType = eventType,
-                    ongoingCount = ongoingEvents.size,
-                    ongoingEvent = ongoingEvents.firstOrNull() // Show the first ongoing event
-                )
+            viewModelScope.launch {
+                val ongoingByEventType = ongoingEventsList.groupBy { it.eventTypeId }
+                val currentTime = System.currentTimeMillis()
+                
+                val items = eventTypesList.map { eventType ->
+                    val ongoingEvents = ongoingByEventType[eventType.id] ?: emptyList()
+                    
+                    // Fetch last occurrence time and frequency stats
+                    val lastOccurrence = eventRepository.getLastCompletedEventTime(eventType.id)
+                    val hourlyCount = eventRepository.getEventCountSince(eventType.id, currentTime - 3600_000L)
+                    val dailyCount = eventRepository.getEventCountSince(eventType.id, currentTime - 86400_000L)
+                    val weeklyCount = eventRepository.getEventCountSince(eventType.id, currentTime - 604800_000L)
+                    val monthlyCount = eventRepository.getEventCountSince(eventType.id, currentTime - 2592000_000L)
+                    
+                    EventTypeWithCount(
+                        eventType = eventType,
+                        ongoingCount = ongoingEvents.size,
+                        ongoingEvent = ongoingEvents.firstOrNull(), // Show the first ongoing event
+                        lastOccurrenceTime = lastOccurrence,
+                        hourlyCount = hourlyCount,
+                        dailyCount = dailyCount,
+                        weeklyCount = weeklyCount,
+                        monthlyCount = monthlyCount
+                    )
+                }
+                value = items
             }
         }
 
@@ -371,6 +389,18 @@ class TrackingViewModel(
                 Log.e("TrackingViewModel", "Error checking expired future events", e)
             }
         }
+    }
+
+    fun toggleItemExpanded(item: EventTypeWithCount) {
+        val currentItems = eventTypesWithCounts.value ?: return
+        val updatedItems = currentItems.map { currentItem ->
+            if (currentItem.eventType.id == item.eventType.id) {
+                currentItem.copy(isExpanded = !currentItem.isExpanded)
+            } else {
+                currentItem
+            }
+        }
+        (eventTypesWithCounts as MediatorLiveData).value = updatedItems
     }
 
     private fun updateCalendarStatus() {

@@ -20,17 +20,25 @@ import java.util.*
 data class EventTypeWithCount(
     val eventType: EventType,
     val ongoingCount: Int,
-    val ongoingEvent: OngoingEvent? = null // The first ongoing event if any
+    val ongoingEvent: OngoingEvent? = null, // The first ongoing event if any
+    val lastOccurrenceTime: Long? = null,
+    val hourlyCount: Int = 0,
+    val dailyCount: Int = 0,
+    val weeklyCount: Int = 0,
+    val monthlyCount: Int = 0,
+    val isExpanded: Boolean = false
 )
 
 class EventTypesTrackingAdapter(
     private val onStartEvent: (EventType) -> Unit,
     private val onRecordInstantEvent: (EventType) -> Unit,
-    private val onStopEvent: (OngoingEvent) -> Unit
+    private val onStopEvent: (OngoingEvent) -> Unit,
+    private val onItemClick: ((EventTypeWithCount) -> Unit)? = null
 ) : ListAdapter<EventTypeWithCount, EventTypesTrackingAdapter.ViewHolder>(EventTypeWithCountDiffCallback()) {
 
     companion object {
         private const val PAYLOAD_UPDATE_TIMER = "update_timer"
+        private const val PAYLOAD_UPDATE_TIME_SINCE = "update_time_since"
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -44,23 +52,47 @@ class EventTypesTrackingAdapter(
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int, payloads: MutableList<Any>) {
-        if (payloads.isNotEmpty() && payloads.contains(PAYLOAD_UPDATE_TIMER)) {
-            // Only update the timer, don't rebind the entire view
+        if (payloads.isNotEmpty()) {
             val item = getItem(position)
-            if (item.ongoingEvent != null) {
+            
+            if (payloads.contains(PAYLOAD_UPDATE_TIMER) && item.ongoingEvent != null) {
+                // Only update the ongoing event timer
                 holder.updateTimerOnly(item.ongoingEvent.startTime)
             }
-        } else {
-            super.onBindViewHolder(holder, position, payloads)
+            
+            if (payloads.contains(PAYLOAD_UPDATE_TIME_SINCE)) {
+                // Only update the time since last occurrence
+                holder.updateTimeSinceOnly(item.lastOccurrenceTime)
+            }
+            
+            // Don't call super if we handled all payloads
+            if (payloads.all { it == PAYLOAD_UPDATE_TIMER || it == PAYLOAD_UPDATE_TIME_SINCE }) {
+                return
+            }
         }
+        
+        super.onBindViewHolder(holder, position, payloads)
     }
 
     fun refreshTimers() {
-        // Only refresh items that have ongoing events to avoid flashing all items
+        // Refresh items with ongoing events and time-since displays
         for (position in 0 until itemCount) {
             val item = getItem(position)
+            val payloads = mutableListOf<String>()
+            
+            // Update ongoing event timer if present
             if (item.ongoingEvent != null) {
-                notifyItemChanged(position, PAYLOAD_UPDATE_TIMER)
+                payloads.add(PAYLOAD_UPDATE_TIMER)
+            }
+            
+            // Always update time since last occurrence (if there was a last occurrence)
+            if (item.lastOccurrenceTime != null) {
+                payloads.add(PAYLOAD_UPDATE_TIME_SINCE)
+            }
+            
+            // Only notify if there's something to update
+            if (payloads.isNotEmpty()) {
+                notifyItemChanged(position, payloads)
             }
         }
     }
@@ -72,6 +104,12 @@ class EventTypesTrackingAdapter(
         private val ongoingStatusLayout: View = itemView.findViewById(R.id.ongoingStatusLayout)
         private val elapsedTimeText: TextView = itemView.findViewById(R.id.elapsedTimeText)
         private val startedAtText: TextView = itemView.findViewById(R.id.startedAtText)
+        private val lastOccurrenceText: TextView = itemView.findViewById(R.id.lastOccurrenceText)
+        private val frequencyStatsLayout: View = itemView.findViewById(R.id.frequencyStatsLayout)
+        private val hourlyFrequency: TextView = itemView.findViewById(R.id.hourlyFrequency)
+        private val dailyFrequency: TextView = itemView.findViewById(R.id.dailyFrequency)
+        private val weeklyFrequency: TextView = itemView.findViewById(R.id.weeklyFrequency)
+        private val monthlyFrequency: TextView = itemView.findViewById(R.id.monthlyFrequency)
         private val instantEventButton: MaterialButton = itemView.findViewById(R.id.instantEventButton)
         private val startEventButton: MaterialButton = itemView.findViewById(R.id.startEventButton)
         private val stopEventButton: MaterialButton = itemView.findViewById(R.id.stopEventButton)
@@ -98,6 +136,30 @@ class EventTypesTrackingAdapter(
                 colorIndicator.background.setTint(defaultColor)
             }
 
+            // Display time since last occurrence
+            if (eventTypeWithCount.lastOccurrenceTime != null) {
+                val timeSince = System.currentTimeMillis() - eventTypeWithCount.lastOccurrenceTime
+                lastOccurrenceText.text = "Last: ${formatTimeSince(timeSince)}"
+                lastOccurrenceText.visibility = View.VISIBLE
+            } else {
+                lastOccurrenceText.text = "Last: Never"
+                lastOccurrenceText.visibility = View.VISIBLE
+            }
+
+            // Display frequency statistics
+            hourlyFrequency.text = "Hourly: ${eventTypeWithCount.hourlyCount}"
+            dailyFrequency.text = "Daily: ${eventTypeWithCount.dailyCount}"
+            weeklyFrequency.text = "Weekly: ${eventTypeWithCount.weeklyCount}"
+            monthlyFrequency.text = "Monthly: ${eventTypeWithCount.monthlyCount}"
+
+            // Handle expanded/collapsed state
+            frequencyStatsLayout.visibility = if (eventTypeWithCount.isExpanded) View.VISIBLE else View.GONE
+
+            // Set click listener for the entire item (excluding buttons)
+            itemView.setOnClickListener {
+                onItemClick?.invoke(eventTypeWithCount)
+            }
+
             // Handle ongoing vs normal state
             if (ongoingEvent != null) {
                 // Show ongoing state
@@ -105,6 +167,24 @@ class EventTypesTrackingAdapter(
             } else {
                 // Show normal buttons
                 showNormalState(eventType)
+            }
+        }
+
+        private fun formatTimeSince(millis: Long): String {
+            val seconds = millis / 1000
+            val minutes = seconds / 60
+            val hours = minutes / 60
+            val days = hours / 24
+            val weeks = days / 7
+            val months = days / 30
+
+            return when {
+                months > 0 -> "$months month${if (months > 1) "s" else ""} ago"
+                weeks > 0 -> "$weeks week${if (weeks > 1) "s" else ""} ago"
+                days > 0 -> "$days day${if (days > 1) "s" else ""} ago"
+                hours > 0 -> "$hours hour${if (hours > 1) "s" else ""} ago"
+                minutes > 0 -> "$minutes minute${if (minutes > 1) "s" else ""} ago"
+                else -> "$seconds second${if (seconds != 1L) "s" else ""} ago"
             }
         }
 
@@ -167,6 +247,16 @@ class EventTypesTrackingAdapter(
         fun updateTimerOnly(startTime: Long) {
             // Only update the elapsed time without rebinding the entire view
             updateElapsedTime(startTime)
+        }
+        
+        fun updateTimeSinceOnly(lastOccurrenceTime: Long?) {
+            // Only update the time since display without rebinding the entire view
+            if (lastOccurrenceTime != null) {
+                val timeSince = System.currentTimeMillis() - lastOccurrenceTime
+                lastOccurrenceText.text = "Last: ${formatTimeSince(timeSince)}"
+            } else {
+                lastOccurrenceText.text = "Last: Never"
+            }
         }
     }
 }

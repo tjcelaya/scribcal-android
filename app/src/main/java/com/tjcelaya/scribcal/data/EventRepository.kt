@@ -340,6 +340,14 @@ class EventRepository(
         eventDao.getOngoingEventCountForType(eventTypeId)
     }
 
+    suspend fun getLastCompletedEventTime(eventTypeId: Long): Long? = withContext(Dispatchers.IO) {
+        eventDao.getLastCompletedEventTimeForType(eventTypeId)
+    }
+
+    suspend fun getEventCountSince(eventTypeId: Long, startTime: Long): Int = withContext(Dispatchers.IO) {
+        eventDao.getCompletedEventCountSince(eventTypeId, startTime)
+    }
+
     // Calendar sync methods - placeholder implementations
     suspend fun getUnsyncedEvents(): List<Event> = withContext(Dispatchers.IO) {
         // For now, return empty list since we don't have calendar sync flag in Event entity

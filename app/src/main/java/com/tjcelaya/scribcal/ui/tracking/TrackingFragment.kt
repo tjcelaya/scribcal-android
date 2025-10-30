@@ -164,6 +164,9 @@ class TrackingFragment : Fragment() {
             },
             onStopEvent = { ongoingEvent ->
                 viewModel.showStopEventConfirmation(ongoingEvent)
+            },
+            onItemClick = { item ->
+                viewModel.toggleItemExpanded(item)
             }
         )
 
@@ -257,6 +260,11 @@ class TrackingFragment : Fragment() {
             eventTypesAdapter.submitList(eventTypesWithCounts)
             binding.emptyEventTypesText.visibility =
                 if (eventTypesWithCounts.isEmpty()) View.VISIBLE else View.GONE
+            
+            // Always keep timer running if there are event types (for live time-since updates)
+            if (eventTypesWithCounts.isNotEmpty()) {
+                startTimerUpdates()
+            }
         }
 
         // Observe displayable ongoing items (both events and photo uploads) for timer updates only
@@ -398,10 +406,50 @@ class TrackingFragment : Fragment() {
                 eventTypesAdapter.refreshTimers()
                 // Refresh future event countdown timers
                 futureEventsAdapter.refreshTimers()
-                timerHandler.postDelayed(this, 1000) // Update every second
+                
+                // Calculate next update interval based on the shortest "time since"
+                val nextInterval = calculateDynamicUpdateInterval()
+                timerHandler.postDelayed(this, nextInterval)
             }
         }
         timerHandler.post(timerRunnable!!)
+    }
+    
+    private fun calculateDynamicUpdateInterval(): Long {
+        // Find the minimum time since last occurrence across all event types
+        val eventTypesWithCounts = viewModel.eventTypesWithCounts.value ?: emptyList()
+        val currentTime = System.currentTimeMillis()
+        
+        var minTimeSince = Long.MAX_VALUE
+        
+        // Check ongoing events (always need second-by-second updates)
+        val hasOngoingEvents = eventTypesWithCounts.any { it.ongoingEvent != null }
+        if (hasOngoingEvents) {
+            return 1000L // Update every second if there are ongoing events
+        }
+        
+        // Check future events (may need second-by-second updates)
+        val futureEvents = viewModel.futureEventsWithTypes.value ?: emptyList()
+        if (futureEvents.isNotEmpty()) {
+            return 1000L // Update every second if there are future events with countdowns
+        }
+        
+        // Calculate minimum time since last occurrence for all event types
+        eventTypesWithCounts.forEach { item ->
+            item.lastOccurrenceTime?.let { lastTime ->
+                val timeSince = currentTime - lastTime
+                if (timeSince < minTimeSince) {
+                    minTimeSince = timeSince
+                }
+            }
+        }
+        
+        // Dynamic interval based on shortest time since
+        return when {
+            minTimeSince < 60_000L -> 1000L        // Less than 1 minute: update every second
+            minTimeSince < 3600_000L -> 60_000L    // Less than 1 hour: update every minute
+            else -> 60_000L                         // 1 hour or more: update every minute (for consistency)
+        }
     }
 
     private fun stopTimerUpdates() {
@@ -828,6 +876,18 @@ class TrackingFragment : Fragment() {
         super.onResume()
         // Check for expired future events when fragment resumes
         viewModel.checkExpiredFutureEvents()
+        
+        // Restart timers when coming back to foreground
+        val eventTypesWithCounts = viewModel.eventTypesWithCounts.value ?: emptyList()
+        if (eventTypesWithCounts.isNotEmpty()) {
+            startTimerUpdates()
+        }
+    }
+    
+    override fun onPause() {
+        super.onPause()
+        // Stop timers when going to background to save battery
+        stopTimerUpdates()
     }
 
     override fun onDestroyView() {

@@ -24,21 +24,49 @@ class EventsViewModel(
         var currentOngoing: List<OngoingEvent> = emptyList()
 
         fun update() {
-            // Map event types; if an ongoing exists for a type, include that item first
-            val byTypeId = currentTypes.associateBy { it.id }
-            val ongoingByTypeId = currentOngoing.groupBy { it.eventTypeId }
+            viewModelScope.launch {
+                // Map event types; if an ongoing exists for a type, include that item first
+                val byTypeId = currentTypes.associateBy { it.id }
+                val ongoingByTypeId = currentOngoing.groupBy { it.eventTypeId }
 
-            val items = mutableListOf<EventDisplayItem>()
-            for ((typeId, type) in byTypeId) {
-                val ongoingForType = ongoingByTypeId[typeId]
-                if (!ongoingForType.isNullOrEmpty()) {
-                    // If multiple ongoing are possible, show the first; otherwise adapt as needed
-                    items += EventDisplayItem(type, ongoingForType.first())
-                } else {
-                    items += EventDisplayItem(type, null)
+                val items = mutableListOf<EventDisplayItem>()
+                val currentTime = System.currentTimeMillis()
+                
+                for ((typeId, type) in byTypeId) {
+                    val ongoingForType = ongoingByTypeId[typeId]
+                    
+                    // Fetch last occurrence time and frequency stats
+                    val lastOccurrence = eventRepository.getLastCompletedEventTime(typeId)
+                    val hourlyCount = eventRepository.getEventCountSince(typeId, currentTime - 3600_000L)
+                    val dailyCount = eventRepository.getEventCountSince(typeId, currentTime - 86400_000L)
+                    val weeklyCount = eventRepository.getEventCountSince(typeId, currentTime - 604800_000L)
+                    val monthlyCount = eventRepository.getEventCountSince(typeId, currentTime - 2592000_000L)
+                    
+                    if (!ongoingForType.isNullOrEmpty()) {
+                        // If multiple ongoing are possible, show the first; otherwise adapt as needed
+                        items += EventDisplayItem(
+                            type, 
+                            ongoingForType.first(),
+                            lastOccurrence,
+                            hourlyCount,
+                            dailyCount,
+                            weeklyCount,
+                            monthlyCount
+                        )
+                    } else {
+                        items += EventDisplayItem(
+                            type, 
+                            null,
+                            lastOccurrence,
+                            hourlyCount,
+                            dailyCount,
+                            weeklyCount,
+                            monthlyCount
+                        )
+                    }
                 }
+                value = items
             }
-            value = items
         }
 
         addSource(eventTypes) {
@@ -95,6 +123,18 @@ class EventsViewModel(
                 _errorMessage.value = "Error stopping event: ${e.message}"
             }
         }
+    }
+
+    fun toggleItemExpanded(item: EventDisplayItem) {
+        val currentItems = displayItems.value ?: return
+        val updatedItems = currentItems.map { currentItem ->
+            if (currentItem.displayId == item.displayId) {
+                currentItem.copy(isExpanded = !currentItem.isExpanded)
+            } else {
+                currentItem
+            }
+        }
+        (displayItems as MediatorLiveData).value = updatedItems
     }
 }
 

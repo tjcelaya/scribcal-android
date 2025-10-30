@@ -44,4 +44,10 @@ interface EventDao {
 
     @Query("SELECT COUNT(*) FROM events WHERE eventTypeId = :eventTypeId AND endTime IS NULL")
     suspend fun getOngoingEventCountForType(eventTypeId: Long): Int
+
+    @Query("SELECT MAX(endTime) FROM events WHERE eventTypeId = :eventTypeId AND endTime IS NOT NULL")
+    suspend fun getLastCompletedEventTimeForType(eventTypeId: Long): Long?
+
+    @Query("SELECT COUNT(*) FROM events WHERE eventTypeId = :eventTypeId AND endTime IS NOT NULL AND endTime >= :startTime")
+    suspend fun getCompletedEventCountSince(eventTypeId: Long, startTime: Long): Int
 }
