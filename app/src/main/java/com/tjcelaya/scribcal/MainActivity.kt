@@ -257,10 +257,33 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        val navController = findNavController(R.id.nav_host_fragment_content_main)
+        val currentDest = navController.currentDestination?.id
         return when (item.itemId) {
+            R.id.action_manage_events -> {
+                if (currentDest != R.id.eventsFragment) {
+                    navController.navigate(
+                        R.id.eventsFragment,
+                        null,
+                        androidx.navigation.NavOptions.Builder()
+                            .setLaunchSingleTop(true)
+                            .setPopUpTo(R.id.trackingFragment, false)
+                            .build()
+                    )
+                }
+                true
+            }
             R.id.action_settings -> {
-                findNavController(R.id.nav_host_fragment_content_main)
-                    .navigate(R.id.settingsFragment)
+                if (currentDest != R.id.settingsFragment) {
+                    navController.navigate(
+                        R.id.settingsFragment,
+                        null,
+                        androidx.navigation.NavOptions.Builder()
+                            .setLaunchSingleTop(true)
+                            .setPopUpTo(R.id.trackingFragment, false)
+                            .build()
+                    )
+                }
                 true
             }
             else -> super.onOptionsItemSelected(item)

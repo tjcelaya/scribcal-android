@@ -24,12 +24,6 @@ class TrackingViewModel(
     val ongoingEvents: LiveData<List<OngoingEvent>> = eventRepository.getAllOngoingEvents()
     val futureEvents: LiveData<List<FutureEvent>> = eventRepository.getAllFutureEvents()
 
-    private val _calendarStatus = MutableLiveData<String>()
-    val calendarStatus: LiveData<String> = _calendarStatus
-
-    private val _needsCalendarSetup = MutableLiveData<Boolean>()
-    val needsCalendarSetup: LiveData<Boolean> = _needsCalendarSetup
-
     private val _showStopConfirmation = MutableLiveData<OngoingEvent?>()
     val showStopConfirmation: LiveData<OngoingEvent?> = _showStopConfirmation
 
@@ -195,7 +189,7 @@ class TrackingViewModel(
     }
 
     fun onCalendarPermissionsGranted() {
-        updateCalendarStatus()
+        // Calendar permissions granted - no additional setup needed here
     }
 
     fun startEvent(eventTypeId: Long) {
@@ -267,6 +261,49 @@ class TrackingViewModel(
     fun clearMessage() {
         _message.value = null
     }
+    
+    fun recordInstantEventWithName(eventName: String) {
+        viewModelScope.launch {
+            try {
+                // Create a temporary event type for this one-off event
+                val tempEventType = EventType(
+                    id = 0,
+                    name = eventName,
+                    description = "Quick add event",
+                    colorId = null
+                )
+                
+                val currentTime = System.currentTimeMillis()
+                calendarRepository.syncEventToCalendar(
+                    eventId = 0L,
+                    eventType = tempEventType,
+                    startTime = currentTime,
+                    endTime = currentTime,
+                    notes = null
+                )
+                
+                _message.value = "✓ $eventName"
+            } catch (e: Exception) {
+                _message.value = "Error recording event: ${e.message}"
+            }
+        }
+    }
+    
+    fun createEventTypeFromQuickAdd(eventName: String) {
+        viewModelScope.launch {
+            try {
+            val newEventType = EventType(
+                    name = eventName,
+                    description = "Created from quick add",
+                    colorId = null
+                )
+                eventRepository.insertEventType(newEventType)
+                _message.value = "'$eventName' saved for quick access"
+            } catch (e: Exception) {
+                _message.value = "Error saving event type: ${e.message}"
+            }
+        }
+    }
 
     fun recordInstantaneousEventWithPhoto(eventTypeId: Long, photoPath: String, notes: String = "") {
         viewModelScope.launch {
@@ -320,8 +357,7 @@ class TrackingViewModel(
             val newEventType = EventType(
                 name = eventTitle,
                 description = "Created from calendar event",
-                colorId = null,
-                customColorHex = null
+                colorId = null
             )
             eventRepository.insertEventType(newEventType)
         } catch (e: Exception) {
@@ -404,19 +440,8 @@ class TrackingViewModel(
         (eventTypesWithCounts as MediatorLiveData).value = updatedItems
     }
 
-    private fun updateCalendarStatus() {
-        if (calendarRepository.isCalendarSetupComplete()) {
-            val calendarName = calendarRepository.getSelectedCalendarName()
-            _calendarStatus.value = "Calendar: $calendarName"
-            _needsCalendarSetup.value = false
-        } else {
-            _calendarStatus.value = "No calendar selected"
-            _needsCalendarSetup.value = true
-        }
-    }
-
     init {
-        updateCalendarStatus()
+        // ViewModel initialization
     }
 }
 

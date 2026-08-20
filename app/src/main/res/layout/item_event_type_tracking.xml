@@ -97,7 +97,7 @@
             android:textAppearance="@style/TextAppearance.Material3.BodySmall"
             android:textColor="?android:attr/textColorSecondary"
             android:layout_marginTop="4dp"
-            tools:text="Last: 2 hours ago" />
+            tools:text="2 hours ago" />
 
         <!-- Frequency Statistics (expandable) -->
         <LinearLayout

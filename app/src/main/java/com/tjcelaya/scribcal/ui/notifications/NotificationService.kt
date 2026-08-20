@@ -10,17 +10,25 @@ import android.util.Log
 import android.annotation.SuppressLint
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.app.Person
+import androidx.core.content.pm.ShortcutInfoCompat
+import androidx.core.content.pm.ShortcutManagerCompat
+import androidx.core.graphics.drawable.IconCompat
 import com.tjcelaya.scribcal.R
-import com.tjcelaya.scribcal.MainActivity
+import com.tjcelaya.scribcal.data.StoragePreferences
 import com.tjcelaya.scribcal.data.database.OngoingEvent
 import com.tjcelaya.scribcal.data.database.EventType
 import java.text.SimpleDateFormat
 import java.util.*
 
-class NotificationService(private val context: Context) {
+class NotificationService(
+    private val context: Context,
+    private val storagePreferences: StoragePreferences
+) {
     
     companion object {
-        private const val CHANNEL_ID = "ongoing_events"
+        // New channel ID so we can raise importance for bubbles without requiring users to change settings
+        private const val CHANNEL_ID = "ongoing_events_v2"
         private const val CHANNEL_NAME = "Ongoing Events"
         private const val CHANNEL_DESCRIPTION = "Notifications for ongoing events"
         private const val NOTIFICATION_ID_BASE = 1000
@@ -34,16 +42,31 @@ class NotificationService(private val context: Context) {
     
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val importance = NotificationManager.IMPORTANCE_LOW // Silent notifications
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            
+            // Delete old channel if it exists to recreate with new settings
+            try {
+                notificationManager.deleteNotificationChannel(CHANNEL_ID)
+            } catch (e: Exception) {
+                // Ignore if doesn't exist
+            }
+            
+            // Bubbles require at least IMPORTANCE_HIGH to work reliably
+            val importance = NotificationManager.IMPORTANCE_HIGH
             val channel = NotificationChannel(CHANNEL_ID, CHANNEL_NAME, importance).apply {
                 description = CHANNEL_DESCRIPTION
                 setShowBadge(true)
                 enableVibration(false)
                 setSound(null, null)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    // Explicitly allow bubbles
+                    setAllowBubbles(true)
+                    Log.d("NotificationService", "Channel configured to allow bubbles")
+                }
             }
-            
-            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
             notificationManager.createNotificationChannel(channel)
+            Log.d("NotificationService", "Notification channel created with importance=$importance")
         }
     }
     
@@ -62,11 +85,18 @@ class NotificationService(private val context: Context) {
         // Create intent to open the notification action activity when notification is tapped
         val intent = NotificationActionActivity.createIntent(context, ongoingEvent.id)
         
+        // Bubble notifications require mutable PendingIntents
+        val pendingIntentFlags = if (storagePreferences.areBubblesEnabled() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+        } else {
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        }
+        
         val pendingIntent = PendingIntent.getActivity(
             context, 
             notificationId, 
             intent, 
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            pendingIntentFlags
         )
         
         // Format start time
@@ -76,20 +106,84 @@ class NotificationService(private val context: Context) {
         
         Log.d("NotificationService", "Creating notification: Title='${eventType.name}', Text='Started at $formattedTime'")
         
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+        // Determine if this notification should bubble based on mode and event type
+        val bubbleMode = storagePreferences.getBubbleMode()
+        val shouldBubble = when (bubbleMode) {
+            com.tjcelaya.scribcal.data.BubbleMode.NEVER -> false
+            com.tjcelaya.scribcal.data.BubbleMode.SELECTED -> eventType.shouldBubble
+            com.tjcelaya.scribcal.data.BubbleMode.ALWAYS -> true
+        }
+
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_play)
             .setContentTitle(eventType.name)
             .setContentText("Started at $formattedTime")
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setAutoCancel(false)
-            .setSilent(true)
             .setShowWhen(true)
             .setWhen(ongoingEvent.startTime)
             .setUsesChronometer(true)
             .setChronometerCountDown(false)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+
+        // Set priority and silence based on bubble mode
+        if (shouldBubble) {
+            // Bubbles need high priority and cannot be silent
+            builder.setPriority(NotificationCompat.PRIORITY_HIGH)
+        } else {
+            // Silent notifications for non-bubble mode
+            builder
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setSilent(true)
+        }
+
+        // Attach bubble metadata if should bubble and supported
+        if (shouldBubble && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                // Create a shortcut ID for this event type
+                val shortcutId = "event_ongoing_${eventType.id}"
+                
+                // Create a person for the shortcut (required for bubbles)
+                val person = Person.Builder()
+                    .setName(eventType.name)
+                    .setImportant(true)
+                    .build()
+                
+                // Create the shortcut
+                val shortcut = ShortcutInfoCompat.Builder(context, shortcutId)
+                    .setShortLabel(eventType.name)
+                    .setLongLabel("Ongoing: ${eventType.name}")
+                    .setIcon(IconCompat.createWithResource(context, R.drawable.ic_play))
+                    .setIntent(intent) // Use the same intent as the notification
+                    .setLongLived(true)
+                    .setPerson(person)
+                    .build()
+                
+                // Push the shortcut to the system
+                ShortcutManagerCompat.pushDynamicShortcut(context, shortcut)
+                Log.d("NotificationService", "Created bubble shortcut: $shortcutId")
+                
+                // Now create the bubble metadata
+                val bubbleIcon = IconCompat.createWithResource(context, R.drawable.ic_play)
+                val bubble = NotificationCompat.BubbleMetadata.Builder(pendingIntent, bubbleIcon)
+                    .setDesiredHeight(600)
+                    .setAutoExpandBubble(false)
+                    .setSuppressNotification(false)
+                    .build()
+                
+                // Associate the shortcut with the notification
+                builder
+                    .setShortcutId(shortcutId)
+                    .setBubbleMetadata(bubble)
+                
+                Log.d("NotificationService", "Bubble metadata configured with shortcut")
+            } catch (e: Exception) {
+                Log.e("NotificationService", "Failed to configure bubble metadata", e)
+            }
+        }
+
+        val notification = builder.build()
         
         try {
             Log.d("NotificationService", "Attempting to show notification with ID: $notificationId")

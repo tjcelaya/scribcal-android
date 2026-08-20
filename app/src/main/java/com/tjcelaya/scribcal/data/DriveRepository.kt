@@ -6,6 +6,7 @@ import android.util.Log
 import com.google.android.gms.auth.GoogleAuthUtil
 import com.google.api.client.extensions.android.http.AndroidHttp
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
+import com.google.api.client.http.ByteArrayContent
 import com.google.api.client.http.FileContent
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.drive.Drive
@@ -21,6 +22,7 @@ class DriveRepository(private val context: Context) {
     companion object {
         private const val TAG = "DriveRepository"
         private const val SCRIBCAL_FOLDER_NAME = "ScribCal"
+        private const val CONFIG_FILE_NAME = "scribcal_config.json"
     }
 
     private var driveService: Drive? = null
@@ -277,6 +279,78 @@ class DriveRepository(private val context: Context) {
             shareableLink
         } catch (e: Exception) {
             Log.e(TAG, "Failed to upload photo and get link", e)
+            null
+        }
+    }
+
+    /**
+     * Upload (create or overwrite) the ScribCal config JSON in the ScribCal Drive folder.
+     * Returns true on success.
+     */
+    suspend fun uploadConfigFile(jsonContent: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val drive = driveService ?: run {
+                Log.w(TAG, "Drive not initialized, cannot upload config")
+                return@withContext false
+            }
+
+            if (scribcalFolderId == null) {
+                ensureScribCalFolderExists()
+            }
+            val folderId = scribcalFolderId ?: return@withContext false
+
+            val mediaContent = ByteArrayContent("application/json", jsonContent.toByteArray(Charsets.UTF_8))
+
+            // Look for an existing config file in the folder so we overwrite rather than duplicate
+            val query = "name='$CONFIG_FILE_NAME' and '$folderId' in parents and trashed=false"
+            val existing = drive.files().list().setQ(query).setSpaces("drive").execute()
+
+            if (existing.files.isNotEmpty()) {
+                val fileId = existing.files[0].id
+                drive.files().update(fileId, File(), mediaContent).execute()
+                Log.d(TAG, "Updated existing config file: $fileId")
+            } else {
+                val metadata = File()
+                metadata.name = CONFIG_FILE_NAME
+                metadata.parents = listOf(folderId)
+                val created = drive.files().create(metadata, mediaContent).execute()
+                Log.d(TAG, "Created config file: ${created.id}")
+            }
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to upload config file to Drive", e)
+            false
+        }
+    }
+
+    /**
+     * Download the ScribCal config JSON from the ScribCal Drive folder, or null if absent.
+     */
+    suspend fun downloadConfigFile(): String? = withContext(Dispatchers.IO) {
+        try {
+            val drive = driveService ?: run {
+                Log.w(TAG, "Drive not initialized, cannot download config")
+                return@withContext null
+            }
+
+            if (scribcalFolderId == null) {
+                ensureScribCalFolderExists()
+            }
+            val folderId = scribcalFolderId ?: return@withContext null
+
+            val query = "name='$CONFIG_FILE_NAME' and '$folderId' in parents and trashed=false"
+            val existing = drive.files().list().setQ(query).setSpaces("drive").execute()
+            if (existing.files.isEmpty()) {
+                Log.d(TAG, "No config file found in Drive folder")
+                return@withContext null
+            }
+
+            val fileId = existing.files[0].id
+            drive.files().get(fileId).executeMediaAsInputStream().use { input ->
+                input.bufferedReader(Charsets.UTF_8).readText()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to download config file from Drive", e)
             null
         }
     }

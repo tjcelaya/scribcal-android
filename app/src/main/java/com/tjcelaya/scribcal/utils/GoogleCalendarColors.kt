@@ -64,38 +64,4 @@ object GoogleCalendarColors {
         return getColorById(id)?.hexColor
     }
     
-    /**
-     * Find the closest matching Google Calendar color to a given hex color
-     * Useful for migration or when user picks a custom color
-     */
-    fun findClosestColor(hexColor: Int): CalendarColor {
-        val r1 = Color.red(hexColor)
-        val g1 = Color.green(hexColor)
-        val b1 = Color.blue(hexColor)
-        
-        return ALL_COLORS.minByOrNull { color ->
-            val r2 = Color.red(color.hexColor)
-            val g2 = Color.green(color.hexColor)
-            val b2 = Color.blue(color.hexColor)
-            
-            // Simple Euclidean distance in RGB space
-            val dr = r1 - r2
-            val dg = g1 - g2
-            val db = b1 - b2
-            dr * dr + dg * dg + db * db
-        } ?: BLUEBERRY // Default to blueberry if somehow none found
-    }
-    
-    /**
-     * Special ID to indicate a custom color is being used
-     * Custom colors are stored as negative values to distinguish from Google's 1-11 range
-     */
-    const val CUSTOM_COLOR_ID = -1
-    
-    /**
-     * Check if a color ID represents a custom color
-     */
-    fun isCustomColor(colorId: Int?): Boolean {
-        return colorId != null && colorId < 0
-    }
 }

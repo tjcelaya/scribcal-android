@@ -70,40 +70,72 @@
             android:textColor="?attr/colorOnSurfaceVariant"
             android:layout_marginBottom="16dp" />
 
-        <!-- Color Grid -->
-        <GridLayout
-            android:id="@+id/colorGrid"
+        <!-- Color Swatch List -->
+        <LinearLayout
+            android:id="@+id/colorList"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:columnCount="6"
-            android:rowCount="2"
-            android:useDefaultMargins="false"
-            android:alignmentMode="alignBounds"
-            android:layout_marginBottom="24dp">
+            android:orientation="vertical"
+            android:layout_marginBottom="24dp" />
 
-            <!-- Colors will be added programmatically -->
-
-        </GridLayout>
-
-        <!-- Custom Color Section (Commented out - not supported by Google Calendar API) -->
-        <!--
+        <!-- Cadence (which record actions appear on the main screen) -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="or choose a custom color"
-            android:textAppearance="@style/TextAppearance.Material3.BodySmall"
-            android:textColor="?attr/colorOnSurfaceVariant"
+            android:text="@string/cadence_label"
+            android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
             android:layout_marginBottom="8dp" />
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/customColorButton"
-            style="@style/Widget.Material3.Button.OutlinedButton"
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Select Custom Color"
-            app:icon="@android:drawable/ic_menu_edit"
-            android:layout_marginBottom="32dp" />
-        -->
+            android:text="@string/cadence_helper"
+            android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:layout_marginBottom="12dp" />
+
+        <com.google.android.material.button.MaterialButtonToggleGroup
+            android:id="@+id/cadenceToggleGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp"
+            app:singleSelection="true"
+            app:selectionRequired="true">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/cadenceInstantButton"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/cadence_instant" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/cadenceTimedButton"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/cadence_timed" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/cadenceBothButton"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/cadence_both" />
+
+        </com.google.android.material.button.MaterialButtonToggleGroup>
+
+        <!-- Bubble Notification Toggle (only shown when mode = SELECTED) -->
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/bubbleSwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Show as bubble notification"
+            android:layout_marginBottom="24dp"
+            android:visibility="gone" />
 
         <!-- Action Buttons -->
         <LinearLayout

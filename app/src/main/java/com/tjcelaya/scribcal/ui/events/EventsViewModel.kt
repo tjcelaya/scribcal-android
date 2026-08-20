@@ -115,6 +115,16 @@ class EventsViewModel(
         _errorMessage.value = null
     }
 
+    fun reorderEventTypes(orderedIds: List<Long>) {
+        viewModelScope.launch {
+            try {
+                eventRepository.updateEventTypeSortOrders(orderedIds)
+            } catch (e: Exception) {
+                _errorMessage.value = "Error saving order: ${e.message}"
+            }
+        }
+    }
+
     fun stopOngoingEvent(ongoingEvent: OngoingEvent) {
         viewModelScope.launch {
             try {

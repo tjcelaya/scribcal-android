@@ -13,6 +13,38 @@ enum class InstantEventIcon(val displayName: String, val iconResName: String) {
     NOTE_ADD("Note", "ic_note_add")
 }
 
+enum class BubbleMode(val displayName: String) {
+    NEVER("Never"),
+    SELECTED("Selected event types only"),
+    ALWAYS("Always")
+}
+
+/**
+ * How event types are displayed on the main tracking screen.
+ */
+enum class EventViewMode {
+    LIST,
+    CARD;
+
+    companion object {
+        fun fromName(value: String?): EventViewMode =
+            value?.let { runCatching { valueOf(it) }.getOrNull() } ?: LIST
+    }
+}
+
+/**
+ * How a card shows its event type's calendar color.
+ */
+enum class CardColorStyle(val displayName: String) {
+    LINE("Line across top"),
+    BACKGROUND("Full background");
+
+    companion object {
+        fun fromName(value: String?): CardColorStyle =
+            value?.let { runCatching { valueOf(it) }.getOrNull() } ?: LINE
+    }
+}
+
 class StoragePreferences(context: Context) {
 
     companion object {
@@ -20,6 +52,15 @@ class StoragePreferences(context: Context) {
         private const val KEY_GOOGLE_DRIVE_ENABLED = "google_drive_enabled"
         private const val KEY_GOOGLE_PHOTOS_ENABLED = "google_photos_enabled"
         private const val KEY_INSTANT_EVENT_ICON = "instant_event_icon"
+        private const val KEY_BUBBLE_MODE = "bubble_mode"
+        private const val KEY_EVENT_VIEW_MODE = "event_view_mode"
+        private const val KEY_CARD_SIZE_DP = "event_card_size_dp"
+        private const val KEY_CARD_COLOR_STYLE = "event_card_color_style"
+
+        // Card size bounds (in dp) for the main-screen card grid.
+        const val CARD_SIZE_MIN_DP = 110
+        const val CARD_SIZE_MAX_DP = 260
+        const val CARD_SIZE_DEFAULT_DP = 160
 
         // Service state persistence keys
         private const val KEY_DRIVE_INITIALIZED = "drive_initialized"
@@ -317,5 +358,75 @@ class StoragePreferences(context: Context) {
             "drawable",
             context.packageName
         )
+    }
+
+    // === Bubble Notification Preference ===
+
+    /**
+     * Get the bubble mode setting
+     * Default is NEVER (silent notifications)
+     */
+    fun getBubbleMode(): BubbleMode {
+        val modeName = sharedPreferences.getString(KEY_BUBBLE_MODE, BubbleMode.NEVER.name)
+        return try {
+            BubbleMode.valueOf(modeName ?: BubbleMode.NEVER.name)
+        } catch (e: IllegalArgumentException) {
+            BubbleMode.NEVER
+        }
+    }
+
+    /**
+     * Set the bubble mode
+     */
+    fun setBubbleMode(mode: BubbleMode) {
+        sharedPreferences.edit()
+            .putString(KEY_BUBBLE_MODE, mode.name)
+            .apply()
+    }
+
+    /**
+     * Check if bubbles are enabled in any mode
+     * Used for backward compatibility and quick checks
+     */
+    fun areBubblesEnabled(): Boolean {
+        return getBubbleMode() != BubbleMode.NEVER
+    }
+
+    // === Event View Mode (list vs card grid) ===
+
+    fun getEventViewMode(): EventViewMode {
+        return EventViewMode.fromName(sharedPreferences.getString(KEY_EVENT_VIEW_MODE, EventViewMode.LIST.name))
+    }
+
+    fun setEventViewMode(mode: EventViewMode) {
+        sharedPreferences.edit()
+            .putString(KEY_EVENT_VIEW_MODE, mode.name)
+            .apply()
+    }
+
+    /**
+     * Target card width/height in dp for the card grid, clamped to [CARD_SIZE_MIN_DP, CARD_SIZE_MAX_DP].
+     */
+    fun getCardSizeDp(): Int {
+        val stored = sharedPreferences.getInt(KEY_CARD_SIZE_DP, CARD_SIZE_DEFAULT_DP)
+        return stored.coerceIn(CARD_SIZE_MIN_DP, CARD_SIZE_MAX_DP)
+    }
+
+    fun setCardSizeDp(sizeDp: Int) {
+        sharedPreferences.edit()
+            .putInt(KEY_CARD_SIZE_DP, sizeDp.coerceIn(CARD_SIZE_MIN_DP, CARD_SIZE_MAX_DP))
+            .apply()
+    }
+
+    // === Card color style (line across top vs full background) ===
+
+    fun getCardColorStyle(): CardColorStyle {
+        return CardColorStyle.fromName(sharedPreferences.getString(KEY_CARD_COLOR_STYLE, CardColorStyle.LINE.name))
+    }
+
+    fun setCardColorStyle(style: CardColorStyle) {
+        sharedPreferences.edit()
+            .putString(KEY_CARD_COLOR_STYLE, style.name)
+            .apply()
     }
 }

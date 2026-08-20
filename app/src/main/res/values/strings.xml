@@ -94,6 +94,32 @@
     <string name="connection_successful">Connection successful</string>
     <string name="connection_failed">Connection failed</string>
 
+    <!-- Backup & Restore -->
+    <string name="backup_restore_title">Backup &amp; Restore</string>
+    <string name="backup_restore_desc">Export your event types and settings to a file (Documents/ScribCal) or Google Drive so app updates don\'t wipe them. Recorded events live in Google Calendar; on import, each type\'s last occurrence is read back from there.</string>
+    <string name="backup_export_device">Export to device</string>
+    <string name="backup_import_device">Import from device</string>
+    <string name="backup_export_drive">Export to Google Drive</string>
+    <string name="backup_import_drive">Import from Google Drive</string>
+    <string name="backup_status_idle">Last backup action will appear here</string>
+    <string name="backup_working">Working…</string>
+    <string name="backup_import_confirm_title">Replace all data?</string>
+    <string name="backup_import_confirm_message">Importing replaces your current event types (and their events) with the backup\'s contents. This can\'t be undone. Continue?</string>
+    <string name="backup_import_confirm_button">Replace</string>
+
+    <!-- Main Screen View & Cadence -->
+    <string name="view_mode_list">List view</string>
+    <string name="view_mode_card">Card view</string>
+    <string name="card_size_decrease">Smaller cards</string>
+    <string name="card_size_increase">Larger cards</string>
+    <string name="cadence_label">Record actions</string>
+    <string name="cadence_helper">Which buttons appear for this event on the main screen</string>
+    <string name="cadence_instant">Instant</string>
+    <string name="cadence_timed">Timed</string>
+    <string name="cadence_both">Both</string>
+    <string name="card_color_style_title">Card color style</string>
+    <string name="card_color_style_helper">How event cards show their calendar color (card view only)</string>
+
     <!-- Generic -->
     <string name="ok">OK</string>
     <string name="retry">Retry</string>

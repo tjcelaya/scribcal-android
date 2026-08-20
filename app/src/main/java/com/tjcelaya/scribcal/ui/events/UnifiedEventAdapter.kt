@@ -14,6 +14,7 @@ import com.tjcelaya.scribcal.data.database.EventType
 import com.tjcelaya.scribcal.data.database.OngoingEvent
 import java.text.SimpleDateFormat
 import java.util.*
+import java.util.Collections
 
 class UnifiedEventAdapter(
     private val onEditClick: (EventType) -> Unit,
@@ -22,6 +23,28 @@ class UnifiedEventAdapter(
     private val onItemClick: ((EventDisplayItem) -> Unit)? = null,
     private val getCurrentTime: () -> Long = { System.currentTimeMillis() }
 ) : ListAdapter<EventDisplayItem, RecyclerView.ViewHolder>(EventDisplayItemDiffCallback()) {
+
+    /**
+     * Move an item from one position to another (for drag-and-drop reordering).
+     * Only non-ongoing event type items can be reordered.
+     */
+    fun moveItem(fromPosition: Int, toPosition: Int): Boolean {
+        val currentList = currentList.toMutableList()
+        if (fromPosition < 0 || toPosition < 0 ||
+            fromPosition >= currentList.size || toPosition >= currentList.size) return false
+        // Don't allow moving ongoing events
+        if (currentList[fromPosition].isOngoing || currentList[toPosition].isOngoing) return false
+        Collections.swap(currentList, fromPosition, toPosition)
+        submitList(currentList)
+        return true
+    }
+
+    /**
+     * Get the ordered list of event type IDs (non-ongoing only) for persisting sort order.
+     */
+    fun getOrderedEventTypeIds(): List<Long> {
+        return currentList.filter { !it.isOngoing }.map { it.eventType.id }
+    }
 
     companion object {
         private const val VIEW_TYPE_EVENT_TYPE = 1
@@ -93,10 +116,10 @@ class UnifiedEventAdapter(
             // Display time since last occurrence
             if (item.lastOccurrenceTime != null) {
                 val timeSince = getCurrentTime() - item.lastOccurrenceTime
-                lastOccurrenceText.text = "Last: ${formatTimeSince(timeSince)}"
+                lastOccurrenceText.text = formatTimeSince(timeSince)
                 lastOccurrenceText.visibility = View.VISIBLE
             } else {
-                lastOccurrenceText.text = "Last: Never"
+                lastOccurrenceText.text = "Never"
                 lastOccurrenceText.visibility = View.VISIBLE
             }
 

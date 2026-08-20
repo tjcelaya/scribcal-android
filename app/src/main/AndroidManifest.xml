@@ -21,6 +21,11 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.ScribCal">
+        
+        <!-- Enable bubbles for the app -->
+        <property
+            android:name="android.permission.ALLOW_BUBBLES"
+            android:value="true" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -45,7 +50,10 @@
             android:name=".ui.notifications.NotificationActionActivity"
             android:exported="false"
             android:theme="@style/Theme.ScribCal.Translucent"
-            android:excludeFromRecents="true" />
+            android:excludeFromRecents="true"
+            android:resizeableActivity="true"
+            android:documentLaunchMode="always"
+            android:allowEmbedded="true" />
 
         <!-- FileProvider for camera photo sharing -->
         <provider

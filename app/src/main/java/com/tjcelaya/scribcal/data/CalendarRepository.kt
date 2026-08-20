@@ -36,6 +36,15 @@ class CalendarRepository(private val context: Context) {
         return CalendarUtils.getUpcomingEvents(context, calendarId, daysAhead)
     }
 
+    /**
+     * Most recent past occurrence (DTSTART) of an event matching [title] in the selected
+     * calendar, or null if none / no calendar selected. Used to seed last-occurrence on import.
+     */
+    suspend fun getLastOccurrence(title: String): Long? {
+        val calendarId = getSelectedCalendarId() ?: return null
+        return CalendarUtils.getLastOccurrence(context, calendarId, title)
+    }
+
     fun getSelectedCalendarId(): Long? {
         val calendarId = prefs.getLong(KEY_SELECTED_CALENDAR_ID, -1L)
         return if (calendarId == -1L) null else calendarId
@@ -64,6 +73,23 @@ class CalendarRepository(private val context: Context) {
             .remove(KEY_SELECTED_CALENDAR_NAME)
             .putBoolean(KEY_CALENDAR_SETUP_COMPLETE, false)
             .apply()
+    }
+
+    /**
+     * Restore a previously-exported calendar selection from raw values (used by config import).
+     * Calendar ids are device-specific, so this is best-effort.
+     */
+    fun restoreSelection(id: Long?, name: String?, account: String?, setupComplete: Boolean) {
+        val editor = prefs.edit()
+        if (id != null) {
+            editor.putLong(KEY_SELECTED_CALENDAR_ID, id)
+        } else {
+            editor.remove(KEY_SELECTED_CALENDAR_ID)
+        }
+        editor.putString(KEY_SELECTED_CALENDAR_NAME, name)
+        editor.putString(KEY_SELECTED_CALENDAR_ACCOUNT, account)
+        editor.putBoolean(KEY_CALENDAR_SETUP_COMPLETE, setupComplete && id != null)
+        editor.apply()
     }
 
     suspend fun syncEventToCalendar(
@@ -100,7 +126,6 @@ class CalendarRepository(private val context: Context) {
             description,
             photoPath,
             eventType.colorId,
-            eventType.customColorHex,
             getSelectedCalendarAccount(),
             this@CalendarRepository,
             eventType
@@ -138,8 +163,7 @@ class CalendarRepository(private val context: Context) {
             endTime,
             description,
             photoPath,
-            eventType.colorId,
-            eventType.customColorHex
+            eventType.colorId
         )
     }
 

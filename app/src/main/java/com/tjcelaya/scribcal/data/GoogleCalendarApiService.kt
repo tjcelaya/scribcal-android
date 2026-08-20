@@ -88,7 +88,7 @@ class GoogleCalendarApiService(private val context: Context) {
                 .get(calendarId, eventId)
                 .execute()
 
-            // Update just the color
+            // Update the color
             event.colorId = colorId.toString()
 
             // Patch the event (only updates specified fields)

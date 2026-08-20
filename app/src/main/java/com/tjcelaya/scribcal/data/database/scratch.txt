@@ -1,0 +1,13 @@
+toggling bubble off and on
+
+2025-11-12 09:30:26.456 15022-15022 VRI[MainAc...y]@eaaf245 com.tjcelaya.scribcal                I  ViewPostIme pointer 0
+2025-11-12 09:30:26.457 15022-15022 VRI[MainAc...y]@eaaf245 com.tjcelaya.scribcal                I  call setFrameRateCategory for touch hint category=high hint, reason=touch, vri=VRI[MainActivity]@eaaf245
+2025-11-12 09:30:26.585 15022-15022 VRI[MainAc...y]@eaaf245 com.tjcelaya.scribcal                I  ViewPostIme pointer 1
+2025-11-12 09:30:29.589 15022-15022 VRI[MainAc...y]@eaaf245 com.tjcelaya.scribcal                I  call setFrameRateCategory for touch hint category=no preference, reason=boost timeout, vri=VRI[MainActivity]@eaaf245
+2025-11-12 09:30:32.150 15022-15022 VRI[MainAc...y]@eaaf245 com.tjcelaya.scribcal                I  ViewPostIme pointer 0
+2025-11-12 09:30:32.151 15022-15022 VRI[MainAc...y]@eaaf245 com.tjcelaya.scribcal                I  call setFrameRateCategory for touch hint category=high hint, reason=touch, vri=VRI[MainActivity]@eaaf245
+2025-11-12 09:30:32.237 15022-15022 VRI[MainAc...y]@eaaf245 com.tjcelaya.scribcal                I  ViewPostIme pointer 1
+2025-11-12 09:30:35.241 15022-15022 VRI[MainAc...y]@eaaf245 com.tjcelaya.scribcal                I  call setFrameRateCategory for touch hint category=no preference, reason=boost timeout, vri=VRI[MainActivity]@eaaf245
+
+starting and stopping ongoing event
+

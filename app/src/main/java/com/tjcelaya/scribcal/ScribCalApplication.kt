@@ -5,6 +5,7 @@ import android.app.Application
 import android.util.Log
 import androidx.lifecycle.lifecycleScope
 import com.tjcelaya.scribcal.data.CalendarRepository
+import com.tjcelaya.scribcal.data.ConfigBackupManager
 import com.tjcelaya.scribcal.data.DriveRepository
 import com.tjcelaya.scribcal.data.EventRepository
 import com.tjcelaya.scribcal.data.PhotosRepository
@@ -35,6 +36,8 @@ class ScribCalApplication : Application() {
     lateinit var eventRepository: EventRepository
         private set
     lateinit var notificationService: NotificationService
+        private set
+    lateinit var configBackupManager: ConfigBackupManager
         private set
 
     companion object {
@@ -68,8 +71,9 @@ class ScribCalApplication : Application() {
         driveRepository = DriveRepository(this)
         photosRepository = PhotosRepository(this, database)
         storagePreferences = StoragePreferences(this)
-        notificationService = NotificationService(this)
+        notificationService = NotificationService(this, storagePreferences)
         eventRepository = EventRepository(database, driveRepository, photosRepository, storagePreferences, notificationService)
+        configBackupManager = ConfigBackupManager(database, storagePreferences, calendarRepository, driveRepository)
 
         Log.d(TAG, "Repositories initialized")
     }

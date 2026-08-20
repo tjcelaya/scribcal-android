@@ -112,6 +112,12 @@ class EventRepository(
         eventTypeDao.deleteEventType(eventType)
     }
 
+    suspend fun updateEventTypeSortOrders(orderedIds: List<Long>) = withContext(Dispatchers.IO) {
+        orderedIds.forEachIndexed { index, id ->
+            eventTypeDao.updateSortOrder(id, index)
+        }
+    }
+
     // Event operations with EventWithType relations
     fun getTodaysEventsWithType(): Flow<List<EventWithType>> {
         val calendar = Calendar.getInstance()

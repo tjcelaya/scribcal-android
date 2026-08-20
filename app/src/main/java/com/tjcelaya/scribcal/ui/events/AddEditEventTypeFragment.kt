@@ -1,23 +1,24 @@
 package com.tjcelaya.scribcal.ui.events
 
-import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.GridLayout
+import android.widget.LinearLayout
+import android.widget.TextView
 import com.google.android.material.snackbar.Snackbar
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
-import com.google.android.material.button.MaterialButton
 import com.tjcelaya.scribcal.R
-import com.tjcelaya.scribcal.ui.components.CustomColorPickerDialog
+import com.tjcelaya.scribcal.ScribCalApplication
+import com.tjcelaya.scribcal.data.BubbleMode
 import com.tjcelaya.scribcal.data.EventRepository
+import com.tjcelaya.scribcal.data.StoragePreferences
+import com.tjcelaya.scribcal.data.database.Cadence
 import com.tjcelaya.scribcal.data.database.EventType
 import com.tjcelaya.scribcal.data.database.ScribCalDatabase
 import com.tjcelaya.scribcal.databinding.FragmentAddEditEventTypeBinding
@@ -30,9 +31,9 @@ class AddEditEventTypeFragment : Fragment() {
     private val args: AddEditEventTypeFragmentArgs by navArgs()
 
     private lateinit var viewModel: AddEditEventTypeViewModel
+    private lateinit var storagePreferences: StoragePreferences
     private var editingEventType: EventType? = null
-    private var selectedColorId: Int? = null // Google Calendar color ID or CUSTOM_COLOR_ID
-    private var selectedCustomColor: Int? = null // Hex color when using custom color
+    private var selectedColorId: Int? = null // Google Calendar color ID (1-11)
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -46,10 +47,14 @@ class AddEditEventTypeFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        val app = requireActivity().application as ScribCalApplication
+        storagePreferences = app.storagePreferences
+
         setupViewModel()
+        setupBubbleToggle()
+        setupCadenceToggle()
         loadEventTypeFromArguments()
-        setupColorGrid()
-        // setupCustomColorButton() // Commented out - custom colors not supported by Google Calendar API
+        setupColorList()
         setupClickListeners()
         observeViewModel()
     }
@@ -59,6 +64,36 @@ class AddEditEventTypeFragment : Fragment() {
         val eventRepository = EventRepository(database)
         val factory = AddEditEventTypeViewModelFactory(eventRepository)
         viewModel = ViewModelProvider(this, factory)[AddEditEventTypeViewModel::class.java]
+    }
+
+    private fun setupBubbleToggle() {
+        // Only show bubble toggle when bubble mode is SELECTED
+        val bubbleMode = storagePreferences.getBubbleMode()
+        binding.bubbleSwitch.visibility = if (bubbleMode == BubbleMode.SELECTED) {
+            View.VISIBLE
+        } else {
+            View.GONE
+        }
+    }
+
+    private fun setupCadenceToggle() {
+        // Default selection for new event types
+        applyCadenceSelection(Cadence.BOTH)
+    }
+
+    private fun applyCadenceSelection(cadence: Cadence) {
+        val buttonId = when (cadence) {
+            Cadence.INSTANT -> R.id.cadenceInstantButton
+            Cadence.TIMED -> R.id.cadenceTimedButton
+            Cadence.BOTH -> R.id.cadenceBothButton
+        }
+        binding.cadenceToggleGroup.check(buttonId)
+    }
+
+    private fun selectedCadence(): Cadence = when (binding.cadenceToggleGroup.checkedButtonId) {
+        R.id.cadenceInstantButton -> Cadence.INSTANT
+        R.id.cadenceTimedButton -> Cadence.TIMED
+        else -> Cadence.BOTH
     }
 
     private fun loadEventTypeFromArguments() {
@@ -72,104 +107,96 @@ class AddEditEventTypeFragment : Fragment() {
         }
     }
 
-    private fun setupColorGrid() {
-        val gridLayout = binding.colorGrid
-        val colorButtonSize = resources.getDimensionPixelSize(R.dimen.color_button_size)
-        val colorButtonMargin = resources.getDimensionPixelSize(R.dimen.color_button_margin)
+    private fun setupColorList() {
+        val colorList = binding.colorList
+        val swatchSize = resources.getDimensionPixelSize(R.dimen.color_button_size)
 
-        // Add Google Calendar colors
         GoogleCalendarColors.ALL_COLORS.forEach { calColor ->
-            val colorButton = createColorButton(
-                colorButtonSize, 
-                colorButtonMargin, 
-                calColor.hexColor,
-                calColor.id
-            )
-            gridLayout.addView(colorButton)
+            colorList.addView(createColorRow(swatchSize, calColor))
         }
 
-        // Select first color by default if nothing is selected
+        // Default to Blueberry if nothing selected
         if (selectedColorId == null) {
-            selectColor(GoogleCalendarColors.BLUEBERRY.id, GoogleCalendarColors.BLUEBERRY.hexColor)
-        }
-    }
-    
-    private fun createColorButton(
-        size: Int,
-        margin: Int,
-        hexColor: Int,
-        colorId: Int
-    ): MaterialButton {
-        return MaterialButton(requireContext()).apply {
-            layoutParams = GridLayout.LayoutParams().apply {
-                width = size
-                height = size
-                setMargins(margin, margin, margin, margin)
-            }
-            setBackgroundColor(hexColor)
-            cornerRadius = size / 2
-            setOnClickListener {
-                selectColor(colorId, hexColor)
-            }
-            tag = colorId
+            selectColor(GoogleCalendarColors.BLUEBERRY.id)
         }
     }
 
-    private fun selectColor(colorId: Int, hexColor: Int? = null) {
-        selectedColorId = colorId
-        if (GoogleCalendarColors.isCustomColor(colorId)) {
-            selectedCustomColor = hexColor
-        } else {
-            selectedCustomColor = null
+    private fun createColorRow(
+        swatchSize: Int,
+        calColor: GoogleCalendarColors.CalendarColor
+    ): View {
+        val dp = resources.displayMetrics.density
+
+        val row = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = (4 * dp).toInt() }
+            setPadding((12 * dp).toInt(), (10 * dp).toInt(), (12 * dp).toInt(), (10 * dp).toInt())
+            isClickable = true
+            isFocusable = true
+            tag = calColor.id  // stores the colorId (1-11) on this row
+            setOnClickListener { selectColor(calColor.id) }
         }
+
+        // Swatch circle filled with the hex color for display
+        val swatch = View(requireContext()).apply {
+            layoutParams = LinearLayout.LayoutParams(swatchSize, swatchSize).apply {
+                marginEnd = (16 * dp).toInt()
+            }
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(calColor.hexColor)
+            }
+        }
+
+        // Color name label
+        val label = TextView(requireContext()).apply {
+            text = calColor.name
+            textSize = 16f
+            setTextColor(ContextCompat.getColor(requireContext(), android.R.color.tab_indicator_text))
+        }
+
+        row.addView(swatch)
+        row.addView(label)
+        return row
+    }
+
+    /**
+     * Select a color by its Google Calendar colorId (1-11).
+     * The colorId is what gets stored in EventType and sent to the calendar API.
+     */
+    private fun selectColor(colorId: Int) {
+        selectedColorId = colorId
         updateColorSelection()
     }
-    
-    // Custom color picker commented out - not supported by Google Calendar API
-    /*
-    private fun showCustomColorPicker() {
-        val initialColor = selectedCustomColor ?: Color.BLUE
-        
-        CustomColorPickerDialog.show(
-            requireContext(),
-            initialColor
-        ) { selectedColor ->
-            selectCustomColor(selectedColor)
-        }
-    }
-    */
-    
-    // Custom color functionality commented out - not supported by Google Calendar API
-    /*
-    private fun setupCustomColorButton() {
-        binding.customColorButton.setOnClickListener {
-            showCustomColorPicker()
-        }
-    }
-    
-    private fun selectCustomColor(hexColor: Int) {
-        // Update the custom color button to show the selected color
-        val hexString = String.format("#%06X", 0xFFFFFF and hexColor)
-        binding.customColorButton.text = "Custom Color: $hexString"
-        binding.customColorButton.iconTint = ContextCompat.getColorStateList(requireContext(), android.R.color.transparent)
-        binding.customColorButton.setBackgroundColor(hexColor)
-        selectColor(GoogleCalendarColors.CUSTOM_COLOR_ID, hexColor)
-    }
-    */
 
     private fun updateColorSelection() {
-        val gridLayout = binding.colorGrid
-        for (i in 0 until gridLayout.childCount) {
-            val button = gridLayout.getChildAt(i) as MaterialButton
-            val buttonColorId = button.tag as Int
+        val colorList = binding.colorList
+        val dp = resources.displayMetrics.density
 
-            if (buttonColorId == selectedColorId) {
-                // Add selection indicator (white stroke)
-                button.strokeWidth = 4
-                button.strokeColor = ContextCompat.getColorStateList(requireContext(), android.R.color.white)
+        for (i in 0 until colorList.childCount) {
+            val row = colorList.getChildAt(i) as LinearLayout
+            val rowColorId = row.tag as Int  // the colorId (1-11) stored on this row
+            val swatch = row.getChildAt(0)
+            val hexColor = GoogleCalendarColors.getHexColorById(rowColorId) ?: 0
+
+            if (rowColorId == selectedColorId) {
+                // Selection ring around swatch
+                swatch.background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(hexColor)
+                    setStroke((3 * dp).toInt(), ContextCompat.getColor(requireContext(), R.color.scribcal_blue))
+                }
+                row.setBackgroundColor(0x18000000) // subtle highlight
             } else {
-                // Remove selection indicator
-                button.strokeWidth = 0
+                swatch.background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(hexColor)
+                }
+                row.setBackgroundColor(0) // transparent
             }
         }
     }
@@ -215,11 +242,16 @@ class AddEditEventTypeFragment : Fragment() {
             binding.descriptionEditText.setText(eventType.description)
             binding.saveButton.text = "Update"
 
-            // Restore color selection (custom colors commented out)
+            // Restore color selection
             if (eventType.colorId != null) {
-                val hexColor = GoogleCalendarColors.getHexColorById(eventType.colorId!!)
-                selectColor(eventType.colorId!!, hexColor)
+                selectColor(eventType.colorId)
             }
+
+            // Restore bubble toggle state
+            binding.bubbleSwitch.isChecked = eventType.shouldBubble
+
+            // Restore cadence selection
+            applyCadenceSelection(eventType.cadence)
         }
     }
 
@@ -234,13 +266,17 @@ class AddEditEventTypeFragment : Fragment() {
 
         binding.nameInputLayout.error = null
 
+        val shouldBubble = binding.bubbleSwitch.isChecked
+        val cadence = selectedCadence()
+
         val eventType = if (editingEventType == null) {
             // Creating new event type
             EventType(
                 name = name,
                 description = description.takeIf { it?.isNotBlank() == true },
                 colorId = selectedColorId,
-                customColorHex = selectedCustomColor
+                shouldBubble = shouldBubble,
+                cadence = cadence
             )
         } else {
             // Updating existing event type
@@ -248,7 +284,8 @@ class AddEditEventTypeFragment : Fragment() {
                 name = name,
                 description = description.takeIf { it?.isNotBlank() == true },
                 colorId = selectedColorId,
-                customColorHex = selectedCustomColor
+                shouldBubble = shouldBubble,
+                cadence = cadence
             )
         }
 

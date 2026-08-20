@@ -93,6 +93,32 @@
     <string name="connection_successful">Conexión exitosa</string>
     <string name="connection_failed">Conexión fallida</string>
 
+    <!-- Backup & Restore -->
+    <string name="backup_restore_title">Copia de seguridad y restauración</string>
+    <string name="backup_restore_desc">Exporta tus tipos de eventos y ajustes a un archivo (Documents/ScribCal) o a Google Drive para que las actualizaciones de la app no los borren. Los eventos registrados viven en Google Calendar; al importar, la última vez de cada tipo se vuelve a leer desde ahí.</string>
+    <string name="backup_export_device">Exportar al dispositivo</string>
+    <string name="backup_import_device">Importar del dispositivo</string>
+    <string name="backup_export_drive">Exportar a Google Drive</string>
+    <string name="backup_import_drive">Importar de Google Drive</string>
+    <string name="backup_status_idle">La última acción de copia aparecerá aquí</string>
+    <string name="backup_working">Trabajando…</string>
+    <string name="backup_import_confirm_title">¿Reemplazar todos los datos?</string>
+    <string name="backup_import_confirm_message">Importar reemplaza tus tipos de eventos actuales (y sus eventos) con el contenido de la copia. Esto no se puede deshacer. ¿Continuar?</string>
+    <string name="backup_import_confirm_button">Reemplazar</string>
+
+    <!-- Main Screen View & Cadence -->
+    <string name="view_mode_list">Vista de lista</string>
+    <string name="view_mode_card">Vista de tarjetas</string>
+    <string name="card_size_decrease">Tarjetas más pequeñas</string>
+    <string name="card_size_increase">Tarjetas más grandes</string>
+    <string name="cadence_label">Acciones de registro</string>
+    <string name="cadence_helper">Qué botones aparecen para este evento en la pantalla principal</string>
+    <string name="cadence_instant">Instantáneo</string>
+    <string name="cadence_timed">Cronometrado</string>
+    <string name="cadence_both">Ambos</string>
+    <string name="card_color_style_title">Estilo de color de tarjeta</string>
+    <string name="card_color_style_helper">Cómo muestran las tarjetas el color del calendario (solo vista de tarjetas)</string>
+
     <!-- Generic -->
     <string name="ok">OK</string>
     <string name="retry">Reintentar</string>

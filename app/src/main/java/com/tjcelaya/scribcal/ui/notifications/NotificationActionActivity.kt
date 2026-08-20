@@ -28,6 +28,7 @@ class NotificationActionActivity : AppCompatActivity() {
          */
         fun createIntent(context: Context, eventId: Long): Intent {
             return Intent(context, NotificationActionActivity::class.java).apply {
+                action = Intent.ACTION_VIEW // Required for shortcuts
                 putExtra(EXTRA_EVENT_ID, eventId)
                 // These flags ensure the activity opens properly from a notification
                 // FLAG_ACTIVITY_NEW_TASK is needed to start activity from non-activity context
@@ -115,8 +116,8 @@ class NotificationActionActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 Log.e(TAG, "Error saving event", e)
             } finally {
-                // Launch main activity and finish this one
-                launchMainAndFinish()
+                // Just finish - don't launch main activity
+                finish()
             }
         }
     }
@@ -136,20 +137,9 @@ class NotificationActionActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 Log.e(TAG, "Error discarding event", e)
             } finally {
-                // Launch main activity and finish this one
-                launchMainAndFinish()
+                // Just finish - don't launch main activity
+                finish()
             }
         }
-    }
-    
-    private fun launchMainAndFinish() {
-        // Create an intent to launch MainActivity
-        val mainIntent = Intent(this, com.tjcelaya.scribcal.MainActivity::class.java).apply {
-            // FLAG_ACTIVITY_CLEAR_TOP brings existing MainActivity to front if it exists
-            // FLAG_ACTIVITY_SINGLE_TOP prevents creating duplicate MainActivity instances
-            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-        }
-        startActivity(mainIntent)
-        finish()
     }
 }

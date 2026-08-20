@@ -9,6 +9,9 @@ interface FutureEventDao {
     @Query("SELECT * FROM future_events ORDER BY targetTime ASC")
     fun getAllFutureEvents(): LiveData<List<FutureEvent>>
 
+    @Query("SELECT * FROM future_events ORDER BY targetTime ASC")
+    suspend fun getAllFutureEventsSync(): List<FutureEvent>
+
     @Query("SELECT * FROM future_events WHERE id = :id")
     suspend fun getFutureEventById(id: Long): FutureEvent?
 
@@ -17,6 +20,9 @@ interface FutureEventDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertFutureEvent(futureEvent: FutureEvent): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertFutureEvents(futureEvents: List<FutureEvent>)
 
     @Update
     suspend fun updateFutureEvent(futureEvent: FutureEvent)

@@ -29,6 +29,9 @@ data class CalendarEventInfo(
 
 object CalendarUtils {
 
+    /** Machine-readable tag appended to event descriptions for filtering */
+    const val SOURCE_TAG = "[source:scribcal]"
+
     const val CALENDAR_READ_PERMISSION = Manifest.permission.READ_CALENDAR
     const val CALENDAR_WRITE_PERMISSION = Manifest.permission.WRITE_CALENDAR
 
@@ -142,6 +145,44 @@ object CalendarUtils {
         events
     }
 
+    /**
+     * Find the most recent past occurrence (DTSTART) of an event with the given title in the
+     * given calendar. Used to seed a local "last occurrence" timestamp on config import, since
+     * Google Calendar is the source of truth for history.
+     */
+    suspend fun getLastOccurrence(context: Context, calendarId: Long, title: String): Long? = withContext(Dispatchers.IO) {
+        if (!hasCalendarPermissions(context)) {
+            return@withContext null
+        }
+
+        val contentResolver: ContentResolver = context.contentResolver
+        val now = System.currentTimeMillis()
+
+        val projection = arrayOf(CalendarContract.Events.DTSTART)
+        val selection = "${CalendarContract.Events.CALENDAR_ID} = ? AND ${CalendarContract.Events.TITLE} = ? AND ${CalendarContract.Events.DTSTART} <= ? AND ${CalendarContract.Events.DELETED} != 1"
+        val selectionArgs = arrayOf(calendarId.toString(), title, now.toString())
+        val sortOrder = "${CalendarContract.Events.DTSTART} DESC"
+
+        try {
+            val cursor: Cursor? = contentResolver.query(
+                CalendarContract.Events.CONTENT_URI,
+                projection,
+                selection,
+                selectionArgs,
+                sortOrder
+            )
+
+            cursor?.use {
+                if (it.moveToFirst()) {
+                    return@withContext it.getLong(it.getColumnIndexOrThrow(CalendarContract.Events.DTSTART))
+                }
+            }
+            null
+        } catch (e: SecurityException) {
+            null
+        }
+    }
+
     suspend fun insertEventToCalendar(
         context: Context,
         calendarId: Long,
@@ -151,7 +192,6 @@ object CalendarUtils {
         description: String? = null,
         photoPath: String? = null,
         colorId: Int? = null,
-        customColorHex: Int? = null,
         calendarAccountEmail: String? = null,
         calendarRepository: com.tjcelaya.scribcal.data.CalendarRepository? = null,
         eventType: com.tjcelaya.scribcal.data.database.EventType? = null
@@ -182,24 +222,12 @@ object CalendarUtils {
             // Only set as all-day if explicitly requested (which we don't do for now)
             put(CalendarContract.Events.ALL_DAY, 0)
             
-            // Set event color
-            when {
-                GoogleCalendarColors.isCustomColor(colorId) && customColorHex != null -> {
-                    // Use custom hex color directly
-                    android.util.Log.d("CalendarUtils", "Setting custom color: #${Integer.toHexString(customColorHex)}")
-                    put(CalendarContract.Events.EVENT_COLOR, customColorHex)
-                }
-                colorId != null && colorId in 1..11 -> {
-                    // Use Google Calendar standard color hex value
-                    val hexColor = GoogleCalendarColors.getHexColorById(colorId)
-                    android.util.Log.d("CalendarUtils", "Setting Google Calendar color ID $colorId with hex: #${Integer.toHexString(hexColor ?: 0)}")
-                    if (hexColor != null) {
-                        put(CalendarContract.Events.EVENT_COLOR, hexColor)
-                    }
-                }
-                else -> {
-                    android.util.Log.d("CalendarUtils", "No color specified, colorId=$colorId, customColorHex=$customColorHex")
-                }
+            // Set event color using Google Calendar color key (1-11)
+            if (colorId != null && colorId in 1..11) {
+                android.util.Log.d("CalendarUtils", "Setting Google Calendar color key: $colorId")
+                put(CalendarContract.Events.EVENT_COLOR_KEY, colorId.toString())
+            } else {
+                android.util.Log.d("CalendarUtils", "No color specified, colorId=$colorId")
             }
         }
         
@@ -272,8 +300,7 @@ object CalendarUtils {
         endTime: Long,
         description: String? = null,
         photoPath: String? = null,
-        colorId: Int? = null,
-        customColorHex: Int? = null
+        colorId: Int? = null
     ): Boolean = withContext(Dispatchers.IO) {
         if (!hasCalendarPermissions(context)) {
             return@withContext false
@@ -292,24 +319,12 @@ object CalendarUtils {
             put(CalendarContract.Events.ALL_DAY, 0)
             put(CalendarContract.Events.DTEND, endTime)
             
-            // Set event color
-            when {
-                GoogleCalendarColors.isCustomColor(colorId) && customColorHex != null -> {
-                    // Use custom hex color directly
-                    android.util.Log.d("CalendarUtils", "Updating with custom color: #${Integer.toHexString(customColorHex)}")
-                    put(CalendarContract.Events.EVENT_COLOR, customColorHex)
-                }
-                colorId != null && colorId in 1..11 -> {
-                    // Use Google Calendar standard color hex value
-                    val hexColor = GoogleCalendarColors.getHexColorById(colorId)
-                    android.util.Log.d("CalendarUtils", "Updating with Google Calendar color ID $colorId with hex: #${Integer.toHexString(hexColor ?: 0)}")
-                    if (hexColor != null) {
-                        put(CalendarContract.Events.EVENT_COLOR, hexColor)
-                    }
-                }
-                else -> {
-                    android.util.Log.d("CalendarUtils", "No color specified for update, colorId=$colorId, customColorHex=$customColorHex")
-                }
+            // Set event color using Google Calendar color key (1-11)
+            if (colorId != null && colorId in 1..11) {
+                android.util.Log.d("CalendarUtils", "Updating with Google Calendar color key: $colorId")
+                put(CalendarContract.Events.EVENT_COLOR_KEY, colorId.toString())
+            } else {
+                android.util.Log.d("CalendarUtils", "No color specified for update, colorId=$colorId")
             }
         }
 
@@ -398,7 +413,7 @@ object CalendarUtils {
     private fun formatEventDescription(description: String?, photoPath: String?): String {
         val baseDescription = description?.trim() ?: ""
 
-        return when {
+        val body = when {
             photoPath.isNullOrEmpty() -> baseDescription
             isMultiplePhotoLinks(photoPath) -> {
                 // Handle multiple photo links (formatted by EventRepository)
@@ -433,6 +448,9 @@ object CalendarUtils {
                 }
             }
         }
+
+        // Append source tag for filtering (e.g. from duckdb-cal)
+        return if (body.isEmpty()) SOURCE_TAG else "$body\n$SOURCE_TAG"
     }
 
     /**

@@ -18,6 +18,8 @@ import com.google.android.gms.auth.GoogleAuthUtil
 import com.tjcelaya.scribcal.R
 import com.tjcelaya.scribcal.ScribCalApplication
 import com.tjcelaya.scribcal.data.CalendarRepository
+import com.tjcelaya.scribcal.data.CardColorStyle
+import com.tjcelaya.scribcal.data.ConfigBackupManager
 import com.tjcelaya.scribcal.data.DriveRepository
 import com.tjcelaya.scribcal.data.InstantEventIcon
 import com.tjcelaya.scribcal.data.PhotosConnectionResult
@@ -45,6 +47,7 @@ class SettingsFragment : Fragment() {
     private lateinit var driveRepository: DriveRepository
     private lateinit var photosRepository: PhotosRepository
     private lateinit var storagePreferences: StoragePreferences
+    private lateinit var configBackupManager: ConfigBackupManager
 
     // Activity result launcher for Google Photos consent screen
     private val photosConsentLauncher = registerForActivityResult(
@@ -95,6 +98,7 @@ class SettingsFragment : Fragment() {
         driveRepository = app.driveRepository
         photosRepository = app.photosRepository
         storagePreferences = app.storagePreferences
+        configBackupManager = app.configBackupManager
 
         setupUI()
 
@@ -104,10 +108,13 @@ class SettingsFragment : Fragment() {
     private fun setupUI() {
         setupCalendarSection()
         setupEnhancedCalendarSection()
+        setupBubbleSection()
         setupDriveSection()
         setupPhotosSection()
         setupStorageSelection()
         setupInstantEventIconSelection()
+        setupCardColorStyleSelection()
+        setupBackupSection()
     }
 
     private fun setupCalendarSection() {
@@ -193,6 +200,56 @@ class SettingsFragment : Fragment() {
             else -> android.R.color.tab_indicator_text
         }
         binding.enhancedCalendarStatus.setTextColor(requireContext().getColor(color))
+    }
+
+    private fun setupBubbleSection() {
+        // Load current state
+        val currentMode = storagePreferences.getBubbleMode()
+        when (currentMode) {
+            com.tjcelaya.scribcal.data.BubbleMode.NEVER -> binding.bubbleModeNever.isChecked = true
+            com.tjcelaya.scribcal.data.BubbleMode.SELECTED -> binding.bubbleModeSelected.isChecked = true
+            com.tjcelaya.scribcal.data.BubbleMode.ALWAYS -> binding.bubbleModeAlways.isChecked = true
+        }
+        
+        // Update status text
+        updateBubbleStatus()
+        
+        // Handle radio button changes
+        binding.bubbleModeGroup.setOnCheckedChangeListener { _, checkedId ->
+            val newMode = when (checkedId) {
+                R.id.bubble_mode_never -> com.tjcelaya.scribcal.data.BubbleMode.NEVER
+                R.id.bubble_mode_selected -> com.tjcelaya.scribcal.data.BubbleMode.SELECTED
+                R.id.bubble_mode_always -> com.tjcelaya.scribcal.data.BubbleMode.ALWAYS
+                else -> com.tjcelaya.scribcal.data.BubbleMode.NEVER
+            }
+            
+            storagePreferences.setBubbleMode(newMode)
+            updateBubbleStatus()
+            
+            val message = when (newMode) {
+                com.tjcelaya.scribcal.data.BubbleMode.NEVER -> "Bubble notifications disabled"
+                com.tjcelaya.scribcal.data.BubbleMode.SELECTED -> "Bubbles enabled for selected event types"
+                com.tjcelaya.scribcal.data.BubbleMode.ALWAYS -> "Bubbles enabled for all ongoing events"
+            }
+            Snackbar.make(binding.root, message, Snackbar.LENGTH_SHORT).show()
+        }
+    }
+    
+    private fun updateBubbleStatus() {
+        val mode = storagePreferences.getBubbleMode()
+        
+        binding.bubblesStatus.text = when (mode) {
+            com.tjcelaya.scribcal.data.BubbleMode.NEVER -> "Silent notifications only"
+            com.tjcelaya.scribcal.data.BubbleMode.SELECTED -> "Bubbles for selected event types (configure in event type editor)"
+            com.tjcelaya.scribcal.data.BubbleMode.ALWAYS -> "✓ All ongoing events will appear as bubbles"
+        }
+        
+        val color = when (mode) {
+            com.tjcelaya.scribcal.data.BubbleMode.NEVER -> android.R.color.tab_indicator_text
+            com.tjcelaya.scribcal.data.BubbleMode.SELECTED -> android.R.color.holo_orange_dark
+            com.tjcelaya.scribcal.data.BubbleMode.ALWAYS -> android.R.color.holo_green_dark
+        }
+        binding.bubblesStatus.setTextColor(requireContext().getColor(color))
     }
 
     private fun setupDriveSection() {
@@ -829,6 +886,72 @@ class SettingsFragment : Fragment() {
             storagePreferences.setInstantEventIcon(selectedIcon)
             Snackbar.make(binding.root, "Icon changed to ${selectedIcon.displayName}", Snackbar.LENGTH_SHORT).show()
         }
+    }
+
+    private fun setupCardColorStyleSelection() {
+        val options = CardColorStyle.values()
+        val names = options.map { it.displayName }
+
+        val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, names)
+        binding.cardColorStyleSpinner.setAdapter(adapter)
+
+        val current = storagePreferences.getCardColorStyle()
+        binding.cardColorStyleSpinner.setText(current.displayName, false)
+
+        binding.cardColorStyleSpinner.setOnItemClickListener { _, _, position, _ ->
+            val selected = options[position]
+            storagePreferences.setCardColorStyle(selected)
+            Snackbar.make(binding.root, "Card color: ${selected.displayName}", Snackbar.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun setupBackupSection() {
+        binding.exportDeviceButton.setOnClickListener {
+            runBackup { configBackupManager.exportToDocuments(requireContext()) }
+        }
+        binding.importDeviceButton.setOnClickListener {
+            confirmImport { runBackup { configBackupManager.importFromDocuments(requireContext()) } }
+        }
+        binding.exportDriveButton.setOnClickListener {
+            runBackup { configBackupManager.exportToDrive() }
+        }
+        binding.importDriveButton.setOnClickListener {
+            confirmImport { runBackup { configBackupManager.importFromDrive() } }
+        }
+    }
+
+    private fun confirmImport(onConfirm: () -> Unit) {
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.backup_import_confirm_title)
+            .setMessage(R.string.backup_import_confirm_message)
+            .setPositiveButton(R.string.backup_import_confirm_button) { _, _ -> onConfirm() }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun runBackup(action: suspend () -> ConfigBackupManager.BackupResult) {
+        setBackupButtonsEnabled(false)
+        binding.backupStatusText.text = getString(R.string.backup_working)
+        lifecycleScope.launch {
+            val result = action()
+            val message = when (result) {
+                is ConfigBackupManager.BackupResult.Success -> result.message
+                is ConfigBackupManager.BackupResult.Error -> result.message
+            }
+            // Guard against the view being destroyed while the IO work was in flight
+            if (_binding != null) {
+                binding.backupStatusText.text = message
+                Snackbar.make(binding.root, message, Snackbar.LENGTH_LONG).show()
+                setBackupButtonsEnabled(true)
+            }
+        }
+    }
+
+    private fun setBackupButtonsEnabled(enabled: Boolean) {
+        binding.exportDeviceButton.isEnabled = enabled
+        binding.importDeviceButton.isEnabled = enabled
+        binding.exportDriveButton.isEnabled = enabled
+        binding.importDriveButton.isEnabled = enabled
     }
 
     override fun onDestroyView() {

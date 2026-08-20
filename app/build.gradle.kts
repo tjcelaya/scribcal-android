@@ -35,6 +35,11 @@ android {
     kotlinOptions {
         jvmTarget = "11"
     }
+    kapt {
+        arguments {
+            arg("room.schemaLocation", "$projectDir/schemas")
+        }
+    }
     buildFeatures {
         viewBinding = true
     }
@@ -56,6 +61,9 @@ dependencies {
     implementation(libs.androidx.constraintlayout)
     implementation(libs.androidx.navigation.fragment.ktx)
     implementation(libs.androidx.navigation.ui.ktx)
+
+    // RecyclerView (explicit: provides ConcatAdapter, used on the tracking screen)
+    implementation("androidx.recyclerview:recyclerview:1.3.2")
 
     // Room database
     implementation(libs.androidx.room.runtime)

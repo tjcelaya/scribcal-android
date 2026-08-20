@@ -22,11 +22,16 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.ConcatAdapter
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import kotlinx.coroutines.launch
 import com.tjcelaya.scribcal.MainActivity
 import com.tjcelaya.scribcal.R
 import com.tjcelaya.scribcal.ScribCalApplication
+import com.tjcelaya.scribcal.data.CardColorStyle
+import com.tjcelaya.scribcal.data.EventViewMode
+import com.tjcelaya.scribcal.data.StoragePreferences
 import com.tjcelaya.scribcal.data.database.EventType
 import com.tjcelaya.scribcal.data.database.OngoingEvent
 import com.tjcelaya.scribcal.databinding.FragmentTrackingBinding
@@ -46,8 +51,11 @@ class TrackingFragment : Fragment() {
 
     private lateinit var viewModel: TrackingViewModel
     private lateinit var eventTypesAdapter: EventTypesTrackingAdapter
-    private lateinit var ongoingEventsAdapter: OngoingEventsAdapter
     private lateinit var futureEventsAdapter: FutureEventsAdapter
+    private lateinit var futureHeaderAdapter: SectionHeaderAdapter
+    private lateinit var gridLayoutManager: GridLayoutManager
+    private lateinit var storagePreferences: StoragePreferences
+    private var currentViewMode: EventViewMode = EventViewMode.LIST
 
     // Timer for real-time updates
     private val timerHandler = Handler(Looper.getMainLooper())
@@ -135,6 +143,7 @@ class TrackingFragment : Fragment() {
 
         setupViewModel()
         setupRecyclerViews()
+        setupViewControls()
         setupClickListeners()
         observeViewModel()
         checkPermissionsAndSetup()
@@ -148,13 +157,13 @@ class TrackingFragment : Fragment() {
         val app = requireActivity().application as ScribCalApplication
         val eventRepository = app.eventRepository
         val calendarRepository = app.calendarRepository
+        storagePreferences = app.storagePreferences
 
         val factory = TrackingViewModelFactory(eventRepository, calendarRepository)
         viewModel = ViewModelProvider(this, factory)[TrackingViewModel::class.java]
     }
 
     private fun setupRecyclerViews() {
-        // Event Types RecyclerView
         eventTypesAdapter = EventTypesTrackingAdapter(
             onStartEvent = { eventType ->
                 viewModel.startEvent(eventType.id)
@@ -170,24 +179,6 @@ class TrackingFragment : Fragment() {
             }
         )
 
-        binding.eventTypesRecyclerView.apply {
-            layoutManager = LinearLayoutManager(requireContext())
-            adapter = eventTypesAdapter
-        }
-
-        // Ongoing Events RecyclerView
-        ongoingEventsAdapter = OngoingEventsAdapter(
-            onStopEvent = { ongoingEvent ->
-                viewModel.showStopEventConfirmation(ongoingEvent)
-            }
-        )
-
-        binding.ongoingEventsRecyclerView.apply {
-            layoutManager = LinearLayoutManager(requireContext())
-            adapter = ongoingEventsAdapter
-        }
-
-        // Future Events RecyclerView
         futureEventsAdapter = FutureEventsAdapter(
             onCompleteEarly = { futureEvent, eventType ->
                 viewModel.recordEarlyEvent(futureEvent.id, eventType.id, eventType.name)
@@ -197,11 +188,92 @@ class TrackingFragment : Fragment() {
             }
         )
 
-        binding.futureEventsRecyclerView.apply {
-            layoutManager = LinearLayoutManager(requireContext())
-            adapter = futureEventsAdapter
+        futureHeaderAdapter = SectionHeaderAdapter("Scheduled Events")
+
+        // Single scrolling list so RecyclerView can recycle views properly (previously these
+        // lists were nested with wrap_content inside a ScrollView, which broke recycling and
+        // made scrolling hitch/stick once the content was taller than the screen).
+        val concatAdapter = ConcatAdapter(eventTypesAdapter, futureHeaderAdapter, futureEventsAdapter)
+
+        // GridLayoutManager backs both list (1 column) and card (N columns) modes. Only event-type
+        // cards span a single column; everything else (section header, future events) spans the row.
+        gridLayoutManager = GridLayoutManager(requireContext(), 1)
+        gridLayoutManager.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
+            override fun getSpanSize(position: Int): Int {
+                if (currentViewMode != EventViewMode.CARD) return 1
+                return if (position < eventTypesAdapter.itemCount) 1 else gridLayoutManager.spanCount
+            }
+        }
+        gridLayoutManager.spanSizeLookup.isSpanIndexCacheEnabled = false
+
+        binding.mainRecyclerView.apply {
+            layoutManager = gridLayoutManager
+            adapter = concatAdapter
         }
     }
+
+    private fun setupViewControls() {
+        // Reflect persisted state without firing listeners
+        val mode = storagePreferences.getEventViewMode()
+        binding.viewModeToggle.check(if (mode == EventViewMode.CARD) R.id.cardViewButton else R.id.listViewButton)
+        binding.cardSizeSlider.value = storagePreferences.getCardSizeDp().toFloat()
+
+        binding.viewModeToggle.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (!isChecked) return@addOnButtonCheckedListener
+            val newMode = if (checkedId == R.id.cardViewButton) EventViewMode.CARD else EventViewMode.LIST
+            storagePreferences.setEventViewMode(newMode)
+            applyViewMode()
+        }
+
+        binding.cardSizeSlider.addOnChangeListener { _, value, fromUser ->
+            if (fromUser) {
+                storagePreferences.setCardSizeDp(value.toInt())
+                recomputeSpanCount()
+            }
+        }
+
+        binding.cardSizeDecrease.setOnClickListener { nudgeCardSize(-10) }
+        binding.cardSizeIncrease.setOnClickListener { nudgeCardSize(10) }
+
+        applyViewMode()
+    }
+
+    private fun nudgeCardSize(deltaDp: Int) {
+        val newSize = (storagePreferences.getCardSizeDp() + deltaDp)
+            .coerceIn(StoragePreferences.CARD_SIZE_MIN_DP, StoragePreferences.CARD_SIZE_MAX_DP)
+        storagePreferences.setCardSizeDp(newSize)
+        binding.cardSizeSlider.value = newSize.toFloat() // fromUser=false, handled below
+        recomputeSpanCount()
+    }
+
+    private fun applyViewMode() {
+        val mode = storagePreferences.getEventViewMode()
+        currentViewMode = mode
+        eventTypesAdapter.setViewMode(mode)
+        eventTypesAdapter.setCardColorStyle(storagePreferences.getCardColorStyle())
+        binding.cardSizeRow.visibility = if (mode == EventViewMode.CARD) View.VISIBLE else View.GONE
+        recomputeSpanCount()
+    }
+
+    private fun recomputeSpanCount() {
+        if (currentViewMode != EventViewMode.CARD) {
+            gridLayoutManager.spanCount = 1
+            eventTypesAdapter.setCellWidthPx(0)
+            return
+        }
+        val rv = _binding?.mainRecyclerView ?: return
+        val available = rv.width - rv.paddingLeft - rv.paddingRight
+        if (available <= 0) {
+            rv.post { recomputeSpanCount() }
+            return
+        }
+        val target = dpToPx(storagePreferences.getCardSizeDp())
+        val span = (available / target).coerceAtLeast(1)
+        gridLayoutManager.spanCount = span
+        eventTypesAdapter.setCellWidthPx(available / span)
+    }
+
+    private fun dpToPx(dp: Int): Int = (dp * resources.displayMetrics.density).toInt()
 
     private fun setupClickListeners() {
         // Main FAB toggles the menu
@@ -238,20 +310,72 @@ class TrackingFragment : Fragment() {
             showEventTypePickerForScheduling()
         }
 
-        binding.manageEventTypesButton.setOnClickListener {
-            findNavController().navigate(R.id.eventsFragment)
-        }
-
-        binding.calendarSetupButton.setOnClickListener {
-            findNavController().navigate(R.id.calendarSetupFragment)
+        
+        setupQuickAddInput()
+    }
+    
+    private fun setupQuickAddInput() {
+        // Enable/disable send button based on input
+        binding.quickAddInput.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                binding.quickAddSendButton.isEnabled = !s.isNullOrBlank()
+            }
+        })
+        
+        // Handle enter key
+        binding.quickAddInput.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
+                handleQuickAdd()
+                true
+            } else false
         }
         
-        // Temporary debug: Add long click to test notifications
-        binding.manageEventTypesButton.setOnLongClickListener {
-            val app = requireActivity().application as ScribCalApplication
-            app.notificationService.showTestNotification()
-            true
+        // Handle send button click
+        binding.quickAddSendButton.setOnClickListener {
+            handleQuickAdd()
         }
+    }
+    
+    private fun handleQuickAdd() {
+        val eventName = binding.quickAddInput.text?.toString()?.trim() ?: return
+        if (eventName.isEmpty()) return
+        
+        lifecycleScope.launch {
+            // Check if event type exists
+            val app = requireActivity().application as ScribCalApplication
+            val existingType = app.eventRepository.getEventTypeByName(eventName)
+            
+            if (existingType != null) {
+                // Existing event type - record immediately
+                viewModel.recordInstantaneousEvent(existingType.id)
+            } else {
+                // New event name - save to calendar, then ask about saving as type
+                viewModel.recordInstantEventWithName(eventName)
+                
+                // Show dialog asking if they want to save as event type
+                showSaveAsEventTypeDialog(eventName)
+            }
+            
+            // Clear input
+            binding.quickAddInput.text?.clear()
+            
+            // Hide keyboard
+            val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+            imm.hideSoftInputFromWindow(binding.quickAddInput.windowToken, 0)
+        }
+    }
+    
+    private fun showSaveAsEventTypeDialog(eventName: String) {
+        AlertDialog.Builder(requireContext())
+            .setTitle("Save as Event Type?")
+            .setMessage("Do you want to save '$eventName' for quick access in the future?")
+            .setPositiveButton("Yes") { _, _ ->
+                viewModel.createEventTypeFromQuickAdd(eventName)
+            }
+            .setNegativeButton("No", null)
+            .show()
     }
 
     private fun observeViewModel() {
@@ -267,31 +391,14 @@ class TrackingFragment : Fragment() {
             }
         }
 
-        // Observe displayable ongoing items (both events and photo uploads) for timer updates only
+        // Observe displayable ongoing items for timer updates only. Ongoing events are rendered
+        // inline within each event-type row, so there is no separate ongoing list to submit to.
         viewModel.displayableOngoingItems.observe(viewLifecycleOwner) { displayableItems ->
-            ongoingEventsAdapter.submitList(displayableItems)
-            binding.ongoingEventsCard.visibility = View.GONE // Hide the separate ongoing events card
-
-            // Start or stop timer based on whether there are ongoing items
             val hasOngoingEvents = displayableItems.any { it.type == DisplayableOngoingItem.Type.REGULAR_EVENT }
             if (hasOngoingEvents) {
                 startTimerUpdates()
             } else {
                 stopTimerUpdates()
-            }
-        }
-
-        viewModel.calendarStatus.observe(viewLifecycleOwner) { status ->
-            binding.calendarStatusText.text = status
-        }
-
-        viewModel.needsCalendarSetup.observe(viewLifecycleOwner) { needsSetup ->
-            if (needsSetup) {
-                binding.calendarSetupButton.text = "Setup Required"
-                binding.calendarSetupButton.isEnabled = true
-            } else {
-                binding.calendarSetupButton.text = "Change"
-                binding.calendarSetupButton.isEnabled = true
             }
         }
 
@@ -313,14 +420,10 @@ class TrackingFragment : Fragment() {
         // Observe future events
         viewModel.futureEventsWithTypes.observe(viewLifecycleOwner) { futureEvents ->
             futureEventsAdapter.submitList(futureEvents)
-            
-            // Show/hide section based on whether there are future events
-            binding.futureEventsSection.visibility = if (futureEvents.isEmpty()) {
-                View.GONE
-            } else {
-                View.VISIBLE
-            }
-            
+
+            // Show/hide the "Scheduled Events" header based on whether there are future events
+            futureHeaderAdapter.setVisible(futureEvents.isNotEmpty())
+
             // Start timer if there are future events (for countdown updates)
             if (futureEvents.isNotEmpty()) {
                 startTimerUpdates()

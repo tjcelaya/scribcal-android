@@ -7,167 +7,165 @@
     android:background="?android:attr/colorBackground"
     tools:context=".ui.tracking.TrackingFragment">
 
-    <ScrollView
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:paddingTop="16dp"
-        android:paddingBottom="88dp">
+        android:orientation="vertical">
 
+        <!-- View controls (list/card toggle + card size) -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:orientation="vertical"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="8dp">
 
-            <!-- Ongoing Section - Hidden, inline display used instead -->
+            <com.google.android.material.button.MaterialButtonToggleGroup
+                android:id="@+id/viewModeToggle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end"
+                app:singleSelection="true"
+                app:selectionRequired="true">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/listViewButton"
+                    style="@style/Widget.Material3.Button.OutlinedButton.Icon"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:contentDescription="@string/view_mode_list"
+                    app:icon="@drawable/ic_view_list"
+                    app:iconPadding="0dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/cardViewButton"
+                    style="@style/Widget.Material3.Button.OutlinedButton.Icon"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:contentDescription="@string/view_mode_card"
+                    app:icon="@drawable/ic_view_grid"
+                    app:iconPadding="0dp" />
+
+            </com.google.android.material.button.MaterialButtonToggleGroup>
+
+            <!-- Card size (visible only in card mode) -->
             <LinearLayout
-                android:id="@+id/ongoingEventsCard"
+                android:id="@+id/cardSizeRow"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="24dp"
-                android:orientation="vertical"
-                android:visibility="gone"
-                tools:visibility="gone">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="12dp"
-                    android:text="Active Events"
-                    android:textAppearance="@style/TextAppearance.Material3.TitleLarge"
-                    android:textColor="?android:attr/textColorPrimary" />
-
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/ongoingEventsRecyclerView"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    tools:listitem="@layout/item_ongoing_event" />
-
-            </LinearLayout>
-
-            <!-- Event Types Section -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="24dp"
-                android:orientation="vertical">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="12dp"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Events"
-                        android:textAppearance="@style/TextAppearance.Material3.TitleLarge"
-                        android:textColor="?android:attr/textColorPrimary" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/manageEventTypesButton"
-                        style="@style/Widget.Material3.Button.TextButton"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Manage" />
-
-                </LinearLayout>
-
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/eventTypesRecyclerView"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    tools:listitem="@layout/item_event_type" />
-
-                <TextView
-                    android:id="@+id/emptyEventTypesText"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:padding="32dp"
-                    android:text="No event types yet.\nTap 'Manage' to create your first event type."
-                    android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
-                    android:textColor="?android:attr/textColorSecondary"
-                    android:visibility="gone" />
-
-            </LinearLayout>
-
-            <!-- Future Events Section -->
-            <LinearLayout
-                android:id="@+id/futureEventsSection"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="24dp"
-                android:orientation="vertical"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
                 android:visibility="gone"
                 tools:visibility="visible">
 
-                <TextView
-                    android:id="@+id/futureEventsHeader"
-                    android:layout_width="match_parent"
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/cardSizeDecrease"
+                    style="@style/Widget.Material3.Button.IconButton"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="12dp"
-                    android:text="Scheduled Events"
-                    android:textAppearance="@style/TextAppearance.Material3.TitleLarge"
-                    android:textColor="?android:attr/textColorPrimary" />
+                    android:contentDescription="@string/card_size_decrease"
+                    app:icon="@drawable/ic_remove" />
 
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/futureEventsRecyclerView"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    tools:listitem="@layout/item_future_event" />
-
-            </LinearLayout>
-
-            <!-- Calendar Status Section -->
-            <LinearLayout
-                android:id="@+id/calendarStatusCard"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:background="?android:attr/selectableItemBackground"
-                android:gravity="center_vertical"
-                android:minHeight="56dp"
-                android:orientation="horizontal"
-                android:paddingStart="16dp"
-                android:paddingTop="12dp"
-                android:paddingEnd="16dp"
-                android:paddingBottom="12dp">
-
-                <ImageView
-                    android:id="@+id/calendarStatusIcon"
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:layout_marginEnd="12dp"
-                    android:src="@drawable/ic_calendar_today"
-                    app:tint="?attr/colorOnSurfaceVariant" />
-
-                <TextView
-                    android:id="@+id/calendarStatusText"
+                <com.google.android.material.slider.Slider
+                    android:id="@+id/cardSizeSlider"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
-                    android:textColor="?android:attr/textColorSecondary"
-                    tools:text="Calendar: My Calendar" />
+                    android:stepSize="10"
+                    android:valueFrom="110"
+                    android:valueTo="260" />
 
                 <com.google.android.material.button.MaterialButton
-                    android:id="@+id/calendarSetupButton"
-                    style="@style/Widget.Material3.Button.TextButton"
+                    android:id="@+id/cardSizeIncrease"
+                    style="@style/Widget.Material3.Button.IconButton"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Setup"
-                    android:textSize="14sp" />
+                    android:contentDescription="@string/card_size_increase"
+                    app:icon="@drawable/ic_add" />
 
             </LinearLayout>
 
         </LinearLayout>
 
-    </ScrollView>
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/mainRecyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:clipToPadding="false"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="88dp"
+            tools:listitem="@layout/item_event_type_tracking" />
+
+    </LinearLayout>
+
+    <!-- Empty state (shown only when there are no event types; nothing to scroll) -->
+    <TextView
+        android:id="@+id/emptyEventTypesText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:padding="32dp"
+        android:text="No event types yet.\nTap the menu (⋮) and select 'Manage events' to create your first event type."
+        android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
+        android:textColor="?android:attr/textColorSecondary"
+        android:visibility="gone" />
+
+    <!-- Quick Add Input (left of FAB) -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/quickAddCard"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|start"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="8dp"
+        android:layout_marginBottom="32dp"
+        app:cardElevation="6dp"
+        app:cardCornerRadius="28dp"
+        app:layout_anchor="@id/fab"
+        app:layout_anchorGravity="start|top">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="4dp"
+            android:gravity="center_vertical">
+
+            <EditText
+                android:id="@+id/quickAddInput"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:background="@android:color/transparent"
+                android:hint="Quick add event..."
+                android:imeOptions="actionDone"
+                android:inputType="text"
+                android:maxLines="1"
+                android:paddingStart="16dp"
+                android:paddingEnd="8dp"
+                android:paddingTop="12dp"
+                android:paddingBottom="12dp"
+                android:textSize="16sp" />
+
+            <ImageButton
+                android:id="@+id/quickAddSendButton"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginEnd="4dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Add event"
+                android:enabled="false"
+                android:src="@drawable/ic_send"
+                app:tint="?attr/colorPrimary" />
+
+        </LinearLayout>
+
+    </com.google.android.material.card.MaterialCardView>
 
     <!-- Overlay for FAB menu -->
     <View

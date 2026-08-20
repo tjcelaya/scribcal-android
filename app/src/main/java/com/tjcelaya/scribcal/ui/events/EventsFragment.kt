@@ -9,7 +9,9 @@ import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.tjcelaya.scribcal.R
 import com.tjcelaya.scribcal.data.EventRepository
 import com.tjcelaya.scribcal.data.database.EventType
@@ -71,6 +73,50 @@ class EventsFragment : Fragment() {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = this@EventsFragment.adapter
         }
+
+        // Drag-and-drop reordering
+        val touchHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
+            ItemTouchHelper.UP or ItemTouchHelper.DOWN, 0
+        ) {
+            override fun onMove(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder,
+                target: RecyclerView.ViewHolder
+            ): Boolean {
+                return adapter.moveItem(viewHolder.adapterPosition, target.adapterPosition)
+            }
+
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+                // No swipe actions
+            }
+
+            override fun canDropOver(
+                recyclerView: RecyclerView,
+                current: RecyclerView.ViewHolder,
+                target: RecyclerView.ViewHolder
+            ): Boolean {
+                // Only allow dropping over non-ongoing items
+                val targetItem = adapter.currentList.getOrNull(target.adapterPosition)
+                return targetItem != null && !targetItem.isOngoing
+            }
+
+            override fun getMovementFlags(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder
+            ): Int {
+                val item = adapter.currentList.getOrNull(viewHolder.adapterPosition)
+                // Don't allow dragging ongoing events
+                if (item == null || item.isOngoing) return makeMovementFlags(0, 0)
+                return super.getMovementFlags(recyclerView, viewHolder)
+            }
+
+            override fun clearView(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder) {
+                super.clearView(recyclerView, viewHolder)
+                // Persist the new order when the user drops the item
+                viewModel.reorderEventTypes(adapter.getOrderedEventTypeIds())
+            }
+        })
+        touchHelper.attachToRecyclerView(binding.eventTypesRecyclerView)
     }
 
     private fun setupClickListeners() {
