@@ -8,6 +8,11 @@
         android:title="Manage events"
         app:showAsAction="never" />
     <item
+        android:id="@+id/action_ledger"
+        android:orderInCategory="40"
+        android:title="@string/ledger_title"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/action_settings"
         android:orderInCategory="100"
         android:title="@string/action_settings"

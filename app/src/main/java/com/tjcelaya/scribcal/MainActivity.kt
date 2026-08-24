@@ -273,6 +273,19 @@ class MainActivity : AppCompatActivity() {
                 }
                 true
             }
+            R.id.action_ledger -> {
+                if (currentDest != R.id.ledgerFragment) {
+                    navController.navigate(
+                        R.id.ledgerFragment,
+                        null,
+                        androidx.navigation.NavOptions.Builder()
+                            .setLaunchSingleTop(true)
+                            .setPopUpTo(R.id.trackingFragment, false)
+                            .build()
+                    )
+                }
+                true
+            }
             R.id.action_settings -> {
                 if (currentDest != R.id.settingsFragment) {
                     navController.navigate(

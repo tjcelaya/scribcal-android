@@ -26,6 +26,9 @@
         <action
             android:id="@+id/action_tracking_to_add_edit_event_type"
             app:destination="@id/addEditEventTypeFragment" />
+        <action
+            android:id="@+id/action_tracking_to_ledger"
+            app:destination="@id/ledgerFragment" />
     </fragment>
 
     <fragment
@@ -93,4 +96,21 @@
             android:id="@+id/action_add_event_to_tracking"
             app:destination="@id/trackingFragment" />
     </fragment>
+    <fragment
+        android:id="@+id/ledgerFragment"
+        android:name="com.tjcelaya.scribcal.ui.ledger.LedgerFragment"
+        android:label="@string/ledger_title"
+        tools:layout="@layout/fragment_ledger">
+
+        <!-- Set by the SAVE_WITH_UNDO notification's Undo action; -1 means "just open the list". -->
+        <argument
+            android:name="undoEventId"
+            app:argType="long"
+            android:defaultValue="-1L" />
+
+        <action
+            android:id="@+id/action_ledger_to_tracking"
+            app:destination="@id/trackingFragment" />
+    </fragment>
+
 </navigation>
