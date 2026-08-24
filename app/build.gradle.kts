@@ -44,6 +44,13 @@ android {
         viewBinding = true
     }
 
+    testOptions {
+        unitTests {
+            // Robolectric needs the merged resources to resolve strings/layouts.
+            isIncludeAndroidResources = true
+        }
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -107,6 +114,12 @@ dependencies {
     implementation("com.google.guava:guava:32.1.3-android")
 
     testImplementation(libs.junit)
+    // LocalizationTest (and the voice/ledger tests) run under Robolectric against real resources.
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.androidx.room.testing)
+    testImplementation(libs.kotlinx.coroutines.test)
+
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }
