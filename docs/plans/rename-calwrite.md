@@ -100,23 +100,38 @@ recent rows. Concretely:
 
 Because `applicationId` changes, this is a copy between two unrelated apps' data directories,
 done once via `adb` on the debug build, after Phase 1–3 land and CalWrite has been installed
-and launched at least once (so its data directory exists):
+and launched at least once (so its data directory exists). Copy → select (verify) → drop:
+ScribCal is not touched or uninstalled until the copied data has been checked against the
+source, so nothing is lost if a step goes wrong.
 
 ```bash
-# 1. Pull ScribCal's Room DB off the device (requires a debuggable build; adb run-as)
+# 1. COPY — pull ScribCal's Room DB off the device (requires a debuggable build; adb run-as)
 adb exec-out run-as com.tjcelaya.scribcal \
   cat databases/scribcal_database > /tmp/scribcal_database
 adb exec-out run-as com.tjcelaya.scribcal \
   cat databases/scribcal_database-wal > /tmp/scribcal_database-wal 2>/dev/null || true
 
-# 2. Push it into CalWrite's data dir under the new file name
+# push it into CalWrite's data dir under the new file name
 adb push /tmp/scribcal_database /data/local/tmp/calwrite_database
 adb shell run-as com.tjcelaya.calwrite \
   cp /data/local/tmp/calwrite_database databases/calwrite_database
-
-# 3. Relaunch CalWrite
 adb shell am force-stop com.tjcelaya.calwrite
 adb shell monkey -p com.tjcelaya.calwrite -c android.intent.category.LAUNCHER 1
+
+# 2. SELECT (verify) — compare row counts (and ideally a content diff) between the two DBs
+#    before either app's data is touched further. Both apps are still installed and untouched
+#    for this step, so a mismatch just means retrying the copy, not lost data.
+adb exec-out run-as com.tjcelaya.scribcal \
+  sqlite3 databases/scribcal_database \
+  "select 'event_types', count(*) from event_types union all select 'events', count(*) from events;"
+adb exec-out run-as com.tjcelaya.calwrite \
+  sqlite3 databases/calwrite_database \
+  "select 'event_types', count(*) from event_types union all select 'events', count(*) from events;"
+# Counts must match. Spot-check a few rows by hand in the CalWrite app itself (open the ledger,
+# confirm the same recent entries and event types show up) before proceeding.
+
+# 3. DROP — only after verification passes: uninstall ScribCal.
+adb uninstall com.tjcelaya.scribcal
 ```
 
 Scope of what's migrated: the `events` and `event_types` tables (the Room DB) — that's the
@@ -124,9 +139,6 @@ data that matters (event history within the retention window, and the user's eve
 catalog). `StoragePreferences` (view mode, voice stop-behavior, card style) and
 `CalendarRepository`'s selected-calendar preference are small enough to just re-set by hand in
 the new app rather than scripting a SharedPreferences copy.
-
-After migration is confirmed (open CalWrite, check event types and recent events are present),
-uninstall ScribCal from the phone.
 
 This script is written once, run once, and does not need to be maintained — it is not part of
 the app and should not ship as in-app code or a permanent CI-tested path.
