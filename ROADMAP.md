@@ -10,11 +10,11 @@ Other documentation: [`docs/guides/`](docs/guides/) holds standing guides (local
 setup, calendar colours), and [`docs/notes/`](docs/notes/) holds implementation notes written
 after the fact — historical records of shipped work, not plans. See also [README.md](README.md).
 
-## Planned
+## Status
 
 | Initiative | Plan | Status |
 |---|---|---|
-| Voice control via Google Assistant & Gemini, plus a recent-events ledger | [`docs/plans/voice-control.md`](docs/plans/voice-control.md) | Planned |
+| Voice control via Google Assistant & Gemini, plus a recent-events ledger | [`docs/plans/voice-control.md`](docs/plans/voice-control.md) | Implemented |
 
 ### Voice control (Assistant + Gemini)
 
@@ -43,8 +43,9 @@ It also carries two pieces of adjacent work the voice features depend on:
 
 ## Hardening carried by the voice work
 
-Voice control is a large enough shift that the surrounding rot becomes load-bearing, so these
-are in scope alongside it rather than deferred. Detail in the plan's Phase 7.
+Voice control was a large enough shift that the surrounding rot became load-bearing, so these
+were done alongside it rather than deferred. Detail in the plan's Phase 7. All are now resolved,
+and `lintDebug` passes for the first time.
 
 - **The unit test source set does not compile.** `LocalizationTest.kt` uses Robolectric and
   `androidx.test.core`, neither declared in `app/build.gradle.kts`; `./gradlew testDebugUnitTest`
