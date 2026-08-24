@@ -77,4 +77,38 @@ class LocalizationTest {
 
         println("✅ All required strings exist and are not empty")
     }
+
+    /**
+     * Shortcut labels are baked into what the launcher and Assistant show, so a missing Spanish
+     * translation surfaces as an English label in a Spanish UI rather than as a build failure.
+     */
+    @Test
+    fun testVoiceShortcutStringsAreTranslated() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val voiceStrings = listOf(
+            R.string.voice_shortcut_start,
+            R.string.voice_shortcut_stop,
+            R.string.voice_shortcut_record,
+            R.string.voice_shortcut_status_short,
+            R.string.voice_shortcut_status_long
+        )
+
+        for (locale in listOf(Locale.ENGLISH, Locale("es"))) {
+            val config = Configuration(context.resources.configuration)
+            config.setLocale(locale)
+            val localized = context.createConfigurationContext(config)
+            for (stringRes in voiceStrings) {
+                assert(localized.getString(stringRes).isNotBlank()) {
+                    "String resource $stringRes is missing for $locale"
+                }
+            }
+        }
+
+        val spanishConfig = Configuration(context.resources.configuration)
+        spanishConfig.setLocale(Locale("es"))
+        val spanish = context.createConfigurationContext(spanishConfig)
+        assert(spanish.getString(R.string.voice_shortcut_start, "Café") == "Iniciar Café")
+
+        println("✅ Voice shortcut strings are localized")
+    }
 }

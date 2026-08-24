@@ -12,6 +12,7 @@ import com.tjcelaya.scribcal.data.PhotosRepository
 import com.tjcelaya.scribcal.data.StoragePreferences
 import com.tjcelaya.scribcal.data.database.ScribCalDatabase
 import com.tjcelaya.scribcal.ui.notifications.NotificationService
+import com.tjcelaya.scribcal.ui.voice.VoiceShortcutPublisher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -39,6 +40,8 @@ class ScribCalApplication : Application() {
         private set
     lateinit var configBackupManager: ConfigBackupManager
         private set
+    lateinit var voiceShortcutPublisher: VoiceShortcutPublisher
+        private set
 
     companion object {
         private const val TAG = "ScribCalApplication"
@@ -63,6 +66,13 @@ class ScribCalApplication : Application() {
                 Log.w(TAG, "Failed to initialize photos repository async data", e)
             }
         }
+
+        // Voice shortcuts mirror the user's event types, and those are edited from several
+        // screens; observing the list is the single hook that catches every one of those paths
+        // as well as the initial publish at startup.
+        eventRepository.getAllEventTypes().observeForever {
+            applicationScope.launch { voiceShortcutPublisher.publish() }
+        }
     }
 
     private fun initializeRepositories() {
@@ -74,6 +84,7 @@ class ScribCalApplication : Application() {
         notificationService = NotificationService(this, storagePreferences)
         eventRepository = EventRepository(database, driveRepository, photosRepository, storagePreferences, notificationService)
         configBackupManager = ConfigBackupManager(database, storagePreferences, calendarRepository, driveRepository)
+        voiceShortcutPublisher = VoiceShortcutPublisher(this, eventRepository)
 
         Log.d(TAG, "Repositories initialized")
     }

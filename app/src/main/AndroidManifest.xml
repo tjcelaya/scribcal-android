@@ -43,6 +43,41 @@
                 <data android:mimeType="image/*" />
             </intent-filter>
 
+            <!-- App Actions capabilities; Assistant reads them from the launcher activity. -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+
+        </activity>
+
+        <!-- Headless target for Assistant capabilities and scribcal:// deep links -->
+        <activity
+            android:name=".ui.voice.VoiceActionActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:documentLaunchMode="always"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.ScribCal.Translucent">
+
+            <!-- One action per capability declared in res/xml/shortcuts.xml -->
+            <intent-filter>
+                <action android:name="com.tjcelaya.scribcal.action.VOICE_START" />
+                <action android:name="com.tjcelaya.scribcal.action.VOICE_STOP" />
+                <action android:name="com.tjcelaya.scribcal.action.VOICE_RECORD" />
+                <action android:name="com.tjcelaya.scribcal.action.VOICE_EXTEND" />
+                <action android:name="com.tjcelaya.scribcal.action.VOICE_STATUS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+
+            <!-- scribcal://action/{start|stop|record|extend|status}?name=… -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:host="action"
+                    android:scheme="scribcal" />
+            </intent-filter>
         </activity>
 
         <!-- Activity for handling notification taps -->

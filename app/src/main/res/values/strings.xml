@@ -166,6 +166,13 @@
     <string name="voice_action_undo">Undo</string>
     <string name="voice_action_open">Open ScribCal</string>
 
+    <!-- Assistant / launcher shortcut labels -->
+    <string name="voice_shortcut_start">Start %1$s</string>
+    <string name="voice_shortcut_stop">Stop %1$s</string>
+    <string name="voice_shortcut_record">Record %1$s</string>
+    <string name="voice_shortcut_status_short">Tracking</string>
+    <string name="voice_shortcut_status_long">What am I tracking?</string>
+
     <!-- Durations -->
     <string name="duration_hours_minutes">%1$dh %2$dm</string>
     <string name="duration_minutes">%1$dm</string>
