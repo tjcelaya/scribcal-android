@@ -80,8 +80,14 @@ class VoiceActionHandler(
         val name = type?.name.orEmpty()
         val elapsed = DurationFormatter.format(context, System.currentTimeMillis() - target.startTime)
 
-        val saved = eventRepository.stopEvent(target.id, calendarRepository)
-        val message = if (saved) {
+        eventRepository.stopEvent(target.id, calendarRepository)
+
+        // stopEvent() reports whether the event was completed locally, not whether it reached the
+        // calendar - it swallows sync failures. Voice has no other feedback channel, so claiming
+        // "saved" when nothing was written is the one thing we must not do. A persisted
+        // calendarEventId is the only honest evidence the write landed.
+        val reachedCalendar = eventRepository.getEventByIdOrNull(target.id)?.calendarEventId != null
+        val message = if (reachedCalendar) {
             string(R.string.voice_stopped, name, elapsed)
         } else {
             string(R.string.voice_stopped_unsynced, name, elapsed)
@@ -105,8 +111,14 @@ class VoiceActionHandler(
             is Resolved.Found -> {
                 val type = resolution.eventType
                 val eventId = eventRepository.recordInstantaneousEvent(type.id, calendarRepository)
+                val reachedCalendar =
+                    eventRepository.getEventByIdOrNull(eventId)?.calendarEventId != null
                 VoiceActionResult.Success(
-                    message = string(R.string.voice_recorded, type.name),
+                    message = if (reachedCalendar) {
+                        string(R.string.voice_recorded, type.name)
+                    } else {
+                        string(R.string.voice_recorded_unsynced, type.name)
+                    },
                     eventTypeName = type.name,
                     eventId = eventId,
                     undo = VoiceUndo.DeleteEvent(eventId),

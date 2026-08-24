@@ -142,6 +142,7 @@
     <!-- Acciones por voz (Assistant / Gemini) -->
     <string name="voice_started">%1$s iniciado</string>
     <string name="voice_recorded">%1$s registrado</string>
+    <string name="voice_recorded_unsynced">%1$s registrado · no se guardó en el calendario</string>
     <string name="voice_stopped">%1$s detenido · %2$s</string>
     <string name="voice_stopped_unsynced">%1$s detenido · %2$s · no se guardó en el calendario</string>
     <string name="voice_extended">%1$s extendido · ahora %2$s</string>

@@ -143,6 +143,7 @@
     <!-- Voice actions (Assistant / Gemini) -->
     <string name="voice_started">Started %1$s</string>
     <string name="voice_recorded">Recorded %1$s</string>
+    <string name="voice_recorded_unsynced">Recorded %1$s · not saved to calendar</string>
     <string name="voice_stopped">Stopped %1$s · %2$s</string>
     <string name="voice_stopped_unsynced">Stopped %1$s · %2$s · not saved to calendar</string>
     <string name="voice_extended">Extended %1$s · now %2$s</string>
