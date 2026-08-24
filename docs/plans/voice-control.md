@@ -200,19 +200,45 @@ This screen is also where the `SAVE_WITH_UNDO` notification's Undo action lands.
 
 ## Phase 6 — AppFunctions / Gemini (flag-gated, off by default)
 
-Gated on a Gradle property so the alpha dependency never touches a default build:
+Gated on a Gradle property so the alpha dependency never touches a default build. Implemented;
+what follows is what actually worked, which differs from the initial sketch:
 
 - `gradle.properties`: `scribcal.appfunctions=false`.
-- `app/build.gradle.kts`: when the property is true, add the KSP plugin, the
-  `androidx.appfunctions:appfunctions*` alpha artifacts, and an extra source set
-  `app/src/appfunctions/java`. Note the project currently uses **kapt** for Room; AppFunctions
-  requires **KSP**, so both processors coexist under the flag rather than migrating Room now.
-- `app/src/appfunctions/java/.../ScribCalAppFunctions.kt`: `@AppFunction`-annotated
-  `startEvent` / `stopEvent` / `recordEvent` / `extendEvent` / `whatAmITracking`, each a thin
-  delegate to `VoiceActionHandler`, marked `@RequiresApi(36)`.
+- With the flag on, `app/build.gradle.kts` declares a single `appfunctions` product flavor. That
+  was chosen over hand-wiring an extra source directory because a flavor source set picks up
+  sources, resources, and a manifest fragment automatically; with exactly one flavor declared,
+  `assembleDebug` still works as the aggregate task. With the flag off no flavor exists at all,
+  so nothing is resolved or built.
+- `app/src/appfunctions/java/.../ScribCalAppFunctions.kt`: `@AppFunction`-annotated suspend
+  methods `startEvent` / `stopEvent` / `recordEvent` / `extendEvent` / `whatAmITracking`, each a
+  thin delegate to `VoiceActionHandler`.
 
-Expectation setting: this compiles and indexes, and can be exercised with the adb AppFunctions
-utilities, but **Gemini will not invoke it** until Google widens the preview. It is
+Three things the docs did not tell us, found by building it:
+
+- **Pinned to `1.0.0-alpha08`.** `alpha09` and `alpha10` raise `minCompileSdk` to **37** and
+  require **AGP 9.1**; this project is on compileSdk 36 / AGP 8.13.2. Upgrading the whole app's
+  toolchain for a feature that cannot be invoked yet is the wrong trade, so the last version
+  compatible with compileSdk 36 is used instead. Revisit when the project moves to AGP 9.
+- **No manifest entry is needed.** alpha08's library declares `PlatformAppFunctionService` and
+  `ExtensionAppFunctionService` in its own manifest, so the app declares nothing. (The
+  entry-point/`AppFunctionServiceEntryPoint` model in the docs is the alpha09+ shape.)
+- **`appfunctions-service` must be requested explicitly.** It appears in `appfunctions`'s pom but
+  without a scope, so it is not a real transitive dependency — and the `@AppFunction` annotation
+  lives in it.
+
+**Room moved from kapt to KSP as part of this** (the plan had deferred it). kapt reads Kotlin
+metadata only up to version 2.0.0 and fails outright on the AppFunctions artifacts, which are
+built with Kotlin 2.1: *"Provided Metadata instance has version 2.1.0, while maximum supported
+version is 2.0.0"*. Migrating Room to KSP fixes that, removes the
+*"Kapt currently doesn't support language version 2.0+, falling back to 1.9"* fallback from every
+build, and leaves the exported schema JSON byte-identical.
+
+Verified: the default build is untouched and the flag-on build succeeds, with the KSP compiler
+generating the invoker, inventory, and function IDs for all five functions, and packaging
+`assets/app_functions_schema.xsd` into the APK.
+
+Expectation setting stands: this compiles and indexes, and can be exercised with the adb
+AppFunctions utilities, but **Gemini will not invoke it** until Google widens the preview. It is
 future-proofing, not a working feature.
 
 ## Verification
