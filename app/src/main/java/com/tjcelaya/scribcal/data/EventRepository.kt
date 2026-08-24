@@ -474,6 +474,21 @@ class EventRepository(
         return success
     }
 
+    /** Any event by id, ongoing or finished. */
+    suspend fun getEventByIdOrNull(eventId: Long): Event? = withContext(Dispatchers.IO) {
+        eventDao.getEventById(eventId)
+    }
+
+    /** Currently-running events, newest first. */
+    suspend fun getOngoingEventsSync(): List<Event> = withContext(Dispatchers.IO) {
+        eventDao.getOngoingEvents()
+    }
+
+    /** The running event for a type, or null when that type isn't currently being tracked. */
+    suspend fun getOngoingEventForType(eventTypeId: Long): Event? = withContext(Dispatchers.IO) {
+        eventDao.getOngoingEvents().firstOrNull { it.eventTypeId == eventTypeId }
+    }
+
     suspend fun getOngoingEventById(eventId: Long): OngoingEvent? = withContext(Dispatchers.IO) {
         val event = eventDao.getEventById(eventId)
         if (event != null && event.isOngoing()) {

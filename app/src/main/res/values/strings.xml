@@ -139,4 +139,35 @@
     <string name="next">Next</string>
     <string name="previous">Previous</string>
     <string name="lorem_ipsum">Lorem ipsum dolor sit amet...</string>
+
+    <!-- Voice actions (Assistant / Gemini) -->
+    <string name="voice_started">Started %1$s</string>
+    <string name="voice_recorded">Recorded %1$s</string>
+    <string name="voice_stopped">Stopped %1$s · %2$s</string>
+    <string name="voice_stopped_unsynced">Stopped %1$s · %2$s · not saved to calendar</string>
+    <string name="voice_extended">Extended %1$s · now %2$s</string>
+    <string name="voice_extend_nothing">No timed event to extend</string>
+    <string name="voice_extend_nothing_for_type">No timed %1$s to extend</string>
+    <string name="voice_extend_already_current">%1$s already runs up to now</string>
+    <string name="voice_status_idle">Nothing is being tracked</string>
+    <string name="voice_status_title">Currently tracking</string>
+    <string name="voice_status_entry">%1$s · %2$s</string>
+    <string name="voice_unknown_type">No event type matching “%1$s”</string>
+    <string name="voice_no_type_given">Which event type?</string>
+    <string name="voice_ambiguous_title">Which one did you mean?</string>
+    <string name="voice_already_running">%1$s is already running</string>
+    <string name="voice_not_running">%1$s isn’t running</string>
+    <string name="voice_nothing_running">Nothing is running</string>
+    <string name="voice_no_calendar">Choose a calendar in Settings first</string>
+    <string name="voice_error_generic">Something went wrong</string>
+    <string name="voice_undone">Undone</string>
+    <string name="voice_action_stop">Stop</string>
+    <string name="voice_action_extend">Extend</string>
+    <string name="voice_action_undo">Undo</string>
+    <string name="voice_action_open">Open ScribCal</string>
+
+    <!-- Durations -->
+    <string name="duration_hours_minutes">%1$dh %2$dm</string>
+    <string name="duration_minutes">%1$dm</string>
+    <string name="duration_seconds">%1$ds</string>
 </resources>

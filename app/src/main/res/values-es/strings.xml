@@ -138,4 +138,35 @@
     <string name="next">Siguiente</string>
     <string name="previous">Anterior</string>
     <string name="lorem_ipsum">Lorem ipsum dolor sit amet...</string>
+
+    <!-- Acciones por voz (Assistant / Gemini) -->
+    <string name="voice_started">%1$s iniciado</string>
+    <string name="voice_recorded">%1$s registrado</string>
+    <string name="voice_stopped">%1$s detenido · %2$s</string>
+    <string name="voice_stopped_unsynced">%1$s detenido · %2$s · no se guardó en el calendario</string>
+    <string name="voice_extended">%1$s extendido · ahora %2$s</string>
+    <string name="voice_extend_nothing">No hay ningún evento cronometrado que extender</string>
+    <string name="voice_extend_nothing_for_type">No hay ningún %1$s cronometrado que extender</string>
+    <string name="voice_extend_already_current">%1$s ya llega hasta ahora</string>
+    <string name="voice_status_idle">No se está registrando nada</string>
+    <string name="voice_status_title">Registrando ahora</string>
+    <string name="voice_status_entry">%1$s · %2$s</string>
+    <string name="voice_unknown_type">Ningún tipo de evento coincide con «%1$s»</string>
+    <string name="voice_no_type_given">¿Qué tipo de evento?</string>
+    <string name="voice_ambiguous_title">¿Cuál querías decir?</string>
+    <string name="voice_already_running">%1$s ya está en marcha</string>
+    <string name="voice_not_running">%1$s no está en marcha</string>
+    <string name="voice_nothing_running">No hay nada en marcha</string>
+    <string name="voice_no_calendar">Elige un calendario en Ajustes primero</string>
+    <string name="voice_error_generic">Algo salió mal</string>
+    <string name="voice_undone">Deshecho</string>
+    <string name="voice_action_stop">Detener</string>
+    <string name="voice_action_extend">Extender</string>
+    <string name="voice_action_undo">Deshacer</string>
+    <string name="voice_action_open">Abrir ScribCal</string>
+
+    <!-- Duraciones -->
+    <string name="duration_hours_minutes">%1$d h %2$d min</string>
+    <string name="duration_minutes">%1$d min</string>
+    <string name="duration_seconds">%1$d s</string>
 </resources>
