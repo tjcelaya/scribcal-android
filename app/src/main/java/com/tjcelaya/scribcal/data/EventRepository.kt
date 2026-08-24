@@ -598,6 +598,76 @@ class EventRepository(
     }
 
     /**
+     * Rewrite a recorded event's times and notes, mirroring the change into the calendar copy.
+     *
+     * Used by the ledger's Adjust action. Refuses an end before its start rather than writing a
+     * negative-duration event that the calendar would reject anyway.
+     */
+    suspend fun adjustEvent(
+        eventId: Long,
+        startTime: Long,
+        endTime: Long,
+        notes: String,
+        calendarRepository: CalendarRepository
+    ): Boolean = withContext(Dispatchers.IO) {
+        val event = eventDao.getEventById(eventId) ?: return@withContext false
+        if (endTime < startTime) {
+            Log.w("EventRepository", "adjustEvent: refusing end before start for event $eventId")
+            return@withContext false
+        }
+        val adjusted = event.copy(startTime = startTime, endTime = endTime, notes = notes)
+        eventDao.updateEvent(adjusted)
+        propagateToCalendar(adjusted, calendarRepository)
+        true
+    }
+
+    /** Delete a recorded event along with the calendar entry it produced. */
+    suspend fun deleteEventWithCalendarCopy(
+        eventId: Long,
+        calendarRepository: CalendarRepository
+    ): Boolean = withContext(Dispatchers.IO) {
+        val event = eventDao.getEventById(eventId) ?: return@withContext false
+        event.calendarEventId?.let { calendarId ->
+            try {
+                val deleted = calendarRepository.deleteCalendarEvent(calendarId)
+                if (!deleted) {
+                    Log.w("EventRepository", "Calendar copy $calendarId of event $eventId was not deleted")
+                }
+            } catch (e: Exception) {
+                Log.e("EventRepository", "Failed to delete calendar copy $calendarId of event $eventId", e)
+            }
+        }
+        eventDao.deleteEventById(eventId)
+        true
+    }
+
+    /**
+     * Mirror [event] into the calendar: update in place when we know the calendar id, otherwise
+     * sync fresh so an event that previously failed to reach the calendar still gets there.
+     */
+    private suspend fun propagateToCalendar(event: Event, calendarRepository: CalendarRepository) {
+        val eventType = eventTypeDao.getEventTypeById(event.eventTypeId) ?: return
+        val calendarEventId = event.calendarEventId
+        try {
+            if (calendarEventId != null) {
+                val updated = calendarRepository.updateCalendarEvent(
+                    calendarEventId,
+                    eventType,
+                    event.startTime,
+                    event.endTime ?: event.startTime,
+                    event.notes,
+                    event.photoPath
+                )
+                if (!updated) Log.w("EventRepository", "Calendar update failed for event ${event.id}")
+            } else {
+                syncEventToCalendarWithResult(event.id, calendarRepository)
+            }
+        } catch (e: Exception) {
+            Log.e("EventRepository", "Failed to propagate event ${event.id} to calendar", e)
+        }
+    }
+
+    /**
      * Revert an extend, restoring the previous end time locally and on the calendar.
      */
     suspend fun revertExtend(result: ExtendResult, calendarRepository: CalendarRepository): Boolean =
