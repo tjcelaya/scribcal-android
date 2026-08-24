@@ -50,4 +50,30 @@ interface EventDao {
 
     @Query("SELECT COUNT(*) FROM events WHERE eventTypeId = :eventTypeId AND endTime IS NOT NULL AND endTime >= :startTime")
     suspend fun getCompletedEventCountSince(eventTypeId: Long, startTime: Long): Int
+
+    // === Calendar sync bookkeeping ===
+
+    @Query("UPDATE events SET calendarEventId = :calendarEventId WHERE id = :id")
+    suspend fun setCalendarEventId(id: Long, calendarEventId: Long?)
+
+    /** Finished events that never made it to the calendar, oldest first so retries preserve order. */
+    @Query("SELECT * FROM events WHERE endTime IS NOT NULL AND calendarEventId IS NULL ORDER BY startTime ASC")
+    suspend fun getUnsyncedCompletedEvents(): List<Event>
+
+    // === Ledger / extend ===
+
+    /** Recent finished events, newest first, for the ledger screen. */
+    @Transaction
+    @Query("SELECT * FROM events WHERE endTime IS NOT NULL ORDER BY endTime DESC LIMIT :limit")
+    fun getRecentCompletedEventsWithType(limit: Int): Flow<List<EventWithType>>
+
+    @Query("SELECT * FROM events WHERE endTime IS NOT NULL AND (:eventTypeId IS NULL OR eventTypeId = :eventTypeId) ORDER BY endTime DESC LIMIT 1")
+    suspend fun getLastCompletedEvent(eventTypeId: Long?): Event?
+
+    /**
+     * The extend target: the most recent genuinely *timed* event. The `endTime > startTime`
+     * predicate is what excludes instant events, which are not extendable.
+     */
+    @Query("SELECT * FROM events WHERE endTime > startTime AND (:eventTypeId IS NULL OR eventTypeId = :eventTypeId) ORDER BY endTime DESC LIMIT 1")
+    suspend fun getLastTimedEvent(eventTypeId: Long?): Event?
 }

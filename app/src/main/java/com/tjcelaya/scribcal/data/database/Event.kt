@@ -35,7 +35,8 @@ data class Event(
     val startTime: Long, // Always required - when event started/occurred
     val endTime: Long? = null, // Null for ongoing events, same as startTime for instant events
     val notes: String = "", // Optional user notes for this specific event instance
-    val photoPath: String? = null // Optional path to photo attachment
+    val photoPath: String? = null, // Optional path to photo attachment
+    val calendarEventId: Long? = null // CalendarContract event id once synced, null while unsynced
 ) {
     /**
      * @return true if this is an instant event (start == end)

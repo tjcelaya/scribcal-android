@@ -16,7 +16,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         AlbumConfig::class,
         FutureEvent::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -56,8 +56,20 @@ abstract class ScribCalDatabase : RoomDatabase() {
             }
         }
 
-        private val ALL_MIGRATIONS = arrayOf<Migration>(
-            MIGRATION_8_9
+        // Adds `calendarEventId` to events so a recorded event can be traced back to its
+        // CalendarContract row. Without it the calendar copy can never be updated or deleted,
+        // which blocks extend, undo, and adjust. Nullable: existing rows are unknown, and
+        // getUnsyncedCompletedEvents() treats NULL as "never synced".
+        private val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE events ADD COLUMN calendarEventId INTEGER")
+            }
+        }
+
+        // internal so migration tests can apply the same set the app ships with.
+        internal val ALL_MIGRATIONS = arrayOf<Migration>(
+            MIGRATION_8_9,
+            MIGRATION_9_10
         )
 
         fun getDatabase(context: Context): ScribCalDatabase {

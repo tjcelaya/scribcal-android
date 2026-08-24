@@ -354,15 +354,13 @@ class EventRepository(
         eventDao.getCompletedEventCountSince(eventTypeId, startTime)
     }
 
-    // Calendar sync methods - placeholder implementations
+    /** Finished events that never reached the calendar, oldest first. */
     suspend fun getUnsyncedEvents(): List<Event> = withContext(Dispatchers.IO) {
-        // For now, return empty list since we don't have calendar sync flag in Event entity
-        emptyList()
+        eventDao.getUnsyncedCompletedEvents()
     }
 
     suspend fun markEventAsSynced(eventId: Long, calendarEventId: Long) = withContext(Dispatchers.IO) {
-        // Placeholder - in the future we might add calendar sync fields to Event entity
-        // For now, do nothing
+        eventDao.setCalendarEventId(eventId, calendarEventId)
     }
 
     suspend fun syncEventToCalendar(eventId: Long, calendarRepository: CalendarRepository) = withContext(Dispatchers.IO) {
@@ -515,6 +513,97 @@ class EventRepository(
     suspend fun stopOngoingEvent(ongoingEventId: Long): Boolean {
         return completeOngoingEvent(ongoingEventId)
     }
+
+    /**
+     * Extend the most recent *timed* event so it now ends at the current moment, pushing the new
+     * end time to its calendar copy.
+     *
+     * Instant events are deliberately not extendable: an instant event records a moment, not a
+     * span, so turning one into a duration would silently rewrite what the user meant. The
+     * underlying query filters on `endTime > startTime`, which means this skips past any instant
+     * events to the last genuinely timed one rather than refusing outright when an event type
+     * mixes cadences.
+     *
+     * @param eventTypeId restrict to one event type, or null for the most recent timed event of
+     *   any type.
+     * @return the outcome, or null when there is no timed event to extend.
+     */
+    suspend fun extendLastEvent(
+        eventTypeId: Long?,
+        calendarRepository: CalendarRepository
+    ): ExtendResult? = withContext(Dispatchers.IO) {
+        val event = eventDao.getLastTimedEvent(eventTypeId) ?: return@withContext null
+        val previousEndTime = event.endTime ?: return@withContext null
+        val newEndTime = System.currentTimeMillis()
+
+        // Nothing to do if the event already runs past now (clock skew, or a manual adjustment).
+        if (newEndTime <= previousEndTime) {
+            return@withContext ExtendResult(
+                eventId = event.id,
+                eventTypeId = event.eventTypeId,
+                startTime = event.startTime,
+                previousEndTime = previousEndTime,
+                newEndTime = previousEndTime,
+                extended = false,
+                calendarUpdated = false
+            )
+        }
+
+        eventDao.updateEvent(event.copy(endTime = newEndTime))
+
+        val eventType = eventTypeDao.getEventTypeById(event.eventTypeId)
+        var calendarUpdated = false
+        if (eventType != null) {
+            val calendarEventId = event.calendarEventId
+            calendarUpdated = if (calendarEventId != null) {
+                calendarRepository.updateCalendarEvent(
+                    calendarEventId,
+                    eventType,
+                    event.startTime,
+                    newEndTime,
+                    event.notes,
+                    event.photoPath
+                )
+            } else {
+                // Never synced (or synced before calendarEventId was persisted) - sync now so the
+                // extended event still lands on the calendar.
+                syncEventToCalendarWithResult(event.id, calendarRepository) != null
+            }
+        }
+
+        ExtendResult(
+            eventId = event.id,
+            eventTypeId = event.eventTypeId,
+            startTime = event.startTime,
+            previousEndTime = previousEndTime,
+            newEndTime = newEndTime,
+            extended = true,
+            calendarUpdated = calendarUpdated
+        )
+    }
+
+    /**
+     * Revert an extend, restoring the previous end time locally and on the calendar.
+     */
+    suspend fun revertExtend(result: ExtendResult, calendarRepository: CalendarRepository): Boolean =
+        withContext(Dispatchers.IO) {
+            val event = eventDao.getEventById(result.eventId) ?: return@withContext false
+            eventDao.updateEvent(event.copy(endTime = result.previousEndTime))
+
+            val eventType = eventTypeDao.getEventTypeById(event.eventTypeId)
+            val calendarEventId = event.calendarEventId
+            if (eventType != null && calendarEventId != null) {
+                calendarRepository.updateCalendarEvent(
+                    calendarEventId,
+                    eventType,
+                    event.startTime,
+                    result.previousEndTime,
+                    event.notes,
+                    event.photoPath
+                )
+            }
+            true
+        }
 
     // Future event operations
     fun getAllFutureEvents(): LiveData<List<FutureEvent>> = futureEventDao.getAllFutureEvents()
@@ -1385,6 +1474,25 @@ class EventRepository(
             return@withContext null
         }
     }
+}
+
+/**
+ * Outcome of [EventRepository.extendLastEvent].
+ *
+ * [extended] is false when a target existed but its end time was already at or past now, so
+ * nothing changed. [previousEndTime] is retained so the change can be reverted.
+ */
+data class ExtendResult(
+    val eventId: Long,
+    val eventTypeId: Long,
+    val startTime: Long,
+    val previousEndTime: Long,
+    val newEndTime: Long,
+    val extended: Boolean,
+    val calendarUpdated: Boolean
+) {
+    val newDurationMs: Long get() = newEndTime - startTime
+    val addedMs: Long get() = newEndTime - previousEndTime
 }
 
 /**
