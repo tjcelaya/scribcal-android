@@ -25,6 +25,7 @@ import com.tjcelaya.scribcal.data.InstantEventIcon
 import com.tjcelaya.scribcal.data.PhotosConnectionResult
 import com.tjcelaya.scribcal.data.PhotosRepository
 import com.tjcelaya.scribcal.data.StoragePreferences
+import com.tjcelaya.scribcal.data.VoiceStopBehavior
 import com.tjcelaya.scribcal.databinding.FragmentSettingsBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -109,6 +110,7 @@ class SettingsFragment : Fragment() {
         setupCalendarSection()
         setupEnhancedCalendarSection()
         setupBubbleSection()
+        setupVoiceSection()
         setupDriveSection()
         setupPhotosSection()
         setupStorageSelection()
@@ -250,6 +252,40 @@ class SettingsFragment : Fragment() {
             com.tjcelaya.scribcal.data.BubbleMode.ALWAYS -> android.R.color.holo_green_dark
         }
         binding.bubblesStatus.setTextColor(requireContext().getColor(color))
+    }
+
+    private fun setupVoiceSection() {
+        val current = storagePreferences.getVoiceStopBehavior()
+        binding.voiceStopBehaviorGroup.check(radioIdFor(current))
+        updateVoiceStopBehaviorStatus(current)
+
+        binding.voiceStopBehaviorGroup.setOnCheckedChangeListener { _, checkedId ->
+            val behavior = when (checkedId) {
+                R.id.voice_stop_confirm_dialog -> VoiceStopBehavior.CONFIRM_DIALOG
+                R.id.voice_stop_save_with_undo -> VoiceStopBehavior.SAVE_WITH_UNDO
+                else -> VoiceStopBehavior.SAVE_SILENTLY
+            }
+            storagePreferences.setVoiceStopBehavior(behavior)
+            updateVoiceStopBehaviorStatus(behavior)
+            Log.d("SettingsFragment", "Voice stop behavior set to $behavior")
+            Snackbar.make(binding.root, getString(statusStringFor(behavior)), Snackbar.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun radioIdFor(behavior: VoiceStopBehavior): Int = when (behavior) {
+        VoiceStopBehavior.SAVE_SILENTLY -> R.id.voice_stop_save_silently
+        VoiceStopBehavior.CONFIRM_DIALOG -> R.id.voice_stop_confirm_dialog
+        VoiceStopBehavior.SAVE_WITH_UNDO -> R.id.voice_stop_save_with_undo
+    }
+
+    private fun statusStringFor(behavior: VoiceStopBehavior): Int = when (behavior) {
+        VoiceStopBehavior.SAVE_SILENTLY -> R.string.settings_voice_stop_status_save_silently
+        VoiceStopBehavior.CONFIRM_DIALOG -> R.string.settings_voice_stop_status_confirm_dialog
+        VoiceStopBehavior.SAVE_WITH_UNDO -> R.string.settings_voice_stop_status_save_with_undo
+    }
+
+    private fun updateVoiceStopBehaviorStatus(behavior: VoiceStopBehavior) {
+        binding.voiceStopBehaviorStatus.setText(statusStringFor(behavior))
     }
 
     private fun setupDriveSection() {

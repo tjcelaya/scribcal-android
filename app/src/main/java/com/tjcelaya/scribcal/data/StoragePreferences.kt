@@ -45,6 +45,25 @@ enum class CardColorStyle(val displayName: String) {
     }
 }
 
+/**
+ * What happens when a voice/assistant surface stops a running event.
+ *
+ * SAVE_SILENTLY   - stop the event and confirm; no further interaction.
+ * CONFIRM_DIALOG  - show the shared SaveEventDialog before committing, as a notification tap does.
+ * SAVE_WITH_UNDO  - save immediately, then post a notification whose Undo action opens the ledger
+ *                   on that entry so it can be deleted or adjusted.
+ */
+enum class VoiceStopBehavior {
+    SAVE_SILENTLY,
+    CONFIRM_DIALOG,
+    SAVE_WITH_UNDO;
+
+    companion object {
+        fun fromName(value: String?): VoiceStopBehavior =
+            value?.let { runCatching { valueOf(it) }.getOrNull() } ?: SAVE_SILENTLY
+    }
+}
+
 class StoragePreferences(context: Context) {
 
     companion object {
@@ -56,6 +75,7 @@ class StoragePreferences(context: Context) {
         private const val KEY_EVENT_VIEW_MODE = "event_view_mode"
         private const val KEY_CARD_SIZE_DP = "event_card_size_dp"
         private const val KEY_CARD_COLOR_STYLE = "event_card_color_style"
+        private const val KEY_VOICE_STOP_BEHAVIOR = "voice_stop_behavior"
 
         // Card size bounds (in dp) for the main-screen card grid.
         const val CARD_SIZE_MIN_DP = 110
@@ -427,6 +447,20 @@ class StoragePreferences(context: Context) {
     fun setCardColorStyle(style: CardColorStyle) {
         sharedPreferences.edit()
             .putString(KEY_CARD_COLOR_STYLE, style.name)
+            .apply()
+    }
+
+    // === Voice & Assistant ===
+
+    fun getVoiceStopBehavior(): VoiceStopBehavior {
+        return VoiceStopBehavior.fromName(
+            sharedPreferences.getString(KEY_VOICE_STOP_BEHAVIOR, VoiceStopBehavior.SAVE_SILENTLY.name)
+        )
+    }
+
+    fun setVoiceStopBehavior(behavior: VoiceStopBehavior) {
+        sharedPreferences.edit()
+            .putString(KEY_VOICE_STOP_BEHAVIOR, behavior.name)
             .apply()
     }
 }

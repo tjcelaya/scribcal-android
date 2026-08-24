@@ -177,4 +177,51 @@
     <string name="duration_hours_minutes">%1$d h %2$d min</string>
     <string name="duration_minutes">%1$d min</string>
     <string name="duration_seconds">%1$d s</string>
+    <!-- Ajustes de Voz y Asistente -->
+    <string name="settings_voice_section_title">Voz y Asistente</string>
+    <string name="settings_voice_stop_behavior_title">Cuando un comando de voz detiene un evento</string>
+    <string name="settings_voice_stop_behavior_description">Elige cuánta confirmación quieres cuando el Asistente o un acceso directo detiene un evento en curso.</string>
+    <string name="settings_voice_stop_save_silently">Guardar y confirmar</string>
+    <string name="settings_voice_stop_confirm_dialog">Preguntar antes de guardar</string>
+    <string name="settings_voice_stop_save_with_undo">Guardar, con notificación para deshacer</string>
+    <string name="settings_voice_stop_status_save_silently">El evento se guarda de inmediato y se muestra el resultado.</string>
+    <string name="settings_voice_stop_status_confirm_dialog">Aparece un diálogo de guardado antes de escribir nada en tu calendario.</string>
+    <string name="settings_voice_stop_status_save_with_undo">Se guarda al instante, con una notificación desde la que puedes deshacer.</string>
+
+    <!-- Registro de eventos recientes -->
+    <string name="ledger_title">Eventos recientes</string>
+    <string name="ledger_empty_title">Todavía no hay eventos registrados</string>
+    <string name="ledger_empty_message">Los eventos que termines de registrar aparecerán aquí, del más reciente al más antiguo.</string>
+    <string name="ledger_day_today">Hoy</string>
+    <string name="ledger_day_yesterday">Ayer</string>
+    <string name="ledger_badge_synced">En el calendario</string>
+    <string name="ledger_badge_unsynced">Sin sincronizar</string>
+    <string name="ledger_instant_label">Instantáneo</string>
+    <string name="ledger_action_extend">Extender hasta ahora</string>
+    <string name="ledger_action_adjust">Ajustar</string>
+    <string name="ledger_action_delete">Eliminar</string>
+    <string name="ledger_undo">Deshacer</string>
+    <string name="ledger_deleted_message">%1$s eliminado</string>
+    <string name="ledger_extended_message">%1$s extendido hasta ahora</string>
+    <string name="ledger_extend_failed">No hay nada que extender para %1$s</string>
+    <string name="ledger_adjust_title">Ajustar %1$s</string>
+    <string name="ledger_adjust_start">Inicio</string>
+    <string name="ledger_adjust_end">Fin</string>
+    <string name="ledger_adjust_notes">Notas</string>
+    <string name="ledger_adjust_save">Guardar cambios</string>
+    <string name="ledger_adjust_end_before_start">La hora de fin debe ser posterior a la de inicio.</string>
+    <string name="ledger_adjusted_message">%1$s actualizado</string>
+    <string name="ledger_adjust_failed">No se pudo actualizar %1$s</string>
+    <string name="ledger_pick_start_date">Fecha de inicio</string>
+    <string name="ledger_pick_start_time">Hora de inicio</string>
+    <string name="ledger_pick_end_date">Fecha de fin</string>
+    <string name="ledger_pick_end_time">Hora de fin</string>
+    <string name="ledger_time_range" formatted="false">%1$s \u2013 %2$s</string>
+    <string name="ledger_duration_hours_minutes" formatted="false">%1$dh %2$dm</string>
+    <string name="ledger_duration_minutes" formatted="false">%1$dm</string>
+    <string name="ledger_duration_seconds" formatted="false">%1$ds</string>
+    <string name="ledger_undo_channel_name">Eventos guardados</string>
+    <string name="ledger_undo_channel_description">Ofrece brevemente deshacer un evento guardado por voz.</string>
+    <string name="ledger_undo_notification_title">%1$s guardado</string>
+    <string name="ledger_undo_notification_text">%1$s en tu calendario</string>
 </resources>
