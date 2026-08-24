@@ -165,6 +165,13 @@
     <string name="voice_action_undo">Deshacer</string>
     <string name="voice_action_open">Abrir ScribCal</string>
 
+    <!-- Etiquetas de accesos directos del Asistente / lanzador -->
+    <string name="voice_shortcut_start">Iniciar %1$s</string>
+    <string name="voice_shortcut_stop">Detener %1$s</string>
+    <string name="voice_shortcut_record">Registrar %1$s</string>
+    <string name="voice_shortcut_status_short">Registrando</string>
+    <string name="voice_shortcut_status_long">¿Qué estoy registrando?</string>
+
     <!-- Duraciones -->
     <string name="duration_hours_minutes">%1$d h %2$d min</string>
     <string name="duration_minutes">%1$d min</string>
