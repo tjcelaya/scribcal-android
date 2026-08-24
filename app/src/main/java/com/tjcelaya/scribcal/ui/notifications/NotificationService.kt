@@ -6,6 +6,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.Bundle
 import android.util.Log
 import android.annotation.SuppressLint
 import androidx.core.app.NotificationCompat
@@ -14,10 +15,13 @@ import androidx.core.app.Person
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
+import androidx.navigation.NavDeepLinkBuilder
+import com.tjcelaya.scribcal.MainActivity
 import com.tjcelaya.scribcal.R
 import com.tjcelaya.scribcal.data.StoragePreferences
 import com.tjcelaya.scribcal.data.database.OngoingEvent
 import com.tjcelaya.scribcal.data.database.EventType
+import com.tjcelaya.scribcal.ui.ledger.LedgerFormatting
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -32,6 +36,10 @@ class NotificationService(
         private const val CHANNEL_NAME = "Ongoing Events"
         private const val CHANNEL_DESCRIPTION = "Notifications for ongoing events"
         private const val NOTIFICATION_ID_BASE = 1000
+
+        // Separate low-importance channel: an undo offer should not buzz like an ongoing event.
+        private const val UNDO_CHANNEL_ID = "saved_event_undo"
+        private const val UNDO_NOTIFICATION_ID_BASE = 5000
     }
     
     private val notificationManager: NotificationManagerCompat = NotificationManagerCompat.from(context)
@@ -216,6 +224,89 @@ class NotificationService(
         }
     }
     
+    /**
+     * Post the VoiceStopBehavior.SAVE_WITH_UNDO notification for an event that was just saved.
+     *
+     * The Undo action deep-links into the ledger with the event pre-selected, so undo and any
+     * follow-up correction (adjust, extend) happen in one place.
+     */
+    @SuppressLint("MissingPermission") // Permission checked via areNotificationsEnabled()
+    fun showSavedEventUndoNotification(eventId: Long, eventTypeName: String, durationMs: Long) {
+        if (!areNotificationsEnabled()) {
+            Log.w("NotificationService", "Cannot show undo notification - notifications disabled")
+            return
+        }
+
+        createUndoNotificationChannel()
+
+        val summary = context.getString(
+            R.string.ledger_undo_notification_text,
+            LedgerFormatting.duration(context, durationMs)
+        )
+
+        val notification = NotificationCompat.Builder(context, UNDO_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_check)
+            .setContentTitle(context.getString(R.string.ledger_undo_notification_title, eventTypeName))
+            .setContentText(summary)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setAutoCancel(true)
+            .setContentIntent(ledgerPendingIntent(eventId, undo = false))
+            .addAction(
+                R.drawable.ic_close,
+                context.getString(R.string.ledger_undo),
+                ledgerPendingIntent(eventId, undo = true)
+            )
+            .build()
+
+        try {
+            notificationManager.notify(getUndoNotificationId(eventId), notification)
+            Log.d("NotificationService", "Posted undo notification for event $eventId")
+        } catch (e: Exception) {
+            Log.e("NotificationService", "Failed to post undo notification for event $eventId", e)
+        }
+    }
+
+    fun dismissSavedEventUndoNotification(eventId: Long) {
+        notificationManager.cancel(getUndoNotificationId(eventId))
+    }
+
+    /**
+     * Built through NavDeepLinkBuilder rather than a bespoke activity so the ledger opens inside
+     * the existing nav host, with a sane back stack and no manifest changes.
+     */
+    private fun ledgerPendingIntent(eventId: Long, undo: Boolean): PendingIntent {
+        val args = Bundle().apply {
+            putLong("undoEventId", if (undo) eventId else -1L)
+        }
+        return NavDeepLinkBuilder(context)
+            .setComponentName(MainActivity::class.java)
+            .setGraph(R.navigation.nav_graph)
+            .setDestination(R.id.ledgerFragment)
+            .setArguments(args)
+            .createPendingIntent()
+    }
+
+    private fun createUndoNotificationChannel() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (manager.getNotificationChannel(UNDO_CHANNEL_ID) != null) return
+
+        val channel = NotificationChannel(
+            UNDO_CHANNEL_ID,
+            context.getString(R.string.ledger_undo_channel_name),
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = context.getString(R.string.ledger_undo_channel_description)
+            setShowBadge(false)
+            enableVibration(false)
+            setSound(null, null)
+        }
+        manager.createNotificationChannel(channel)
+    }
+
+    private fun getUndoNotificationId(eventId: Long): Int =
+        UNDO_NOTIFICATION_ID_BASE + (eventId % Int.MAX_VALUE).toInt()
+
     private fun getNotificationId(ongoingEventId: Long): Int {
         // Convert ongoing event ID to a unique notification ID
         return NOTIFICATION_ID_BASE + (ongoingEventId % Int.MAX_VALUE).toInt()
