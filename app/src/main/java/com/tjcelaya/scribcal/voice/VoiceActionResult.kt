@@ -27,6 +27,16 @@ sealed interface VoiceActionResult {
 
     data class Failure(val message: String) : VoiceActionResult
 
+    /**
+     * The user chose CONFIRM_DIALOG for voice stops, so the running event is left alone and the
+     * surface is expected to show the same save/discard dialog the app uses in-app. The handler
+     * has no UI of its own, so it reports the intent rather than acting on it.
+     */
+    data class NeedsStopConfirmation(
+        val eventId: Long,
+        val eventTypeName: String
+    ) : VoiceActionResult
+
     /** Answer to "what am I tracking?" — [entries] is empty when nothing is running. */
     data class Status(
         val title: String,

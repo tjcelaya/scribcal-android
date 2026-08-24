@@ -1,5 +1,6 @@
 package com.tjcelaya.scribcal.ui.voice
 
+import android.util.Log
 import android.app.Activity
 import android.content.res.ColorStateList
 import android.os.Handler
@@ -34,6 +35,7 @@ class VoiceResultSheet(
 ) {
 
     private companion object {
+        const val TAG = "VoiceResultSheet"
         /** Long enough to read a confirmation, short enough to be hands-free. */
         const val AUTO_DISMISS_MS = 4_500L
         const val TICK_MS = 1_000L
@@ -73,6 +75,15 @@ class VoiceResultSheet(
 
             is VoiceActionResult.Status -> renderStatus(binding, result)
             is VoiceActionResult.Ambiguous -> renderAmbiguous(binding, result)
+
+            // VoiceActionActivity intercepts this and shows SaveEventDialog instead, so the sheet
+            // should never see it. Handled explicitly rather than with `else` so that adding a
+            // future result case is a compile error here, not a blank sheet.
+            is VoiceActionResult.NeedsStopConfirmation -> {
+                Log.w(TAG, "Stop confirmation reached the result sheet; nothing to render")
+                dialog.dismiss()
+                return
+            }
         }
 
         dialog.show()
@@ -185,4 +196,5 @@ class VoiceResultSheet(
         tickingEntries = emptyList()
         binding = null
     }
+
 }

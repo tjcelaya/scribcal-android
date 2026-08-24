@@ -474,6 +474,10 @@ class EventRepository(
         return success
     }
 
+    /** Recent finished events with their type, newest first, for the ledger. */
+    fun getRecentCompletedEventsWithType(limit: Int = 200): Flow<List<EventWithType>> =
+        eventDao.getRecentCompletedEventsWithType(limit)
+
     /** Any event by id, ongoing or finished. */
     suspend fun getEventByIdOrNull(eventId: Long): Event? = withContext(Dispatchers.IO) {
         eventDao.getEventById(eventId)

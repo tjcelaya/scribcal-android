@@ -8,6 +8,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.tjcelaya.scribcal.MainActivity
 import com.tjcelaya.scribcal.ScribCalApplication
+import com.tjcelaya.scribcal.ui.dialogs.SaveEventDialog
 import com.tjcelaya.scribcal.data.database.EventType
 import com.tjcelaya.scribcal.voice.VoiceActionHandler
 import com.tjcelaya.scribcal.voice.VoiceActionResult
@@ -60,7 +61,13 @@ class VoiceActionActivity : AppCompatActivity() {
         }
 
         val app = application as ScribCalApplication
-        handler = VoiceActionHandler(this, app.eventRepository, app.calendarRepository)
+        handler = VoiceActionHandler(
+            context = this,
+            eventRepository = app.eventRepository,
+            calendarRepository = app.calendarRepository,
+            storagePreferences = app.storagePreferences,
+            notificationService = app.notificationService
+        )
         subjectTypeName = request.typeQuery
 
         Log.d(TAG, "Voice request: ${request.action} name=${request.typeQuery}")
@@ -90,6 +97,13 @@ class VoiceActionActivity : AppCompatActivity() {
     private fun render(result: VoiceActionResult, action: VoiceActionType) {
         if (isFinishing || isDestroyed) return
 
+        // The user asked for voice stops to be confirmed, so hand off to the same dialog the
+        // notification path uses rather than rendering a sheet over it.
+        if (result is VoiceActionResult.NeedsStopConfirmation) {
+            showStopConfirmation(result.eventId)
+            return
+        }
+
         if (result is VoiceActionResult.Success) {
             pendingUndo = result.undo
             result.eventTypeName?.let { subjectTypeName = it }
@@ -104,6 +118,44 @@ class VoiceActionActivity : AppCompatActivity() {
             onCandidateChosen = { candidate -> onCandidateChosen(candidate, action) },
             onDismissed = { finish() }
         ).also { it.show() }
+    }
+
+    /**
+     * Reuses SaveEventDialog so a voice stop and a notification stop offer exactly the same
+     * choices; anything else would be a second, subtly different way to end an event.
+     */
+    private fun showStopConfirmation(eventId: Long) {
+        val app = application as ScribCalApplication
+        lifecycleScope.launch {
+            val ongoing = app.eventRepository.getOngoingEventById(eventId)
+            val eventType = ongoing?.let { app.eventRepository.getEventTypeById(it.eventTypeId) }
+            if (ongoing == null || eventType == null) {
+                Log.w(TAG, "Event $eventId is no longer running; nothing to confirm")
+                finish()
+                return@launch
+            }
+
+            SaveEventDialog.show(
+                context = this@VoiceActionActivity,
+                ongoingEvent = ongoing,
+                eventType = eventType,
+                onSave = {
+                    lifecycleScope.launch {
+                        runCatching { app.eventRepository.stopEvent(eventId, app.calendarRepository) }
+                            .onFailure { Log.e(TAG, "Failed to save event $eventId", it) }
+                        finish()
+                    }
+                },
+                onDiscardWithoutSaving = {
+                    lifecycleScope.launch {
+                        runCatching { app.eventRepository.stopEventWithoutSaving(eventId) }
+                            .onFailure { Log.e(TAG, "Failed to discard event $eventId", it) }
+                        finish()
+                    }
+                },
+                onCancel = { finish() }
+            )
+        }
     }
 
     private fun onFollowUp(followUp: VoiceFollowUp) {

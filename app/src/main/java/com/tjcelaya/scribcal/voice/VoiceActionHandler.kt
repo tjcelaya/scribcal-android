@@ -6,7 +6,10 @@ import com.tjcelaya.scribcal.R
 import com.tjcelaya.scribcal.data.CalendarRepository
 import com.tjcelaya.scribcal.data.EventRepository
 import com.tjcelaya.scribcal.data.ExtendResult
+import com.tjcelaya.scribcal.data.StoragePreferences
+import com.tjcelaya.scribcal.data.VoiceStopBehavior
 import com.tjcelaya.scribcal.data.database.EventType
+import com.tjcelaya.scribcal.ui.notifications.NotificationService
 
 /**
  * The single place every voice surface funnels through.
@@ -22,7 +25,9 @@ import com.tjcelaya.scribcal.data.database.EventType
 class VoiceActionHandler(
     private val context: Context,
     private val eventRepository: EventRepository,
-    private val calendarRepository: CalendarRepository
+    private val calendarRepository: CalendarRepository,
+    private val storagePreferences: StoragePreferences? = null,
+    private val notificationService: NotificationService? = null
 ) {
 
     private companion object {
@@ -78,7 +83,15 @@ class VoiceActionHandler(
 
         val type = eventRepository.getEventTypeById(target.eventTypeId)
         val name = type?.name.orEmpty()
-        val elapsed = DurationFormatter.format(context, System.currentTimeMillis() - target.startTime)
+        val elapsedMs = System.currentTimeMillis() - target.startTime
+        val elapsed = DurationFormatter.format(context, elapsedMs)
+
+        val behavior = storagePreferences?.getVoiceStopBehavior() ?: VoiceStopBehavior.SAVE_SILENTLY
+        if (behavior == VoiceStopBehavior.CONFIRM_DIALOG) {
+            // Leave the event running; the surface shows the save/discard dialog and it is that
+            // dialog's choice that decides what happens.
+            return@guarded VoiceActionResult.NeedsStopConfirmation(target.id, name)
+        }
 
         eventRepository.stopEvent(target.id, calendarRepository)
 
@@ -91,6 +104,12 @@ class VoiceActionHandler(
             string(R.string.voice_stopped, name, elapsed)
         } else {
             string(R.string.voice_stopped_unsynced, name, elapsed)
+        }
+
+        if (behavior == VoiceStopBehavior.SAVE_WITH_UNDO) {
+            // The sheet auto-dismisses in seconds and voice is often used screen-down, so the
+            // notification is what actually keeps undo reachable.
+            notificationService?.showSavedEventUndoNotification(target.id, name, elapsedMs)
         }
 
         VoiceActionResult.Success(
