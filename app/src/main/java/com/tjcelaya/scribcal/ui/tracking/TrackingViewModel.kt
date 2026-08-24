@@ -292,7 +292,7 @@ class TrackingViewModel(
     fun createEventTypeFromQuickAdd(eventName: String) {
         viewModelScope.launch {
             try {
-            val newEventType = EventType(
+                val newEventType = EventType(
                     name = eventName,
                     description = "Created from quick add",
                     colorId = null

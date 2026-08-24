@@ -21,6 +21,7 @@
     <string name="save_right_now">Guardar Ahora</string>
     <string name="start_timed_event">Iniciar Evento Cronometrado</string>
     <string name="cancel">Cancelar</string>
+    <string name="stop_without_saving">Detener sin guardar</string>
 
     <!-- Help Text -->
     <string name="add_event_help_text">• Evento Instantáneo: Registra un evento de duración cero en la fecha/hora seleccionada\n• Evento Cronometrado: Inicia un cronómetro en la fecha/hora seleccionada\n• Los nuevos tipos de eventos se crean automáticamente cuando los introduces</string>
