@@ -278,7 +278,7 @@ Fix first, since everything below depends on being able to run tests:
 ### Localization
 
 The project maintains Spanish alongside English (`values-es/strings.xml`, 102 strings vs 103) and
-documents the process in `LOCALIZATION.md`. Every new user-facing string — drawer confirmations,
+documents the process in `docs/guides/LOCALIZATION.md`. Every new user-facing string — drawer confirmations,
 query answers, disambiguation prompts, settings labels, ledger actions, error messages — ships in
 both locales. Extend `LocalizationTest` to cover the new keys.
 
@@ -289,8 +289,10 @@ they need plurals/format resources rather than concatenation, in both locales.
 
 - Add a `README.md`. The repo has none — what the app is, how to build, how to run against an
   emulator, and where the roadmap lives.
-- Move the ~20 root-level `*_FIX.md` / `*_IMPLEMENTATION.md` notes into `docs/notes/`, leaving the
-  root to `README.md`, `ROADMAP.md`, `WARP.md`, and build files. Pure `git mv`, no content edits.
+- Move the ~20 root-level `*_FIX.md` / `*_IMPLEMENTATION.md` notes into `docs/notes/`, and the
+  standing guides (localization, Photos setup, calendar colours, console verification) into
+  `docs/guides/`, leaving the root to `README.md`, `ROADMAP.md`, `WARP.md`, and build files.
+  Pure `git mv`, no content edits.
 
 ## Suggested sequencing
 

@@ -6,9 +6,9 @@ This file is the durable home for planned work: what's coming, what shape it tak
 Detailed designs live in [`docs/plans/`](docs/plans/). One file per initiative, linked from the
 table below. A plan lands here *before* the code does, so the design can be reviewed on its own.
 
-> Note: the repository root also contains a number of older `*_FIX.md` / `*_IMPLEMENTATION.md`
-> notes written after the fact. Those are historical records of work already shipped, not plans.
-> New forward-looking work goes in `docs/plans/` and is indexed here.
+Other documentation: [`docs/guides/`](docs/guides/) holds standing guides (localization, Photos
+setup, calendar colours), and [`docs/notes/`](docs/notes/) holds implementation notes written
+after the fact — historical records of shipped work, not plans. See also [README.md](README.md).
 
 ## Planned
 
