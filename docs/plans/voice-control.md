@@ -235,10 +235,69 @@ future-proofing, not a working feature.
 - **AppFunctions:** only with `-Pscribcal.appfunctions=true`; confirm it compiles and the
   functions are indexed via adb. Not expected to be callable from Gemini.
 
+## Phase 7 — Hardening and cleanup
+
+Voice control is a large enough shift that the surrounding rot becomes load-bearing. These are
+in scope, not deferred.
+
+### The unit test source set does not compile
+
+`app/src/test/java/.../LocalizationTest.kt` uses `RobolectricTestRunner` and
+`androidx.test.core`'s `ApplicationProvider`, but neither is declared in `app/build.gradle.kts`
+— `testImplementation` carries only `libs.junit`. `./gradlew testDebugUnitTest` fails during
+`kaptDebugUnitTestKotlin` with `cannot find symbol: RobolectricTestRunner`. Main code compiles
+clean; it is only the test source set that is broken.
+
+Fix first, since everything below depends on being able to run tests:
+
+- Add `robolectric` and `androidx.test:core` as `testImplementation`, via the version catalog
+  (`gradle/libs.versions.toml`) to match the project's existing convention.
+- Add `androidx.room:room-testing` for the migration test below.
+- Confirm `./gradlew testDebugUnitTest` goes green before writing new tests.
+
+### New test coverage
+
+- **`VoiceActionHandler` name resolution** — the exact → normalized → prefix → substring ladder,
+  and that genuine ambiguity yields `Ambiguous` rather than an arbitrary pick. This is the piece
+  most likely to misbehave with real user-defined type names.
+- **`extendLastEvent`** — extends a completed timed event; skips instant events; returns the
+  previous `endTime`; no-ops when the candidate would not move forward.
+- **Room migration 9 → 10** — `MigrationTestHelper` against the committed schema JSON, asserting
+  existing rows survive and `calendarEventId` defaults to null.
+
+### Dead and inert code
+
+- Delete `data/database/CompletedEvent.kt` and `CompletedEventDao.kt`. They are not registered in
+  `ScribCalDatabase` and have no accessor; the live record is the `events` table. Leaving a second
+  plausible-looking "completed events" table next to a new ledger feature is a trap.
+- Implement `EventRepository.getUnsyncedEvents()` for real — it currently returns `emptyList()`
+  unconditionally (`EventRepository.kt:358`), which silently makes
+  `CalendarRepository.retrySyncingUnsyncedEvents` (`:181`) a no-op. With `calendarEventId` landing
+  in Phase 0 the correct query is finally expressible: completed events where `calendarEventId IS NULL`.
+
+### Localization
+
+The project maintains Spanish alongside English (`values-es/strings.xml`, 102 strings vs 103) and
+documents the process in `LOCALIZATION.md`. Every new user-facing string — drawer confirmations,
+query answers, disambiguation prompts, settings labels, ledger actions, error messages — ships in
+both locales. Extend `LocalizationTest` to cover the new keys.
+
+Note that voice result strings are assembled dynamically ("Stopped Exercise · 42m · saved"), so
+they need plurals/format resources rather than concatenation, in both locales.
+
+### Repository documentation
+
+- Add a `README.md`. The repo has none — what the app is, how to build, how to run against an
+  emulator, and where the roadmap lives.
+- Move the ~20 root-level `*_FIX.md` / `*_IMPLEMENTATION.md` notes into `docs/notes/`, leaving the
+  root to `README.md`, `ROADMAP.md`, `WARP.md`, and build files. Pure `git mv`, no content edits.
+
 ## Suggested sequencing
 
-Phases 0–3 land the working feature. Phases 4–5 are the configurability and ledger the user
-asked for and can ship separately. Phase 6 is speculative and should land last, flag-off.
+Phases 0–3 are a dependency chain and land the working feature. Phase 7's test-infrastructure fix
+should come first in practice — it is small and everything else wants to be tested. Phases 4, 5,
+and 6 barely touch each other and can proceed in parallel once Phase 1 exists. Phase 6 is
+speculative and lands last, flag-off.
 
 ## Delivery
 
@@ -257,5 +316,9 @@ asked for and can ship separately. Phase 6 is speculative and should land last, 
   AVD as a setup step, either by installing `cmdline-tools` into the existing SDK or by writing
   the `~/.android/avd/*.ini` + `config.ini` pair directly.
 - `adb`/`emulator` are not on `PATH`; invoke them by absolute path under `~/Android/Sdk`.
+- **The default `java` on this machine is JDK 21 without a compiler** (JRE-only package —
+  `/usr/lib/jvm/java-21-openjdk-amd64` has no `bin/javac`), so Gradle fails with
+  *"Toolchain installation … does not provide the required capabilities: [JAVA_COMPILER]"*.
+  Build with `JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64`, which is a full JDK.
 - Gates before each PR: `./gradlew assembleDebug`, `./gradlew lintDebug`, `./gradlew testDebugUnitTest`,
   then `installDebug` on the emulator plus the `scribcal://` deep-link checks from Verification.

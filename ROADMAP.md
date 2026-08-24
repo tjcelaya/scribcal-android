@@ -41,14 +41,28 @@ It also carries two pieces of adjacent work the voice features depend on:
 - **A recent-events ledger.** A new screen listing recent recordings newest-first, with undo,
   delete, extend-to-now, and time adjustment — each change propagating to the calendar copy.
 
-## Known cleanups
+## Hardening carried by the voice work
 
-Not scheduled, but worth recording:
+Voice control is a large enough shift that the surrounding rot becomes load-bearing, so these
+are in scope alongside it rather than deferred. Detail in the plan's Phase 7.
 
-- `data/database/CompletedEvent.kt` and `CompletedEventDao.kt` are dead code. Neither is
-  registered in `ScribCalDatabase`'s `entities` list and there is no `completedEventDao()`
-  accessor. The live record of completed events is the `events` table (`Event` with
-  `endTime != null`).
-- `EventRepository.getUnsyncedEvents()` unconditionally returns an empty list, so the
-  retry-sync path it feeds is inert.
-- The root directory's ~20 loose `*.md` notes would read better collected under `docs/`.
+- **The unit test source set does not compile.** `LocalizationTest.kt` uses Robolectric and
+  `androidx.test.core`, neither declared in `app/build.gradle.kts`; `./gradlew testDebugUnitTest`
+  fails at kapt with `cannot find symbol: RobolectricTestRunner`. Main code is fine.
+- **Dead code:** `data/database/CompletedEvent.kt` and `CompletedEventDao.kt` are not registered
+  in `ScribCalDatabase` and have no accessor. The live record of completed events is the `events`
+  table. Removed, so they aren't mistaken for the new ledger's backing store.
+- **Inert code:** `EventRepository.getUnsyncedEvents()` unconditionally returns an empty list,
+  silently making `CalendarRepository.retrySyncingUnsyncedEvents` a no-op.
+- **No README**, and the root directory carries ~20 loose implementation notes that belong under
+  `docs/notes/`.
+
+## Building
+
+The app targets `compileSdk` 36 and builds with Gradle. Note that a JDK **with a compiler** is
+required — some distributions ship a JRE-only `java-21` package, which makes Gradle fail with
+*"Toolchain installation … does not provide the required capabilities: [JAVA_COMPILER]"*:
+
+```bash
+JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 ./gradlew assembleDebug
+```
