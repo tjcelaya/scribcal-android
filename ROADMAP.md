@@ -15,6 +15,7 @@ after the fact — historical records of shipped work, not plans. See also [READ
 | Initiative | Plan | Status |
 |---|---|---|
 | Voice control via Google Assistant & Gemini, plus a recent-events ledger | [`docs/plans/voice-control.md`](docs/plans/voice-control.md) | Implemented |
+| Rename ScribCal to CalWrite; drop the daily/weekly counter responsibility (now owned by CalScope) | [`docs/plans/rename-calwrite.md`](docs/plans/rename-calwrite.md) | In progress |
 
 ### Voice control (Assistant + Gemini)
 
