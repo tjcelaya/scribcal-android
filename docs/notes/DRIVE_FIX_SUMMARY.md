@@ -31,11 +31,11 @@ The Google Drive integration was showing "No Folder" error, and then "Setup Fail
 ## How to Test the Fix
 
 ### Prerequisites
-1. Ensure you have at least one Google calendar set up in the ScribCal app
+1. Ensure you have at least one Google calendar set up in the CalWrite app
 2. Make sure your device has a Google account added to the system
 
 ### Testing Steps
-1. Launch ScribCal app
+1. Launch CalWrite app
 2. Navigate to Settings
 3. Look at the Google Drive section:
    - If it shows "Setup required", that's expected for the first time

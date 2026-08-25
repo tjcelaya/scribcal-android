@@ -8,14 +8,14 @@ Replaced the complex album picker approach with a simple text field where users 
 
 ### 1. UI Changes
 - **Replaced album display** with an editable text field (`TextInputEditText`)
-- **Default value**: "ScribCal Events"
+- **Default value**: "CalWrite Events"
 - **Material Design 3** styling with outlined box
 - **Input validation**: Prevents empty album names
 
 ### 2. New User Flow
 
 #### **Album Name Input**
-1. User sees text field with current album name (or default "ScribCal Events")
+1. User sees text field with current album name (or default "CalWrite Events")
 2. User can edit the album name as desired
 3. User clicks "Connect" to test connection
 
@@ -37,8 +37,8 @@ User enters "My Photos" → Search finds existing album → Use existing album �
 
 #### **Album Doesn't Exist**
 ```
-User enters "ScribCal Events" → Search finds no match → Show dialog:
-"Album 'ScribCal Events' doesn't exist. Create it?" → User clicks "Create" → Create album → Success
+User enters "CalWrite Events" → Search finds no match → Show dialog:
+"Album 'CalWrite Events' doesn't exist. Create it?" → User clicks "Create" → Create album → Success
 ```
 
 #### **User Cancels Creation**
@@ -63,7 +63,7 @@ User enters "New Album" → Search finds no match → Show creation dialog → U
     android:hint="Album Name">
     <com.google.android.material.textfield.TextInputEditText
         android:id="@+id/photos_album_name_edit"
-        android:text="ScribCal Events" />
+        android:text="CalWrite Events" />
 </com.google.android.material.textfield.TextInputLayout>
 ```
 
@@ -71,7 +71,7 @@ User enters "New Album" → Search finds no match → Show creation dialog → U
 
 #### **loadAlbumNameIntoTextField()**
 - Loads current album name from database into text field
-- Falls back to "ScribCal Events" if no album configured
+- Falls back to "CalWrite Events" if no album configured
 
 #### **testPhotosConnectionWithAlbumCreation()**
 - Main connection test method
@@ -126,9 +126,9 @@ User enters "New Album" → Search finds no match → Show creation dialog → U
 4. Success - ready to use
 
 ### Scenario 2: New Album Creation
-1. User types "ScribCal Events"
+1. User types "CalWrite Events"
 2. Clicks "Connect" 
-3. App shows: "Album 'ScribCal Events' doesn't exist. Create it?"
+3. App shows: "Album 'CalWrite Events' doesn't exist. Create it?"
 4. User clicks "Create"
 5. App creates album and configures it
 6. Success - ready to use
@@ -163,7 +163,7 @@ User enters "New Album" → Search finds no match → Show creation dialog → U
 - No data loss or reconfiguration needed
 
 ### New Users
-- Text field defaults to "ScribCal Events"
+- Text field defaults to "CalWrite Events"
 - First connection will create default album (with permission)
 - Clean, straightforward setup experience
 

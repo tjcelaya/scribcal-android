@@ -1,6 +1,6 @@
 # Future Events Implementation - COMPLETE ✅
 
-The future events countdown timer feature has been fully implemented and integrated into ScribCal.
+The future events countdown timer feature has been fully implemented and integrated into CalWrite.
 
 ## What Was Implemented
 
@@ -154,17 +154,17 @@ Possible improvements for the future:
 ## Files Modified/Created
 
 ### Created:
-- `app/src/main/java/com/tjcelaya/scribcal/data/database/FutureEvent.kt`
-- `app/src/main/java/com/tjcelaya/scribcal/data/database/FutureEventDao.kt`
-- `app/src/main/java/com/tjcelaya/scribcal/data/database/FutureEventWithType.kt`
+- `app/src/main/java/com/tjcelaya/calwrite/data/database/FutureEvent.kt`
+- `app/src/main/java/com/tjcelaya/calwrite/data/database/FutureEventDao.kt`
+- `app/src/main/java/com/tjcelaya/calwrite/data/database/FutureEventWithType.kt`
 - `app/src/main/res/layout/item_future_event.xml`
 
 ### Modified:
-- `app/src/main/java/com/tjcelaya/scribcal/data/database/ScribCalDatabase.kt`
-- `app/src/main/java/com/tjcelaya/scribcal/data/EventRepository.kt`
-- `app/src/main/java/com/tjcelaya/scribcal/ui/tracking/TrackingViewModel.kt`
-- `app/src/main/java/com/tjcelaya/scribcal/ui/tracking/TrackingAdapters.kt`
-- `app/src/main/java/com/tjcelaya/scribcal/ui/tracking/TrackingFragment.kt`
+- `app/src/main/java/com/tjcelaya/calwrite/data/database/CalWriteDatabase.kt`
+- `app/src/main/java/com/tjcelaya/calwrite/data/EventRepository.kt`
+- `app/src/main/java/com/tjcelaya/calwrite/ui/tracking/TrackingViewModel.kt`
+- `app/src/main/java/com/tjcelaya/calwrite/ui/tracking/TrackingAdapters.kt`
+- `app/src/main/java/com/tjcelaya/calwrite/ui/tracking/TrackingFragment.kt`
 - `app/src/main/res/layout/fragment_tracking.xml`
 - `app/src/main/res/values/colors.xml`
 

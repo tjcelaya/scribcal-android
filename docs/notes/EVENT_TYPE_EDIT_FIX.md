@@ -56,7 +56,7 @@ alias(libs.plugins.navigation.safeargs.kotlin)
 ```
 
 ### 3. **Fixed Navigation Flow**
-**File Modified:** `app/src/main/java/com/tjcelaya/scribcal/ui/events/EventsFragment.kt`
+**File Modified:** `app/src/main/java/com/tjcelaya/calwrite/ui/events/EventsFragment.kt`
 
 **Changes:**
 ```kotlin
@@ -69,7 +69,7 @@ private fun navigateToAddEditEventType(eventType: EventType?) {
 ```
 
 ### 4. **Enhanced AddEditEventTypeFragment**
-**File Modified:** `app/src/main/java/com/tjcelaya/scribcal/ui/events/AddEditEventTypeFragment.kt`
+**File Modified:** `app/src/main/java/com/tjcelaya/calwrite/ui/events/AddEditEventTypeFragment.kt`
 
 **Key Changes:**
 - Added Safe Args support: `private val args: AddEditEventTypeFragmentArgs by navArgs()`
@@ -92,7 +92,7 @@ private fun loadEventTypeFromArguments() {
 ```
 
 ### 5. **Enhanced ViewModel with Loading and Validation**
-**File Modified:** `app/src/main/java/com/tjcelaya/scribcal/ui/events/AddEditEventTypeViewModel.kt`
+**File Modified:** `app/src/main/java/com/tjcelaya/calwrite/ui/events/AddEditEventTypeViewModel.kt`
 
 **Key Additions:**
 - `loadEventType()` method to fetch existing event types
@@ -112,8 +112,8 @@ if (isDuplicateName(eventType.name.trim(), eventType.id)) {
 
 ### 6. **Added Repository Support Methods**
 **Files Modified:**
-- `app/src/main/java/com/tjcelaya/scribcal/data/EventRepository.kt`
-- `app/src/main/java/com/tjcelaya/scribcal/data/database/EventTypeDao.kt`
+- `app/src/main/java/com/tjcelaya/calwrite/data/EventRepository.kt`
+- `app/src/main/java/com/tjcelaya/calwrite/data/database/EventTypeDao.kt`
 
 **New Methods:**
 ```kotlin

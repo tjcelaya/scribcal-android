@@ -6,7 +6,7 @@ The app was throwing `UserRecoverableAuthException: NeedRemoteConsent` on every 
 
 **Error Details:**
 ```
-DriveRepository: Error ensuring ScribCal folder exists
+DriveRepository: Error ensuring CalWrite folder exists
 com.google.api.client.googleapis.extensions.android.gms.auth.UserRecoverableAuthIOException
 ...
 Caused by: com.google.android.gms.auth.UserRecoverableAuthException: NeedRemoteConsent
@@ -14,7 +14,7 @@ Caused by: com.google.android.gms.auth.UserRecoverableAuthException: NeedRemoteC
 
 ## Root Cause
 
-The app was automatically trying to initialize Google Drive during startup in `ScribCalApplication.onCreate()`:
+The app was automatically trying to initialize Google Drive during startup in `CalWriteApplication.onCreate()`:
 
 1. **Automatic Initialization**: `initializeGoogleServicesAsync()` was called on app startup
 2. **Drive Access Attempt**: This tried to access Google Drive without user consent
@@ -25,7 +25,7 @@ The app was automatically trying to initialize Google Drive during startup in `S
 
 ### Removed Automatic Initialization
 
-**Before (ScribCalApplication.onCreate()):**
+**Before (CalWriteApplication.onCreate()):**
 ```kotlin
 // Initialize Google services on app startup
 initializeGoogleServicesAsync()
@@ -101,7 +101,7 @@ This approach:
 
 ## Files Modified
 
-- **ScribCalApplication.kt**: 
+- **CalWriteApplication.kt**: 
   - Removed `initializeGoogleServicesAsync()` call from `onCreate()`
   - Removed `initializeGoogleServicesAsync()` method implementation
   - Added comments explaining the change

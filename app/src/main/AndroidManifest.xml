@@ -17,7 +17,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
-        android:name=".ScribCalApplication"
+        android:name=".CalWriteApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -25,7 +25,7 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.ScribCal">
+        android:theme="@style/Theme.CalWrite">
         
         <!-- Enable bubbles for the app -->
         <property
@@ -35,7 +35,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
-            android:theme="@style/Theme.ScribCal">
+            android:theme="@style/Theme.CalWrite">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -55,33 +55,33 @@
 
         </activity>
 
-        <!-- Headless target for Assistant capabilities and scribcal:// deep links -->
+        <!-- Headless target for Assistant capabilities and calwrite:// deep links -->
         <activity
             android:name=".ui.voice.VoiceActionActivity"
             android:excludeFromRecents="true"
             android:exported="true"
             android:documentLaunchMode="always"
             android:label="@string/app_name"
-            android:theme="@style/Theme.ScribCal.Translucent">
+            android:theme="@style/Theme.CalWrite.Translucent">
 
             <!-- One action per capability declared in res/xml/shortcuts.xml -->
             <intent-filter>
-                <action android:name="com.tjcelaya.scribcal.action.VOICE_START" />
-                <action android:name="com.tjcelaya.scribcal.action.VOICE_STOP" />
-                <action android:name="com.tjcelaya.scribcal.action.VOICE_RECORD" />
-                <action android:name="com.tjcelaya.scribcal.action.VOICE_EXTEND" />
-                <action android:name="com.tjcelaya.scribcal.action.VOICE_STATUS" />
+                <action android:name="com.tjcelaya.calwrite.action.VOICE_START" />
+                <action android:name="com.tjcelaya.calwrite.action.VOICE_STOP" />
+                <action android:name="com.tjcelaya.calwrite.action.VOICE_RECORD" />
+                <action android:name="com.tjcelaya.calwrite.action.VOICE_EXTEND" />
+                <action android:name="com.tjcelaya.calwrite.action.VOICE_STATUS" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
 
-            <!-- scribcal://action/{start|stop|record|extend|status}?name=… -->
+            <!-- calwrite://action/{start|stop|record|extend|status}?name=… -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
                     android:host="action"
-                    android:scheme="scribcal" />
+                    android:scheme="calwrite" />
             </intent-filter>
         </activity>
 
@@ -89,7 +89,7 @@
         <activity
             android:name=".ui.notifications.NotificationActionActivity"
             android:exported="false"
-            android:theme="@style/Theme.ScribCal.Translucent"
+            android:theme="@style/Theme.CalWrite.Translucent"
             android:excludeFromRecents="true"
             android:resizeableActivity="true"
             android:documentLaunchMode="always"

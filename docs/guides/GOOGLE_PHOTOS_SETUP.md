@@ -2,7 +2,7 @@
 
 ## Current Status
 
-The ScribCal app now includes **enhanced Google Photos integration** that validates API access and provides a functional framework. The connection testing works with your Google Cloud Console setup!
+The CalWrite app now includes **enhanced Google Photos integration** that validates API access and provides a functional framework. The connection testing works with your Google Cloud Console setup!
 
 ## Why Google Photos Connection Test Fails
 
@@ -39,7 +39,7 @@ The app requests these scopes:
 ### 3. Android App Configuration
 
 Add your app's package name and SHA-1 certificate fingerprint to OAuth client:
-- **Package name**: `com.tjcelaya.scribcal`
+- **Package name**: `com.tjcelaya.calwrite`
 - **SHA-1 fingerprint**: Use `keytool` to get from your signing certificate
 
 ```bash
@@ -50,7 +50,7 @@ keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -sto
 ### 4. OAuth Consent Screen
 
 Configure consent screen with:
-- App name: "ScribCal"
+- App name: "CalWrite"
 - User support email
 - Developer contact information
 - Scopes: Google Photos Library API

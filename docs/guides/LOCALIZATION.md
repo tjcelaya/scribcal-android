@@ -1,6 +1,6 @@
-# ScribCal Localization Guide
+# CalWrite Localization Guide
 
-This document explains how to add and maintain translations for the ScribCal app.
+This document explains how to add and maintain translations for the CalWrite app.
 
 ## Current Languages
 

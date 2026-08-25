@@ -7,7 +7,7 @@
 
     <fragment
         android:id="@+id/trackingFragment"
-        android:name="com.tjcelaya.scribcal.ui.tracking.TrackingFragment"
+        android:name="com.tjcelaya.calwrite.ui.tracking.TrackingFragment"
         android:label="@string/fragment_tracking_label"
         tools:layout="@layout/fragment_tracking">
 
@@ -33,7 +33,7 @@
 
     <fragment
         android:id="@+id/eventsFragment"
-        android:name="com.tjcelaya.scribcal.ui.events.EventsFragment"
+        android:name="com.tjcelaya.calwrite.ui.events.EventsFragment"
         android:label="@string/fragment_events_label"
         tools:layout="@layout/fragment_events">
 
@@ -47,7 +47,7 @@
 
     <fragment
         android:id="@+id/addEditEventTypeFragment"
-        android:name="com.tjcelaya.scribcal.ui.events.AddEditEventTypeFragment"
+        android:name="com.tjcelaya.calwrite.ui.events.AddEditEventTypeFragment"
         android:label="@string/fragment_add_edit_event_type_label"
         tools:layout="@layout/fragment_add_edit_event_type">
 
@@ -63,7 +63,7 @@
 
     <fragment
         android:id="@+id/settingsFragment"
-        android:name="com.tjcelaya.scribcal.ui.settings.SettingsFragment"
+        android:name="com.tjcelaya.calwrite.ui.settings.SettingsFragment"
         android:label="@string/fragment_settings_label"
         tools:layout="@layout/fragment_settings">
 
@@ -77,7 +77,7 @@
 
     <fragment
         android:id="@+id/calendarSetupFragment"
-        android:name="com.tjcelaya.scribcal.ui.settings.CalendarSetupFragment"
+        android:name="com.tjcelaya.calwrite.ui.settings.CalendarSetupFragment"
         android:label="@string/fragment_calendar_setup_label"
         tools:layout="@layout/fragment_calendar_setup">
 
@@ -88,7 +88,7 @@
 
     <fragment
         android:id="@+id/addEventFragment"
-        android:name="com.tjcelaya.scribcal.ui.events.AddEventFragment"
+        android:name="com.tjcelaya.calwrite.ui.events.AddEventFragment"
         android:label="@string/fragment_add_event_label"
         tools:layout="@layout/fragment_add_event">
 
@@ -98,7 +98,7 @@
     </fragment>
     <fragment
         android:id="@+id/ledgerFragment"
-        android:name="com.tjcelaya.scribcal.ui.ledger.LedgerFragment"
+        android:name="com.tjcelaya.calwrite.ui.ledger.LedgerFragment"
         android:label="@string/ledger_title"
         tools:layout="@layout/fragment_ledger">
 

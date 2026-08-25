@@ -1,7 +1,7 @@
 # Camera and Image Picker Implementation Summary
 
 ## Overview
-Successfully added camera and image picker functionality to the ScribCal app with two new floating action buttons positioned below the existing plus button in the tracking fragment.
+Successfully added camera and image picker functionality to the CalWrite app with two new floating action buttons positioned below the existing plus button in the tracking fragment.
 
 ## Features Added
 
@@ -65,7 +65,7 @@ Successfully added camera and image picker functionality to the ScribCal app wit
 ```
 
 ### **Fragment Enhancements**
-**File**: `app/src/main/java/com/tjcelaya/scribcal/ui/tracking/TrackingFragment.kt`
+**File**: `app/src/main/java/com/tjcelaya/calwrite/ui/tracking/TrackingFragment.kt`
 
 **Key Features Added:**
 - Camera permission launcher with user-friendly prompts
@@ -93,7 +93,7 @@ private fun handleSelectedImage() // Processes picker results
 2. App checks for camera permission
 3. If needed, requests permission with clear explanation
 4. Opens camera app immediately for photo capture
-5. Returns to ScribCal with PhotoEventDialog showing captured image
+5. Returns to CalWrite with PhotoEventDialog showing captured image
 6. User selects event type, adds notes, chooses instant/timed event
 7. Event created with photo attached
 
@@ -101,7 +101,7 @@ private fun handleSelectedImage() // Processes picker results
 1. User taps image FAB button  
 2. Opens device's native image picker/gallery
 3. User selects any image from device
-4. Returns to ScribCal with PhotoEventDialog showing selected image
+4. Returns to CalWrite with PhotoEventDialog showing selected image
 5. User selects event type, adds notes, chooses instant/timed event
 6. Event created with photo attached
 
@@ -114,8 +114,8 @@ private fun handleSelectedImage() // Processes picker results
 ## File Organization
 
 ### **Image Storage**
-- **Location**: App-specific external files directory (`Pictures/ScribCal`)
-- **Naming**: Timestamped format (`SCRIBCAL_yyyyMMdd_HHmmss_.jpg`)  
+- **Location**: App-specific external files directory (`Pictures/CalWrite`)
+- **Naming**: Timestamped format (`CALWRITE_yyyyMMdd_HHmmss_.jpg`)  
 - **Privacy**: Stored in app-specific directory, not in shared device galleries
 - **Cleanup**: Images managed by app, can be cleaned up when events are deleted
 

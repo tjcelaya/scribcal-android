@@ -110,9 +110,9 @@ Added a 500ms delay after clearing tokens to ensure:
 SettingsFragment: Refreshing permissions...
 SettingsFragment: Getting OAuth token for account: user@gmail.com
 SettingsFragment: OAuth token obtained successfully
-SettingsFragment: Searching for existing album: ScribCal Events
+SettingsFragment: Searching for existing album: CalWrite Events
 PhotosRepository: Listed X albums  // Should not be 0 now
-SettingsFragment: Album configured successfully: ScribCal Events
+SettingsFragment: Album configured successfully: CalWrite Events
 ```
 
 ### Success Indicators

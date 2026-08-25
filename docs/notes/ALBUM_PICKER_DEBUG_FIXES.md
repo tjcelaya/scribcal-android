@@ -157,4 +157,4 @@ The enhanced logging will make it much easier to identify whether the issue is:
 
 ## Files Modified
 
-- `/app/src/main/java/com/tjcelaya/scribcal/ui/settings/SettingsFragment.kt` - Fixed async contexts, button state management, and added comprehensive logging
+- `/app/src/main/java/com/tjcelaya/calwrite/ui/settings/SettingsFragment.kt` - Fixed async contexts, button state management, and added comprehensive logging

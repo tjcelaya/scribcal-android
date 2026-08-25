@@ -9,7 +9,7 @@ plugins {
 }
 
 /**
- * Gemini support via androidx.appfunctions, off unless -Pscribcal.appfunctions=true.
+ * Gemini support via androidx.appfunctions, off unless -Pcalwrite.appfunctions=true.
  *
  * The API is alpha, needs Android 16, and is in a private preview where Gemini cannot yet invoke
  * third-party functions, so a default build must not drag in the alpha artifacts. Gating it as a
@@ -21,18 +21,18 @@ plugins {
  * not on. The library declares its own service, so no manifest entry is needed here.
  */
 val appFunctionsEnabled =
-    providers.gradleProperty("scribcal.appfunctions").orNull?.toBoolean() ?: false
+    providers.gradleProperty("calwrite.appfunctions").orNull?.toBoolean() ?: false
 
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 android {
-    namespace = "com.tjcelaya.scribcal"
+    namespace = "com.tjcelaya.calwrite"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.tjcelaya.scribcal"
+        applicationId = "com.tjcelaya.calwrite"
         minSdk = 34
         targetSdk = 36
         versionCode = 5

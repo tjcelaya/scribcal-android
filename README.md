@@ -1,8 +1,8 @@
-# ScribCal
+# CalWrite
 
 An Android stopwatch that writes what you track straight to your Google Calendar.
 
-You define the things you do repeatedly — Exercise, Coffee, Reading — and ScribCal gives each one
+You define the things you do repeatedly — Exercise, Coffee, Reading — and CalWrite gives each one
 a button. Tap to record a moment, or start a stopwatch and stop it when you're done. Either way
 the result lands on the calendar you chose, so your history lives somewhere you already look
 instead of inside another app you have to remember to open.
@@ -41,18 +41,18 @@ defaults to it when unpinned.
 ### Running the app
 
 ```bash
-./gradlew installDebug && adb shell am start -n com.tjcelaya.scribcal/.MainActivity
+./gradlew installDebug && adb shell am start -n com.tjcelaya.calwrite/.MainActivity
 ```
 
 ## Layout
 
 ```
-app/src/main/java/com/tjcelaya/scribcal/
+app/src/main/java/com/tjcelaya/calwrite/
 ├── data/                 # repositories: calendar, events, Drive, Photos, preferences
 │   └── database/         # Room entities and DAOs
 ├── ui/                   # fragments, adapters, dialogs, notifications
 ├── utils/                # CalendarContract and colour helpers
-└── ScribCalApplication.kt
+└── CalWriteApplication.kt
 
 docs/
 ├── plans/                # designs for planned work, indexed by ROADMAP.md
@@ -72,6 +72,6 @@ docs/
 ## Schema changes
 
 Room schemas are exported to `app/schemas/` and committed. When changing the database: bump
-`version` in `ScribCalDatabase`, add a `Migration` and register it in `ALL_MIGRATIONS`, build to
+`version` in `CalWriteDatabase`, add a `Migration` and register it in `ALL_MIGRATIONS`, build to
 generate the new JSON, commit that JSON, and add a migration test. The recipe is written out in a
-comment at the top of `ScribCalDatabase`'s companion object.
+comment at the top of `CalWriteDatabase`'s companion object.

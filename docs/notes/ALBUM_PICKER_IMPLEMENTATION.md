@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the implementation of a Google Photos album picker to replace the previous auto-creation approach that was causing duplicate album issues. Instead of automatically creating a "ScribCal Events" album, users now select from their existing Google Photos albums.
+This document describes the implementation of a Google Photos album picker to replace the previous auto-creation approach that was causing duplicate album issues. Instead of automatically creating a "CalWrite Events" album, users now select from their existing Google Photos albums.
 
 ## Changes Made
 
@@ -16,14 +16,14 @@ This document describes the implementation of a Google Photos album picker to re
 
 #### Modified Methods:
 - **`testPhotosConnection()`**: Now verifies selected album exists instead of auto-creating new ones
-- **`findOrCreateScribCalAlbum()`**: Marked as deprecated in favor of user selection approach
+- **`findOrCreateCalWriteAlbum()`**: Marked as deprecated in favor of user selection approach
 
 ### 2. SettingsFragment Updates
 
 #### New UI Behavior:
 - **Album Picker Dialog**: Shows list of user's existing Google Photos albums
 - **Dynamic Button Text**: Button changes from "Choose Album" to "Change Album" based on selection state
-- **Album Display**: Shows selected album name instead of hardcoded "ScribCal Events"
+- **Album Display**: Shows selected album name instead of hardcoded "CalWrite Events"
 
 #### New Methods:
 - **`showAlbumPicker()`**: Main method that handles album picker flow
@@ -53,7 +53,7 @@ This document describes the implementation of a Google Photos album picker to re
 
 ### Problem Solved:
 - **No More Duplicate Albums**: Users select from existing albums instead of auto-creating
-- **User Control**: Users choose which album to use for ScribCal photos
+- **User Control**: Users choose which album to use for CalWrite photos
 - **Better Error Handling**: Clear feedback when selected album no longer exists
 
 ### Implementation Details:
@@ -100,15 +100,15 @@ data class AlbumConfig(
 ## Future Enhancements
 
 ### Potential Improvements:
-1. **Album Creation**: Option to create new album from within ScribCal
+1. **Album Creation**: Option to create new album from within CalWrite
 2. **Album Preview**: Show album thumbnails in selection dialog  
 3. **Batch Operations**: Allow multiple album selection for different event types
-4. **Smart Suggestions**: Prioritize albums with ScribCal-related names
+4. **Smart Suggestions**: Prioritize albums with CalWrite-related names
 
 ## Migration Notes
 
 ### Backward Compatibility:
-- Existing auto-created "ScribCal Events" albums remain functional
+- Existing auto-created "CalWrite Events" albums remain functional
 - Users with existing album configurations can switch to new albums seamlessly
 - Deprecated methods remain for reference but won't be used in new flows
 

@@ -505,7 +505,7 @@ Requires internet connection and Google account authentication."
                     android:id="@+id/drive_folder_text"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="ScribCal"
+                    android:text="CalWrite"
                     android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
                     android:textColor="?android:attr/textColorSecondary" />
 
@@ -644,7 +644,7 @@ Requires internet connection and Google account authentication."
                     android:id="@+id/photos_album_name_edit"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="ScribCal Events"
+                    android:text="CalWrite Events"
                     android:inputType="text"
                     android:maxLines="1"
                     android:imeOptions="actionDone" />

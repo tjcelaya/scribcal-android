@@ -42,13 +42,13 @@ When your device is connected, we'll run this debugging sequence:
 
 ```bash
 # 1. Build with comprehensive debugging
-cd /home/tjcelaya/src/scribcal
+cd /home/tjcelaya/src/calwrite
 ./gradlew assembleDebug
 /home/tjcelaya/Android/Sdk/platform-tools/adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 # 2. Clear logs and start fresh
 /home/tjcelaya/Android/Sdk/platform-tools/adb logcat -c
-/home/tjcelaya/Android/Sdk/platform-tools/adb shell am start -n com.tjcelaya.scribcal/.MainActivity
+/home/tjcelaya/Android/Sdk/platform-tools/adb shell am start -n com.tjcelaya.calwrite/.MainActivity
 
 # 3. Test and capture detailed logs
 /home/tjcelaya/Android/Sdk/platform-tools/adb logcat -d -s PhotosRepository -s SettingsFragment --format=threadtime > oauth_debug.log
@@ -137,7 +137,7 @@ curl -H "Authorization: Bearer YOUR_TOKEN" \
 ```
 
 ### 3. Verify OAuth Client in Cloud Console
-- Package name: exactly `com.tjcelaya.scribcal`
+- Package name: exactly `com.tjcelaya.calwrite`
 - SHA-1: matches debug keystore exactly
 - No extra spaces or characters
 

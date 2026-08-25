@@ -22,7 +22,7 @@ The album creation functionality for Google Photos was failing without clear err
 - ✅ **Network Error Detection**: Handles different exception types
 - ✅ **User-Friendly Messages**: Clear guidance for each error type
 
-#### **PhotosRepository.createScribCalAlbum()** - Lines 1070-1135:
+#### **PhotosRepository.createCalWriteAlbum()** - Lines 1070-1135:
 - ✅ **Enhanced Diagnostics**: Same improvements as SettingsFragment
 - ✅ **Detailed Error Mapping**: Specific guidance for each HTTP status code
 - ✅ **Exception Classification**: Network, SSL, IO errors handled separately
@@ -104,7 +104,7 @@ E/PhotosRepository: Error details: {"error":{"code":403,"message":"..."}}
 
 ### **Google Cloud Console Setup Required:**
 1. **Enable API**: Go to APIs & Services → Enable Google Photos Library API
-2. **Configure OAuth**: Add your app's package name (`com.tjcelaya.scribcal`) 
+2. **Configure OAuth**: Add your app's package name (`com.tjcelaya.calwrite`) 
 3. **Add SHA-1 Fingerprint**: Get from debug keystore and add to OAuth client
 4. **Set Consent Screen**: Configure with Photos API scopes
 
