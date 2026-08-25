@@ -15,6 +15,7 @@ table below. A plan lands here *before* the code does, so the design can be revi
 | Initiative | Plan | Status |
 |---|---|---|
 | Voice control via Google Assistant & Gemini, plus a recent-events ledger | [`docs/plans/voice-control.md`](docs/plans/voice-control.md) | Planned |
+| Rename ScribCal to CalWrite; drop the daily/weekly counter responsibility (now owned by CalScope) | [`docs/plans/rename-calwrite.md`](docs/plans/rename-calwrite.md) | Planned |
 
 ### Voice control (Assistant + Gemini)
 
