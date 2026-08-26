@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    App Actions for Google Assistant.
+
+    Every capability targets VoiceActionActivity explicitly and carries the verb in its action
+    string; the matched event type arrives as the "name" extra (see VoiceIntentParser). The
+    exercise BIIs are the closest shipped verbs to what CalWrite does — Assistant phrase-matches
+    exercise-shaped utterances, so for a type like "Coffee" the reliable route is the dynamic
+    shortcut label ("start Coffee on CalWrite") pushed by VoiceShortcutPublisher, not a
+    free-form sentence.
+-->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <capability android:name="actions.intent.START_EXERCISE">
+        <intent
+            android:action="com.tjcelaya.calwrite.action.VOICE_START"
+            android:targetClass="com.tjcelaya.calwrite.ui.voice.VoiceActionActivity"
+            android:targetPackage="com.tjcelaya.calwrite">
+            <parameter
+                android:key="name"
+                android:name="exercise.name" />
+        </intent>
+    </capability>
+
+    <capability android:name="actions.intent.STOP_EXERCISE">
+        <intent
+            android:action="com.tjcelaya.calwrite.action.VOICE_STOP"
+            android:targetClass="com.tjcelaya.calwrite.ui.voice.VoiceActionActivity"
+            android:targetPackage="com.tjcelaya.calwrite">
+            <parameter
+                android:key="name"
+                android:name="exercise.name" />
+        </intent>
+    </capability>
+
+    <!-- No BII means "extend the last entry"; resume is the nearest shipped verb. -->
+    <capability android:name="actions.intent.RESUME_EXERCISE">
+        <intent
+            android:action="com.tjcelaya.calwrite.action.VOICE_EXTEND"
+            android:targetClass="com.tjcelaya.calwrite.ui.voice.VoiceActionActivity"
+            android:targetPackage="com.tjcelaya.calwrite">
+            <parameter
+                android:key="name"
+                android:name="exercise.name" />
+        </intent>
+    </capability>
+
+    <!-- Instant record: one timestamp, no stopwatch. -->
+    <capability android:name="actions.intent.TRACK_EXERCISE">
+        <intent
+            android:action="com.tjcelaya.calwrite.action.VOICE_RECORD"
+            android:targetClass="com.tjcelaya.calwrite.ui.voice.VoiceActionActivity"
+            android:targetPackage="com.tjcelaya.calwrite">
+            <parameter
+                android:key="name"
+                android:name="exercise.name" />
+        </intent>
+    </capability>
+
+    <!-- Fallback, and the route for "what am I tracking?". -->
+    <capability android:name="actions.intent.OPEN_APP_FEATURE">
+        <intent
+            android:action="com.tjcelaya.calwrite.action.VOICE_STATUS"
+            android:targetClass="com.tjcelaya.calwrite.ui.voice.VoiceActionActivity"
+            android:targetPackage="com.tjcelaya.calwrite">
+            <parameter
+                android:key="feature"
+                android:name="feature" />
+        </intent>
+    </capability>
+
+    <!-- Also a launcher long-press entry; the dynamic per-type ones are pushed at runtime. -->
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_schedule"
+        android:shortcutId="voice_status"
+        android:shortcutLongLabel="@string/voice_shortcut_status_long"
+        android:shortcutShortLabel="@string/voice_shortcut_status_short">
+        <intent
+            android:action="com.tjcelaya.calwrite.action.VOICE_STATUS"
+            android:targetClass="com.tjcelaya.calwrite.ui.voice.VoiceActionActivity"
+            android:targetPackage="com.tjcelaya.calwrite" />
+    </shortcut>
+
+</shortcuts>

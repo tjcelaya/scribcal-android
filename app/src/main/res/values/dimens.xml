@@ -2,4 +2,6 @@
     <dimen name="fab_margin">16dp</dimen>
     <dimen name="color_button_size">48dp</dimen>
     <dimen name="color_button_margin">4dp</dimen>
+    <!-- Column reserved down the left of the ledger for the timeline gutter. -->
+    <dimen name="ledger_gutter_width">28dp</dimen>
 </resources>

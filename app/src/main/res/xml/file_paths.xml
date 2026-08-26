@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <external-files-path
-        name="scribcal_images"
-        path="Pictures/ScribCal" />
+        name="calwrite_images"
+        path="Pictures/CalWrite" />
     <external-cache-path
-        name="scribcal_cache"
+        name="calwrite_cache"
         path="." />
 </paths>

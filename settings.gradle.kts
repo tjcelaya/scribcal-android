@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "ScribCal"
+rootProject.name = "CalWrite"
 include(":app")

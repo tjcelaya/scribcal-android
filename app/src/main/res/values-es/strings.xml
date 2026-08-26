@@ -1,10 +1,10 @@
 <resources>
     <!-- App Information -->
-    <string name="app_name">ScribCal</string>
+    <string name="app_name">CalWrite</string>
     <string name="action_settings">Configuración</string>
 
     <!-- Navigation Labels -->
-    <string name="fragment_tracking_label">ScribCal</string>
+    <string name="fragment_tracking_label">CalWrite</string>
     <string name="fragment_events_label">Tipos de Eventos</string>
     <string name="fragment_add_event_label">Agregar Evento</string>
     <string name="fragment_settings_label">Configuración</string>
@@ -21,6 +21,7 @@
     <string name="save_right_now">Guardar Ahora</string>
     <string name="start_timed_event">Iniciar Evento Cronometrado</string>
     <string name="cancel">Cancelar</string>
+    <string name="stop_without_saving">Detener sin guardar</string>
 
     <!-- Help Text -->
     <string name="add_event_help_text">• Evento Instantáneo: Registra un evento de duración cero en la fecha/hora seleccionada\n• Evento Cronometrado: Inicia un cronómetro en la fecha/hora seleccionada\n• Los nuevos tipos de eventos se crean automáticamente cuando los introduces</string>
@@ -95,7 +96,7 @@
 
     <!-- Backup & Restore -->
     <string name="backup_restore_title">Copia de seguridad y restauración</string>
-    <string name="backup_restore_desc">Exporta tus tipos de eventos y ajustes a un archivo (Documents/ScribCal) o a Google Drive para que las actualizaciones de la app no los borren. Los eventos registrados viven en Google Calendar; al importar, la última vez de cada tipo se vuelve a leer desde ahí.</string>
+    <string name="backup_restore_desc">Exporta tus tipos de eventos y ajustes a un archivo (Documents/CalWrite) o a Google Drive para que las actualizaciones de la app no los borren. Los eventos registrados viven en Google Calendar; al importar, la última vez de cada tipo se vuelve a leer desde ahí.</string>
     <string name="backup_export_device">Exportar al dispositivo</string>
     <string name="backup_import_device">Importar del dispositivo</string>
     <string name="backup_export_drive">Exportar a Google Drive</string>
@@ -138,4 +139,104 @@
     <string name="next">Siguiente</string>
     <string name="previous">Anterior</string>
     <string name="lorem_ipsum">Lorem ipsum dolor sit amet...</string>
+
+    <!-- Acciones por voz (Assistant / Gemini) -->
+    <string name="voice_started">%1$s iniciado</string>
+    <string name="voice_recorded">%1$s registrado</string>
+    <string name="voice_recorded_unsynced">%1$s registrado · no se guardó en el calendario</string>
+    <string name="voice_stopped">%1$s detenido · %2$s</string>
+    <string name="voice_stopped_unsynced">%1$s detenido · %2$s · no se guardó en el calendario</string>
+    <string name="voice_extended">%1$s extendido · ahora %2$s</string>
+    <string name="voice_extend_nothing">No hay ningún evento cronometrado que extender</string>
+    <string name="voice_extend_nothing_for_type">No hay ningún %1$s cronometrado que extender</string>
+    <string name="voice_extend_already_current">%1$s ya llega hasta ahora</string>
+    <string name="voice_status_idle">No se está registrando nada</string>
+    <string name="voice_status_title">Registrando ahora</string>
+    <string name="voice_status_entry">%1$s · %2$s</string>
+    <string name="voice_unknown_type">Ningún tipo de evento coincide con «%1$s»</string>
+    <string name="voice_no_type_given">¿Qué tipo de evento?</string>
+    <string name="voice_ambiguous_title">¿Cuál querías decir?</string>
+    <string name="voice_already_running">%1$s ya está en marcha</string>
+    <string name="voice_not_running">%1$s no está en marcha</string>
+    <string name="voice_nothing_running">No hay nada en marcha</string>
+    <string name="voice_no_calendar">Elige un calendario en Ajustes primero</string>
+    <string name="voice_error_generic">Algo salió mal</string>
+    <string name="voice_undone">Deshecho</string>
+    <string name="voice_action_stop">Detener</string>
+    <string name="voice_action_extend">Extender</string>
+    <string name="voice_action_undo">Deshacer</string>
+    <string name="voice_action_open">Abrir CalWrite</string>
+
+    <!-- Etiquetas de accesos directos del Asistente / lanzador -->
+    <string name="voice_shortcut_start">Iniciar %1$s</string>
+    <string name="voice_shortcut_stop">Detener %1$s</string>
+    <string name="voice_shortcut_record">Registrar %1$s</string>
+    <string name="voice_shortcut_status_short">Registrando</string>
+    <string name="voice_shortcut_status_long">¿Qué estoy registrando?</string>
+
+    <!-- Duraciones -->
+    <string name="duration_hours_minutes">%1$d h %2$d min</string>
+    <string name="duration_minutes">%1$d min</string>
+    <string name="duration_seconds">%1$d s</string>
+    <!-- Ajustes de Voz y Asistente -->
+    <string name="settings_voice_section_title">Voz y Asistente</string>
+    <string name="settings_voice_stop_behavior_title">Cuando un comando de voz detiene un evento</string>
+    <string name="settings_voice_stop_behavior_description">Elige cuánta confirmación quieres cuando el Asistente o un acceso directo detiene un evento en curso.</string>
+    <string name="settings_voice_stop_save_silently">Guardar y confirmar</string>
+    <string name="settings_voice_stop_confirm_dialog">Preguntar antes de guardar</string>
+    <string name="settings_voice_stop_save_with_undo">Guardar, con notificación para deshacer</string>
+    <string name="settings_voice_stop_status_save_silently">El evento se guarda de inmediato y se muestra el resultado.</string>
+    <string name="settings_voice_stop_status_confirm_dialog">Aparece un diálogo de guardado antes de escribir nada en tu calendario.</string>
+    <string name="settings_voice_stop_status_save_with_undo">Se guarda al instante, con una notificación desde la que puedes deshacer.</string>
+    <string name="settings_voice_howto_title">Cómo activarlo</string>
+    <string name="settings_voice_howto_description">Di «Hey Google» y luego una de las frases siguientes, usando el nombre de uno de tus tipos de evento en lugar del ejemplo. Los nombres de tipo personalizados solo se reconocen de forma fiable con la forma «on CalWrite» — el Asistente no siempre puede relacionar una frase libre con esta app.</string>
+    <string name="settings_voice_howto_col_command">Comando</string>
+    <string name="settings_voice_howto_col_example">Frase de ejemplo</string>
+    <string name="settings_voice_howto_row_start_label">Iniciar</string>
+    <string name="settings_voice_howto_row_start_example">"Start Coffee on CalWrite"</string>
+    <string name="settings_voice_howto_row_stop_label">Detener</string>
+    <string name="settings_voice_howto_row_stop_example">"Stop Coffee on CalWrite"</string>
+    <string name="settings_voice_howto_row_extend_label">Extender</string>
+    <string name="settings_voice_howto_row_extend_example">"Resume Coffee on CalWrite"</string>
+    <string name="settings_voice_howto_row_record_label">Registrar instantáneo</string>
+    <string name="settings_voice_howto_row_record_example">"Record Coffee on CalWrite"</string>
+    <string name="settings_voice_howto_row_status_label">Estado</string>
+    <string name="settings_voice_howto_row_status_example">"What am I tracking, CalWrite?"</string>
+
+    <!-- Registro de eventos recientes -->
+    <string name="ledger_title">Eventos recientes</string>
+    <string name="ledger_empty_title">Todavía no hay eventos registrados</string>
+    <string name="ledger_empty_message">Los eventos que termines de registrar aparecerán aquí, del más reciente al más antiguo.</string>
+    <string name="ledger_day_today">Hoy</string>
+    <string name="ledger_day_yesterday">Ayer</string>
+    <string name="ledger_badge_synced">En el calendario</string>
+    <string name="ledger_badge_unsynced">Sin sincronizar</string>
+    <string name="ledger_instant_label">Instantáneo</string>
+    <string name="ledger_action_extend">Extender hasta ahora</string>
+    <string name="ledger_action_adjust">Ajustar</string>
+    <string name="ledger_action_delete">Eliminar</string>
+    <string name="ledger_undo">Deshacer</string>
+    <string name="ledger_deleted_message">%1$s eliminado</string>
+    <string name="ledger_extended_message">%1$s extendido hasta ahora</string>
+    <string name="ledger_extend_failed">No hay nada que extender para %1$s</string>
+    <string name="ledger_adjust_title">Ajustar %1$s</string>
+    <string name="ledger_adjust_start">Inicio</string>
+    <string name="ledger_adjust_end">Fin</string>
+    <string name="ledger_adjust_notes">Notas</string>
+    <string name="ledger_adjust_save">Guardar cambios</string>
+    <string name="ledger_adjust_end_before_start">La hora de fin debe ser posterior a la de inicio.</string>
+    <string name="ledger_adjusted_message">%1$s actualizado</string>
+    <string name="ledger_adjust_failed">No se pudo actualizar %1$s</string>
+    <string name="ledger_pick_start_date">Fecha de inicio</string>
+    <string name="ledger_pick_start_time">Hora de inicio</string>
+    <string name="ledger_pick_end_date">Fecha de fin</string>
+    <string name="ledger_pick_end_time">Hora de fin</string>
+    <string name="ledger_time_range" formatted="false">%1$s \u2013 %2$s</string>
+    <string name="ledger_duration_hours_minutes" formatted="false">%1$dh %2$dm</string>
+    <string name="ledger_duration_minutes" formatted="false">%1$dm</string>
+    <string name="ledger_duration_seconds" formatted="false">%1$ds</string>
+    <string name="ledger_undo_channel_name">Eventos guardados</string>
+    <string name="ledger_undo_channel_description">Ofrece brevemente deshacer un evento guardado por voz.</string>
+    <string name="ledger_undo_notification_title">%1$s guardado</string>
+    <string name="ledger_undo_notification_text">%1$s en tu calendario</string>
 </resources>

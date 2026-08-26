@@ -1,11 +1,11 @@
-# Voice control for ScribCal (Assistant + Gemini), with a recent-events ledger
+# Voice control for CalWrite (Assistant + Gemini), with a recent-events ledger
 
 > **Status:** planned — not yet implemented.
 > **Tracked in:** [ROADMAP.md](../../ROADMAP.md)
 
 ## Context
 
-ScribCal is a stopwatch-to-calendar app: you start a timed event, stop it, and it lands in
+CalWrite is a stopwatch-to-calendar app: you start a timed event, stop it, and it lands in
 Google Calendar. Today every one of those actions requires unlocking the phone and tapping.
 The goal is to drive the core actions by voice — start, stop, record-instant, extend, and "what
 am I tracking?" — from whichever assistant the user has set.
@@ -31,7 +31,7 @@ Two things surfaced during exploration that change the shape of the work:
    `syncEventToCalendarWithResult()` and then thrown away. Undo, adjust, and extend all need to
    reach back into the calendar copy, so persisting that ID is a prerequisite, not a nicety.
 2. **`CompletedEvent` / `CompletedEventDao` are dead code** — they are not in
-   `ScribCalDatabase`'s `entities` list and there is no `completedEventDao()` accessor. The real
+   `CalWriteDatabase`'s `entities` list and there is no `completedEventDao()` accessor. The real
    record of completed events is the `events` table (`Event` with `endTime != null`). The ledger
    uses `events`; the dead files are left alone (flagged separately, not deleted here).
 
@@ -40,7 +40,7 @@ Two things surfaced during exploration that change the shape of the work:
 Everything downstream depends on this.
 
 - `data/database/Event.kt`: add `val calendarEventId: Long? = null`.
-- `data/database/ScribCalDatabase.kt`: bump `version` 9 → 10, add `MIGRATION_9_10`
+- `data/database/CalWriteDatabase.kt`: bump `version` 9 → 10, add `MIGRATION_9_10`
   (`ALTER TABLE events ADD COLUMN calendarEventId INTEGER`), register it in `ALL_MIGRATIONS`.
   Follow the numbered recipe already written in the comment block at the top of that companion
   object, including committing the generated schema JSON under `app/schemas/`.
@@ -118,19 +118,19 @@ the ledger makes it reversible.
 
   Each binds `exercise.name` → an intent extra on the new activity below.
 
-- **`ui/voice/VoiceActionActivity.kt`** (new, exported, `Theme.ScribCal.Translucent`,
+- **`ui/voice/VoiceActionActivity.kt`** (new, exported, `Theme.CalWrite.Translucent`,
   `excludeFromRecents`, `documentLaunchMode="always"`). Handles `ACTION_VIEW` plus a
-  `scribcal://action/{start|stop|record|extend|status}?name=…` deep link. Parses, calls
+  `calwrite://action/{start|stop|record|extend|status}?name=…` deep link. Parses, calls
   `VoiceActionHandler`, renders the drawer, finishes. Modeled directly on the existing
   `ui/notifications/NotificationActionActivity.kt`, which already does exactly this shape
-  (translucent, no layout, reaches repositories through `application as ScribCalApplication`).
+  (translucent, no layout, reaches repositories through `application as CalWriteApplication`).
   The deep link doubles as the adb test harness and as a Tasker/automation hook.
 
 - **`ui/voice/VoiceShortcutPublisher.kt`** (new). Pushes one dynamic shortcut per event type via
   `ShortcutManagerCompat.pushDynamicShortcut`, each carrying
   `addCapabilityBinding("actions.intent.START_EXERCISE", "exercise.name", listOf(type.name))`.
   This inline inventory is what makes *custom* type names resolve by voice, and it also yields
-  launcher long-press shortcuts for free. Called from `ScribCalApplication.onCreate()` and
+  launcher long-press shortcuts for free. Called from `CalWriteApplication.onCreate()` and
   whenever event types change.
 
   Two constraints: the system caps dynamic shortcuts (~15) — publish by `EventType.sortOrder`
@@ -140,13 +140,13 @@ the ledger makes it reversible.
 
 **Caveat worth stating up front:** `START_EXERCISE` is a Health & Fitness BII, so Assistant
 phrase-matches exercise-shaped utterances. For a type like "Coffee" the reliable phrasing is the
-shortcut-label route — *"Hey Google, start Coffee on ScribCal"* — not a natural-language
+shortcut-label route — *"Hey Google, start Coffee on CalWrite"* — not a natural-language
 sentence. That is a Google limitation, not something we can code around.
 
 ## Phase 3 — Result drawer (the Lens-style popup)
 
 `ui/voice/VoiceResultSheet.kt` — a `BottomSheetDialog` hosted by the translucent
-`VoiceActionActivity`. `Theme.ScribCal.Translucent` already exists (`values/themes.xml:14`) and
+`VoiceActionActivity`. `Theme.CalWrite.Translucent` already exists (`values/themes.xml:14`) and
 is used the same way by the notification activity, so there's a working precedent.
 
 Renders three cases:
@@ -200,19 +200,45 @@ This screen is also where the `SAVE_WITH_UNDO` notification's Undo action lands.
 
 ## Phase 6 — AppFunctions / Gemini (flag-gated, off by default)
 
-Gated on a Gradle property so the alpha dependency never touches a default build:
+Gated on a Gradle property so the alpha dependency never touches a default build. Implemented;
+what follows is what actually worked, which differs from the initial sketch:
 
-- `gradle.properties`: `scribcal.appfunctions=false`.
-- `app/build.gradle.kts`: when the property is true, add the KSP plugin, the
-  `androidx.appfunctions:appfunctions*` alpha artifacts, and an extra source set
-  `app/src/appfunctions/java`. Note the project currently uses **kapt** for Room; AppFunctions
-  requires **KSP**, so both processors coexist under the flag rather than migrating Room now.
-- `app/src/appfunctions/java/.../ScribCalAppFunctions.kt`: `@AppFunction`-annotated
-  `startEvent` / `stopEvent` / `recordEvent` / `extendEvent` / `whatAmITracking`, each a thin
-  delegate to `VoiceActionHandler`, marked `@RequiresApi(36)`.
+- `gradle.properties`: `calwrite.appfunctions=false`.
+- With the flag on, `app/build.gradle.kts` declares a single `appfunctions` product flavor. That
+  was chosen over hand-wiring an extra source directory because a flavor source set picks up
+  sources, resources, and a manifest fragment automatically; with exactly one flavor declared,
+  `assembleDebug` still works as the aggregate task. With the flag off no flavor exists at all,
+  so nothing is resolved or built.
+- `app/src/appfunctions/java/.../CalWriteAppFunctions.kt`: `@AppFunction`-annotated suspend
+  methods `startEvent` / `stopEvent` / `recordEvent` / `extendEvent` / `whatAmITracking`, each a
+  thin delegate to `VoiceActionHandler`.
 
-Expectation setting: this compiles and indexes, and can be exercised with the adb AppFunctions
-utilities, but **Gemini will not invoke it** until Google widens the preview. It is
+Three things the docs did not tell us, found by building it:
+
+- **Pinned to `1.0.0-alpha08`.** `alpha09` and `alpha10` raise `minCompileSdk` to **37** and
+  require **AGP 9.1**; this project is on compileSdk 36 / AGP 8.13.2. Upgrading the whole app's
+  toolchain for a feature that cannot be invoked yet is the wrong trade, so the last version
+  compatible with compileSdk 36 is used instead. Revisit when the project moves to AGP 9.
+- **No manifest entry is needed.** alpha08's library declares `PlatformAppFunctionService` and
+  `ExtensionAppFunctionService` in its own manifest, so the app declares nothing. (The
+  entry-point/`AppFunctionServiceEntryPoint` model in the docs is the alpha09+ shape.)
+- **`appfunctions-service` must be requested explicitly.** It appears in `appfunctions`'s pom but
+  without a scope, so it is not a real transitive dependency — and the `@AppFunction` annotation
+  lives in it.
+
+**Room moved from kapt to KSP as part of this** (the plan had deferred it). kapt reads Kotlin
+metadata only up to version 2.0.0 and fails outright on the AppFunctions artifacts, which are
+built with Kotlin 2.1: *"Provided Metadata instance has version 2.1.0, while maximum supported
+version is 2.0.0"*. Migrating Room to KSP fixes that, removes the
+*"Kapt currently doesn't support language version 2.0+, falling back to 1.9"* fallback from every
+build, and leaves the exported schema JSON byte-identical.
+
+Verified: the default build is untouched and the flag-on build succeeds, with the KSP compiler
+generating the invoker, inventory, and function IDs for all five functions, and packaging
+`assets/app_functions_schema.xsd` into the APK.
+
+Expectation setting stands: this compiles and indexes, and can be exercised with the adb
+AppFunctions utilities, but **Gemini will not invoke it** until Google widens the preview. It is
 future-proofing, not a working feature.
 
 ## Verification
@@ -222,17 +248,17 @@ future-proofing, not a working feature.
   crash and that the new schema JSON is generated and committed.
 - **Deep links (works regardless of assistant):**
   ```
-  adb shell am start -a android.intent.action.VIEW -d "scribcal://action/start?name=Exercise"
-  adb shell am start -a android.intent.action.VIEW -d "scribcal://action/stop?name=Exercise"
-  adb shell am start -a android.intent.action.VIEW -d "scribcal://action/extend"
-  adb shell am start -a android.intent.action.VIEW -d "scribcal://action/status"
+  adb shell am start -a android.intent.action.VIEW -d "calwrite://action/start?name=Exercise"
+  adb shell am start -a android.intent.action.VIEW -d "calwrite://action/stop?name=Exercise"
+  adb shell am start -a android.intent.action.VIEW -d "calwrite://action/extend"
+  adb shell am start -a android.intent.action.VIEW -d "calwrite://action/status"
   ```
-- **Assistant:** verify the shortcut route by voice ("Hey Google, start Exercise on ScribCal");
+- **Assistant:** verify the shortcut route by voice ("Hey Google, start Exercise on CalWrite");
   verify BII bindings with Android Studio's App Actions Test Tool.
 - **Calendar round-trip:** start → stop → confirm the event in Google Calendar; then extend from
   the ledger and confirm the end time moved; then delete and confirm it disappears.
 - **Settings:** exercise all three stop behaviors and confirm each renders the expected UI.
-- **AppFunctions:** only with `-Pscribcal.appfunctions=true`; confirm it compiles and the
+- **AppFunctions:** only with `-Pcalwrite.appfunctions=true`; confirm it compiles and the
   functions are indexed via adb. Not expected to be callable from Gemini.
 
 ## Phase 7 — Hardening and cleanup
@@ -268,7 +294,7 @@ Fix first, since everything below depends on being able to run tests:
 ### Dead and inert code
 
 - Delete `data/database/CompletedEvent.kt` and `CompletedEventDao.kt`. They are not registered in
-  `ScribCalDatabase` and have no accessor; the live record is the `events` table. Leaving a second
+  `CalWriteDatabase` and have no accessor; the live record is the `events` table. Leaving a second
   plausible-looking "completed events" table next to a new ledger feature is a trap.
 - Implement `EventRepository.getUnsyncedEvents()` for real — it currently returns `emptyList()`
   unconditionally (`EventRepository.kt:358`), which silently makes
@@ -278,7 +304,7 @@ Fix first, since everything below depends on being able to run tests:
 ### Localization
 
 The project maintains Spanish alongside English (`values-es/strings.xml`, 102 strings vs 103) and
-documents the process in `LOCALIZATION.md`. Every new user-facing string — drawer confirmations,
+documents the process in `docs/guides/LOCALIZATION.md`. Every new user-facing string — drawer confirmations,
 query answers, disambiguation prompts, settings labels, ledger actions, error messages — ships in
 both locales. Extend `LocalizationTest` to cover the new keys.
 
@@ -289,8 +315,10 @@ they need plurals/format resources rather than concatenation, in both locales.
 
 - Add a `README.md`. The repo has none — what the app is, how to build, how to run against an
   emulator, and where the roadmap lives.
-- Move the ~20 root-level `*_FIX.md` / `*_IMPLEMENTATION.md` notes into `docs/notes/`, leaving the
-  root to `README.md`, `ROADMAP.md`, `WARP.md`, and build files. Pure `git mv`, no content edits.
+- Move the ~20 root-level `*_FIX.md` / `*_IMPLEMENTATION.md` notes into `docs/notes/`, and the
+  standing guides (localization, Photos setup, calendar colours, console verification) into
+  `docs/guides/`, leaving the root to `README.md`, `ROADMAP.md`, `WARP.md`, and build files.
+  Pure `git mv`, no content edits.
 
 ## Suggested sequencing
 
@@ -321,4 +349,4 @@ speculative and lands last, flag-off.
   *"Toolchain installation … does not provide the required capabilities: [JAVA_COMPILER]"*.
   Build with `JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64`, which is a full JDK.
 - Gates before each PR: `./gradlew assembleDebug`, `./gradlew lintDebug`, `./gradlew testDebugUnitTest`,
-  then `installDebug` on the emulator plus the `scribcal://` deep-link checks from Verification.
+  then `installDebug` on the emulator plus the `calwrite://` deep-link checks from Verification.

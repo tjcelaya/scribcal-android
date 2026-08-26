@@ -1,16 +1,38 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-    id("kotlin-kapt")
     alias(libs.plugins.navigation.safeargs.kotlin)
+    // Room's annotation processor. Was kapt, which reads Kotlin metadata only up to 2.0.0 and so
+    // cannot process dependencies built with Kotlin 2.1 (AppFunctions is). KSP also drops the
+    // "Kapt currently doesn't support language version 2.0+, falling back to 1.9" fallback.
+    alias(libs.plugins.ksp)
+}
+
+/**
+ * Gemini support via androidx.appfunctions, off unless -Pcalwrite.appfunctions=true.
+ *
+ * The API is alpha, needs Android 16, and is in a private preview where Gemini cannot yet invoke
+ * third-party functions, so a default build must not drag in the alpha artifacts. Gating it as a
+ * conditionally-declared product flavor means app/src/appfunctions/ is picked up automatically
+ * when enabled and does not exist at all when disabled. With exactly one flavor declared,
+ * `assembleDebug` still works as the aggregate task.
+ *
+ * Pinned to alpha08: alpha09 and later require compileSdk 37 and AGP 9.1, which this project is
+ * not on. The library declares its own service, so no manifest entry is needed here.
+ */
+val appFunctionsEnabled =
+    providers.gradleProperty("calwrite.appfunctions").orNull?.toBoolean() ?: false
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 android {
-    namespace = "com.tjcelaya.scribcal"
+    namespace = "com.tjcelaya.calwrite"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.tjcelaya.scribcal"
+        applicationId = "com.tjcelaya.calwrite"
         minSdk = 34
         targetSdk = 36
         versionCode = 5
@@ -35,13 +57,22 @@ android {
     kotlinOptions {
         jvmTarget = "11"
     }
-    kapt {
-        arguments {
-            arg("room.schemaLocation", "$projectDir/schemas")
-        }
-    }
     buildFeatures {
         viewBinding = true
+    }
+
+    if (appFunctionsEnabled) {
+        flavorDimensions += "assistant"
+        productFlavors {
+            create("appfunctions") { dimension = "assistant" }
+        }
+    }
+
+    testOptions {
+        unitTests {
+            // Robolectric needs the merged resources to resolve strings/layouts.
+            isIncludeAndroidResources = true
+        }
     }
 
     packaging {
@@ -68,7 +99,7 @@ dependencies {
     // Room database
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
-    kapt(libs.androidx.room.compiler)
+    ksp(libs.androidx.room.compiler)
 
     // Lifecycle components
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
@@ -107,6 +138,20 @@ dependencies {
     implementation("com.google.guava:guava:32.1.3-android")
 
     testImplementation(libs.junit)
+    // LocalizationTest (and the voice/ledger tests) run under Robolectric against real resources.
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.androidx.room.testing)
+    testImplementation(libs.kotlinx.coroutines.test)
+
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+
+    if (appFunctionsEnabled) {
+        add("appfunctionsImplementation", libs.appfunctions)
+        // Not a transitive dependency of `appfunctions` despite appearing in its pom - the
+        // @AppFunction annotation lives here, so it has to be requested explicitly.
+        add("appfunctionsImplementation", libs.appfunctions.service)
+        add("kspAppfunctions", libs.appfunctions.compiler)
+    }
 }

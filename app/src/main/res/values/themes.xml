@@ -1,17 +1,17 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
-    <style name="Base.Theme.ScribCal" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Use ScribCal blue colors as fallback -->
-        <item name="colorPrimary">@color/scribcal_blue</item>
-        <item name="colorPrimaryVariant">@color/scribcal_blue_dark</item>
-        <item name="colorSecondary">@color/scribcal_blue_light</item>
-        <item name="colorAccent">@color/scribcal_blue</item>
+    <style name="Base.Theme.CalWrite" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Use CalWrite blue colors as fallback -->
+        <item name="colorPrimary">@color/calwrite_blue</item>
+        <item name="colorPrimaryVariant">@color/calwrite_blue_dark</item>
+        <item name="colorSecondary">@color/calwrite_blue_light</item>
+        <item name="colorAccent">@color/calwrite_blue</item>
     </style>
 
-    <style name="Theme.ScribCal" parent="Base.Theme.ScribCal" />
+    <style name="Theme.CalWrite" parent="Base.Theme.CalWrite" />
 
     <!-- Translucent theme for notification dialog activity -->
-    <style name="Theme.ScribCal.Translucent" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Theme.CalWrite.Translucent" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowContentOverlay">@null</item>

@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Dynamic color theme for Android 12+ (API 31+) -->
-    <style name="Base.Theme.ScribCal" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Base.Theme.CalWrite" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Dynamic colors will use user's system accent color -->
         <!-- Fallback colors in case dynamic colors fail -->
-        <item name="colorPrimary">@color/scribcal_blue</item>
-        <item name="colorPrimaryVariant">@color/scribcal_blue_dark</item>
-        <item name="colorSecondary">@color/scribcal_blue_light</item>
-        <item name="colorAccent">@color/scribcal_blue</item>
+        <item name="colorPrimary">@color/calwrite_blue</item>
+        <item name="colorPrimaryVariant">@color/calwrite_blue_dark</item>
+        <item name="colorSecondary">@color/calwrite_blue_light</item>
+        <item name="colorAccent">@color/calwrite_blue</item>
     </style>
 
-    <style name="Theme.ScribCal" parent="Base.Theme.ScribCal">
+    <style name="Theme.CalWrite" parent="Base.Theme.CalWrite">
         <!-- Transparent system bars for edge-to-edge. -->
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:statusBarColor">@android:color/transparent</item>

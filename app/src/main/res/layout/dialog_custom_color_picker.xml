@@ -18,7 +18,7 @@
         android:layout_marginBottom="16dp" />
 
     <!-- Color Wheel -->
-    <com.tjcelaya.scribcal.ui.components.ColorWheelView
+    <com.tjcelaya.calwrite.ui.components.ColorWheelView
         android:id="@+id/colorWheel"
         android:layout_width="match_parent"
         android:layout_height="280dp"

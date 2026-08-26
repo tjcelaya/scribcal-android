@@ -6,16 +6,16 @@ This file is the durable home for planned work: what's coming, what shape it tak
 Detailed designs live in [`docs/plans/`](docs/plans/). One file per initiative, linked from the
 table below. A plan lands here *before* the code does, so the design can be reviewed on its own.
 
-> Note: the repository root also contains a number of older `*_FIX.md` / `*_IMPLEMENTATION.md`
-> notes written after the fact. Those are historical records of work already shipped, not plans.
-> New forward-looking work goes in `docs/plans/` and is indexed here.
+Other documentation: [`docs/guides/`](docs/guides/) holds standing guides (localization, Photos
+setup, calendar colours), and [`docs/notes/`](docs/notes/) holds implementation notes written
+after the fact — historical records of shipped work, not plans. See also [README.md](README.md).
 
-## Planned
+## Status
 
 | Initiative | Plan | Status |
 |---|---|---|
-| Voice control via Google Assistant & Gemini, plus a recent-events ledger | [`docs/plans/voice-control.md`](docs/plans/voice-control.md) | Planned |
-| Rename ScribCal to CalWrite; drop the daily/weekly counter responsibility (now owned by CalScope) | [`docs/plans/rename-calwrite.md`](docs/plans/rename-calwrite.md) | Planned |
+| Voice control via Google Assistant & Gemini, plus a recent-events ledger | [`docs/plans/voice-control.md`](docs/plans/voice-control.md) | Implemented |
+| Rename ScribCal to CalWrite; drop the daily/weekly counter responsibility (now owned by CalScope) | [`docs/plans/rename-calwrite.md`](docs/plans/rename-calwrite.md) | In progress |
 
 ### Voice control (Assistant + Gemini)
 
@@ -44,8 +44,9 @@ It also carries two pieces of adjacent work the voice features depend on:
 
 ## Hardening carried by the voice work
 
-Voice control is a large enough shift that the surrounding rot becomes load-bearing, so these
-are in scope alongside it rather than deferred. Detail in the plan's Phase 7.
+Voice control was a large enough shift that the surrounding rot became load-bearing, so these
+were done alongside it rather than deferred. Detail in the plan's Phase 7. All are now resolved,
+and `lintDebug` passes for the first time.
 
 - **The unit test source set does not compile.** `LocalizationTest.kt` uses Robolectric and
   `androidx.test.core`, neither declared in `app/build.gradle.kts`; `./gradlew testDebugUnitTest`

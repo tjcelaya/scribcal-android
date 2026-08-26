@@ -1,10 +1,10 @@
 <resources>
     <!-- App Information -->
-    <string name="app_name">ScribCal</string>
+    <string name="app_name">CalWrite</string>
     <string name="action_settings">Settings</string>
 
     <!-- Navigation Labels -->
-    <string name="fragment_tracking_label">ScribCal</string>
+    <string name="fragment_tracking_label">CalWrite</string>
     <string name="fragment_events_label">Event Types</string>
     <string name="fragment_add_event_label">Add Event</string>
     <string name="fragment_settings_label">Settings</string>
@@ -96,7 +96,7 @@
 
     <!-- Backup & Restore -->
     <string name="backup_restore_title">Backup &amp; Restore</string>
-    <string name="backup_restore_desc">Export your event types and settings to a file (Documents/ScribCal) or Google Drive so app updates don\'t wipe them. Recorded events live in Google Calendar; on import, each type\'s last occurrence is read back from there.</string>
+    <string name="backup_restore_desc">Export your event types and settings to a file (Documents/CalWrite) or Google Drive so app updates don\'t wipe them. Recorded events live in Google Calendar; on import, each type\'s last occurrence is read back from there.</string>
     <string name="backup_export_device">Export to device</string>
     <string name="backup_import_device">Import from device</string>
     <string name="backup_export_drive">Export to Google Drive</string>
@@ -139,4 +139,104 @@
     <string name="next">Next</string>
     <string name="previous">Previous</string>
     <string name="lorem_ipsum">Lorem ipsum dolor sit amet...</string>
+
+    <!-- Voice actions (Assistant / Gemini) -->
+    <string name="voice_started">Started %1$s</string>
+    <string name="voice_recorded">Recorded %1$s</string>
+    <string name="voice_recorded_unsynced">Recorded %1$s · not saved to calendar</string>
+    <string name="voice_stopped">Stopped %1$s · %2$s</string>
+    <string name="voice_stopped_unsynced">Stopped %1$s · %2$s · not saved to calendar</string>
+    <string name="voice_extended">Extended %1$s · now %2$s</string>
+    <string name="voice_extend_nothing">No timed event to extend</string>
+    <string name="voice_extend_nothing_for_type">No timed %1$s to extend</string>
+    <string name="voice_extend_already_current">%1$s already runs up to now</string>
+    <string name="voice_status_idle">Nothing is being tracked</string>
+    <string name="voice_status_title">Currently tracking</string>
+    <string name="voice_status_entry">%1$s · %2$s</string>
+    <string name="voice_unknown_type">No event type matching “%1$s”</string>
+    <string name="voice_no_type_given">Which event type?</string>
+    <string name="voice_ambiguous_title">Which one did you mean?</string>
+    <string name="voice_already_running">%1$s is already running</string>
+    <string name="voice_not_running">%1$s isn’t running</string>
+    <string name="voice_nothing_running">Nothing is running</string>
+    <string name="voice_no_calendar">Choose a calendar in Settings first</string>
+    <string name="voice_error_generic">Something went wrong</string>
+    <string name="voice_undone">Undone</string>
+    <string name="voice_action_stop">Stop</string>
+    <string name="voice_action_extend">Extend</string>
+    <string name="voice_action_undo">Undo</string>
+    <string name="voice_action_open">Open CalWrite</string>
+
+    <!-- Assistant / launcher shortcut labels -->
+    <string name="voice_shortcut_start">Start %1$s</string>
+    <string name="voice_shortcut_stop">Stop %1$s</string>
+    <string name="voice_shortcut_record">Record %1$s</string>
+    <string name="voice_shortcut_status_short">Tracking</string>
+    <string name="voice_shortcut_status_long">What am I tracking?</string>
+
+    <!-- Durations -->
+    <string name="duration_hours_minutes">%1$dh %2$dm</string>
+    <string name="duration_minutes">%1$dm</string>
+    <string name="duration_seconds">%1$ds</string>
+    <!-- Voice & Assistant settings -->
+    <string name="settings_voice_section_title">Voice &amp; Assistant</string>
+    <string name="settings_voice_stop_behavior_title">When a voice command stops an event</string>
+    <string name="settings_voice_stop_behavior_description">Choose how much confirmation you get when Assistant or a shortcut stops an event that is running.</string>
+    <string name="settings_voice_howto_title">How to trigger it</string>
+    <string name="settings_voice_howto_description">Say “Hey Google” then a phrase below, naming one of your event types in place of the example. Custom type names only resolve reliably through the “on CalWrite” shortcut form — Assistant can’t always match a free-form sentence to this app.</string>
+    <string name="settings_voice_howto_col_command">Command</string>
+    <string name="settings_voice_howto_col_example">Example phrase</string>
+    <string name="settings_voice_howto_row_start_label">Start</string>
+    <string name="settings_voice_howto_row_start_example">"Start Coffee on CalWrite"</string>
+    <string name="settings_voice_howto_row_stop_label">Stop</string>
+    <string name="settings_voice_howto_row_stop_example">"Stop Coffee on CalWrite"</string>
+    <string name="settings_voice_howto_row_extend_label">Extend</string>
+    <string name="settings_voice_howto_row_extend_example">"Resume Coffee on CalWrite"</string>
+    <string name="settings_voice_howto_row_record_label">Record instant</string>
+    <string name="settings_voice_howto_row_record_example">"Record Coffee on CalWrite"</string>
+    <string name="settings_voice_howto_row_status_label">Status</string>
+    <string name="settings_voice_howto_row_status_example">"What am I tracking, CalWrite?"</string>
+    <string name="settings_voice_stop_save_silently">Save and confirm</string>
+    <string name="settings_voice_stop_confirm_dialog">Ask before saving</string>
+    <string name="settings_voice_stop_save_with_undo">Save, with an undo notification</string>
+    <string name="settings_voice_stop_status_save_silently">The event is saved straight away and the result is shown.</string>
+    <string name="settings_voice_stop_status_confirm_dialog">A save dialog appears before anything is written to your calendar.</string>
+    <string name="settings_voice_stop_status_save_with_undo">Saved immediately, plus a notification you can undo from.</string>
+
+    <!-- Recent events ledger -->
+    <string name="ledger_title">Recent events</string>
+    <string name="ledger_empty_title">No recorded events yet</string>
+    <string name="ledger_empty_message">Events you finish recording show up here, newest first.</string>
+    <string name="ledger_day_today">Today</string>
+    <string name="ledger_day_yesterday">Yesterday</string>
+    <string name="ledger_badge_synced">In calendar</string>
+    <string name="ledger_badge_unsynced">Not synced</string>
+    <string name="ledger_instant_label">Instant</string>
+    <string name="ledger_action_extend">Extend to now</string>
+    <string name="ledger_action_adjust">Adjust</string>
+    <string name="ledger_action_delete">Delete</string>
+    <string name="ledger_undo">Undo</string>
+    <string name="ledger_deleted_message">Deleted %1$s</string>
+    <string name="ledger_extended_message">Extended %1$s to now</string>
+    <string name="ledger_extend_failed">Nothing to extend for %1$s</string>
+    <string name="ledger_adjust_title">Adjust %1$s</string>
+    <string name="ledger_adjust_start">Start</string>
+    <string name="ledger_adjust_end">End</string>
+    <string name="ledger_adjust_notes">Notes</string>
+    <string name="ledger_adjust_save">Save changes</string>
+    <string name="ledger_adjust_end_before_start">The end time must be after the start time.</string>
+    <string name="ledger_adjusted_message">Updated %1$s</string>
+    <string name="ledger_adjust_failed">Couldn\'t update %1$s</string>
+    <string name="ledger_pick_start_date">Start date</string>
+    <string name="ledger_pick_start_time">Start time</string>
+    <string name="ledger_pick_end_date">End date</string>
+    <string name="ledger_pick_end_time">End time</string>
+    <string name="ledger_time_range" formatted="false">%1$s \u2013 %2$s</string>
+    <string name="ledger_duration_hours_minutes" formatted="false">%1$dh %2$dm</string>
+    <string name="ledger_duration_minutes" formatted="false">%1$dm</string>
+    <string name="ledger_duration_seconds" formatted="false">%1$ds</string>
+    <string name="ledger_undo_channel_name">Saved events</string>
+    <string name="ledger_undo_channel_description">Briefly offers to undo an event saved by voice.</string>
+    <string name="ledger_undo_notification_title">Saved %1$s</string>
+    <string name="ledger_undo_notification_text">%1$s in your calendar</string>
 </resources>
