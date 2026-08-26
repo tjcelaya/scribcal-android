@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Swipe-to-delete draws behind this row, so the root needs an opaque background. -->
+<!--
+  Swipe-to-delete draws behind this row, so the root needs an opaque background.
+
+  The event-type colour that used to live in a 12dp dot is now carried by the timeline gutter
+  (LedgerTimelineDecoration), which reserves a column to the left of this row.
+-->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -15,14 +20,6 @@
     android:paddingEnd="8dp"
     android:paddingBottom="12dp">
 
-    <View
-        android:id="@+id/colorIndicator"
-        android:layout_width="12dp"
-        android:layout_height="12dp"
-        android:layout_marginEnd="16dp"
-        android:background="@drawable/circle_background"
-        tools:backgroundTint="?attr/colorPrimary" />
-
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -33,42 +30,59 @@
             android:id="@+id/eventTypeName"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
             android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
             android:textColor="?android:attr/textColorPrimary"
             tools:text="Exercise" />
 
+        <!--
+          The action cluster to the right is a fixed ~96dp, so everything on this line has to be
+          told how to give way: only the time range flexes (and ellipsizes), the duration and the
+          sync icon keep their intrinsic size. Leaving all three at wrap_content is what used to
+          crush the sync badge into a one-character-per-line column.
+        -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
+            android:baselineAligned="false"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
             <TextView
                 android:id="@+id/timeRangeText"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="1"
                 android:textAppearance="@style/TextAppearance.Material3.LabelMedium"
                 android:textColor="?attr/colorOnSurfaceVariant"
-                tools:text="9:05 AM – 9:47 AM" />
+                tools:text="11:20 PM – 11:33 PM" />
 
             <TextView
                 android:id="@+id/durationText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
+                android:maxLines="1"
                 android:textAppearance="@style/TextAppearance.Material3.LabelMedium"
                 android:textColor="?attr/colorPrimary"
                 android:textStyle="bold"
                 tools:text="42m" />
 
-            <TextView
+            <!--
+              An icon rather than the old "In calendar" text: the label is the icon's
+              contentDescription, so TalkBack still reads it while nothing can wrap.
+            -->
+            <ImageView
                 android:id="@+id/syncBadge"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
                 android:layout_marginStart="8dp"
-                android:textAppearance="@style/TextAppearance.Material3.LabelSmall"
-                tools:text="In calendar" />
+                tools:src="@drawable/ic_event_available"
+                tools:ignore="ContentDescription" />
 
         </LinearLayout>
 
@@ -77,8 +91,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:maxLines="2"
             android:ellipsize="end"
+            android:maxLines="2"
             android:textAppearance="@style/TextAppearance.Material3.BodySmall"
             android:textColor="?android:attr/textColorSecondary"
             android:visibility="gone"

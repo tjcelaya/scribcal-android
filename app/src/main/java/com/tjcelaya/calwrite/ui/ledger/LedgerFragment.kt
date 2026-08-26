@@ -68,6 +68,9 @@ class LedgerFragment : Fragment() {
         }
 
         binding.ledgerRecyclerView.layoutManager = LinearLayoutManager(requireContext())
+        // The timeline gutter spans rows and day headers that belong to different adapters, so it
+        // is drawn over the list rather than from inside a row. See LedgerTimelineDecoration.
+        binding.ledgerRecyclerView.addItemDecoration(LedgerTimelineDecoration(requireContext()))
         attachSwipeToDelete()
 
         viewModel.days.observe(viewLifecycleOwner) { days ->
@@ -120,6 +123,7 @@ class LedgerFragment : Fragment() {
                 ?: SectionHeaderAdapter(LedgerGrouping.dayLabel(requireContext(), day.dayStartMillis, now))
                     .also { it.setVisible(true) }
             val dayAdapter = previousDays[day.dayStartMillis] ?: LedgerAdapter(
+                dayStartMillis = day.dayStartMillis,
                 onExtend = { row -> extend(row) },
                 onAdjust = { row -> adjust(row) }
             )
