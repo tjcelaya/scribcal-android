@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Key for the LedgerTimelineRow that LedgerAdapter hangs off each bound row so
+      LedgerTimelineDecoration, which draws across the whole list, can recover the row's timing.
+    -->
+    <item name="ledger_timeline_row" type="id" />
+</resources>

@@ -4,6 +4,8 @@ import android.content.Context
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.content.res.ColorStateList
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.DiffUtil
@@ -48,8 +50,13 @@ object LedgerFormatting {
 /**
  * Rows for a single day. One instance per day header sits inside the fragment's ConcatAdapter,
  * paired with a [com.tjcelaya.calwrite.ui.tracking.SectionHeaderAdapter].
+ *
+ * [dayStartMillis] is the day this adapter's rows were grouped into. Rows carry it (with their
+ * position in the day) out to [LedgerTimelineDecoration], which draws the timeline gutter across
+ * the whole list and otherwise has no way to know which day a given child belongs to.
  */
 class LedgerAdapter(
+    private val dayStartMillis: Long,
     private val onExtend: (LedgerRow) -> Unit,
     private val onAdjust: (LedgerRow) -> Unit
 ) : ListAdapter<LedgerRow, LedgerAdapter.ViewHolder>(DiffCallback()) {
@@ -61,22 +68,21 @@ class LedgerAdapter(
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(getItem(position))
+        holder.bind(getItem(position), position, itemCount)
     }
 
     fun rowAt(position: Int): LedgerRow? = if (position in 0 until itemCount) getItem(position) else null
 
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        private val colorIndicator: View = itemView.findViewById(R.id.colorIndicator)
         private val eventTypeName: TextView = itemView.findViewById(R.id.eventTypeName)
         private val timeRangeText: TextView = itemView.findViewById(R.id.timeRangeText)
         private val durationText: TextView = itemView.findViewById(R.id.durationText)
-        private val syncBadge: TextView = itemView.findViewById(R.id.syncBadge)
+        private val syncBadge: ImageView = itemView.findViewById(R.id.syncBadge)
         private val notesText: TextView = itemView.findViewById(R.id.notesText)
         private val extendButton: MaterialButton = itemView.findViewById(R.id.extendButton)
         private val adjustButton: MaterialButton = itemView.findViewById(R.id.adjustButton)
 
-        fun bind(row: LedgerRow) {
+        fun bind(row: LedgerRow, position: Int, rowsInDay: Int) {
             val context = itemView.context
             val item = row.eventWithType
             val event = item.event
@@ -85,9 +91,22 @@ class LedgerAdapter(
 
             val displayColor = item.eventType.getDisplayColor()
                 ?: ContextCompat.getColor(context, R.color.calwrite_blue)
-            colorIndicator.background.setTint(displayColor)
-
             val endTime = event.endTime ?: event.startTime
+
+            // The gutter is drawn outside this row, so hand it everything it needs about this one.
+            itemView.setTag(
+                R.id.ledger_timeline_row,
+                LedgerTimelineRow(
+                    dayStartMillis = dayStartMillis,
+                    indexInDay = position,
+                    rowsInDay = rowsInDay,
+                    startTime = event.startTime,
+                    endTime = endTime,
+                    isInstant = item.isInstant,
+                    color = displayColor
+                )
+            )
+
             timeRangeText.text = LedgerFormatting.timeRange(context, event.startTime, endTime)
 
             durationText.text = if (item.isInstant) {
@@ -96,13 +115,21 @@ class LedgerAdapter(
                 LedgerFormatting.duration(context, item.durationMs)
             }
 
+            // An icon, not a text badge: the row's second line has to share its width with a
+            // fixed action cluster, and "In calendar" was the piece that lost. The label survives
+            // as the content description, so TalkBack still announces it.
             val synced = event.calendarEventId != null
-            syncBadge.setText(if (synced) R.string.ledger_badge_synced else R.string.ledger_badge_unsynced)
-            syncBadge.setTextColor(
+            syncBadge.setImageResource(
+                if (synced) R.drawable.ic_event_available else R.drawable.ic_calendar_today
+            )
+            syncBadge.imageTintList = ColorStateList.valueOf(
                 ContextCompat.getColor(
                     context,
                     if (synced) android.R.color.holo_green_dark else android.R.color.holo_orange_dark
                 )
+            )
+            syncBadge.contentDescription = context.getString(
+                if (synced) R.string.ledger_badge_synced else R.string.ledger_badge_unsynced
             )
 
             if (item.notes.isBlank()) {
